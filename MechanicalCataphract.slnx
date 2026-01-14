@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Hexes/MechanicalCataphract.csproj" />
+  <Project Path="BenchmarkSuite1/BenchmarkSuite1.csproj" />
+  <Project Path="BenchmarkSuite2/BenchmarkSuite2.csproj" />
+</Solution>

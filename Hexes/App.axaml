@@ -1,0 +1,18 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:GUI.Converters"
+             x:Class="GUI.App"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="Styles/DefaultStyles.axaml"></StyleInclude>
+    </Application.Styles>
+
+    <Application.Resources>
+        <!-- Application resource dictionary -->
+        <SolidColorBrush x:Key="PrimaryBackground">#1de051</SolidColorBrush>
+        <converters:EqualityConverter x:Key="EqualityConverter"/>
+    </Application.Resources>
+</Application>
