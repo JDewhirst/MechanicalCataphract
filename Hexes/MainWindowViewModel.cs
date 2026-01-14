@@ -10,8 +10,8 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private string? _status;
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(HexMapViewModel hexMapViewModel)
     {
-        HexMapViewModel = new HexMapViewModel();
+        HexMapViewModel = hexMapViewModel;
     }
 }

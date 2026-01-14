@@ -2,11 +2,14 @@ using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hexes;
+using MechanicalCataphract.Services;
 
 namespace GUI.ViewModels;
 
 public partial class HexMapViewModel : ObservableObject
 {
+    private readonly IMapService _mapService;
+
     [ObservableProperty]
     private HexMapModel _mapModel;
 
@@ -28,9 +31,11 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
-    public HexMapViewModel()
+    public HexMapViewModel(IMapService mapService)
     {
-        _mapModel = new HexMapModel(10000, 1000);
+        _mapService = mapService;
+        // Keep in-memory model for now; Phase 2 will migrate to database-backed rendering
+        _mapModel = new HexMapModel(100, 100);
     }
 
     partial void OnSelectedHexChanged(Hex? value)
