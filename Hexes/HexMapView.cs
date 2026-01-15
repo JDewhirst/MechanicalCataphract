@@ -1,11 +1,14 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using System;
-using AvaloniaPoint = Avalonia.Point;
 using Hexes;
-using System.Globalization;
+using MechanicalCataphract.Data.Entities;
+using AvaloniaPoint = Avalonia.Point;
 
 namespace GUI;
 
@@ -27,6 +30,16 @@ public class HexMapView : Control
 
     public static readonly StyledProperty<Hex?> SelectedHexProperty =
         AvaloniaProperty.Register<HexMapView, Hex?>(nameof(SelectedHex));
+
+    // Database-backed rendering properties
+    public static readonly StyledProperty<IList<MapHex>?> VisibleHexesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<MapHex>?>(nameof(VisibleHexes));
+
+    public static readonly StyledProperty<IList<TerrainType>?> TerrainTypesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<TerrainType>?>(nameof(TerrainTypes));
+
+    public static readonly StyledProperty<TerrainType?> SelectedTerrainTypeProperty =
+        AvaloniaProperty.Register<HexMapView, TerrainType?>(nameof(SelectedTerrainType));
 
     public HexMapModel? MapModel
     {
@@ -58,12 +71,31 @@ public class HexMapView : Control
         set => SetValue(SelectedHexProperty, value);
     }
 
+    public IList<MapHex>? VisibleHexes
+    {
+        get => GetValue(VisibleHexesProperty);
+        set => SetValue(VisibleHexesProperty, value);
+    }
+
+    public IList<TerrainType>? TerrainTypes
+    {
+        get => GetValue(TerrainTypesProperty);
+        set => SetValue(TerrainTypesProperty, value);
+    }
+
+    public TerrainType? SelectedTerrainType
+    {
+        get => GetValue(SelectedTerrainTypeProperty);
+        set => SetValue(SelectedTerrainTypeProperty, value);
+    }
+
     #endregion
 
     #region Events
 
     public event EventHandler<Hex>? HexClicked;
     public event EventHandler<Vector>? PanCompleted;
+    public event EventHandler<(Hex hex, int terrainTypeId)>? TerrainPainted;
 
     #endregion
 
@@ -73,6 +105,9 @@ public class HexMapView : Control
     private StreamGeometry? _cachedHexGeometry;
     private double _cachedHexWidth;
     private double _cachedHexHeight;
+
+    // Terrain color cache
+    private Dictionary<int, ISolidColorBrush> _terrainColorCache = new();
 
     #endregion
 
@@ -90,6 +125,8 @@ public class HexMapView : Control
         PanOffsetProperty.Changed.AddClassHandler<HexMapView>(OnPanOffsetChanged);
         MapModelProperty.Changed.AddClassHandler<HexMapView>(OnMapModelChanged);
         SelectedHexProperty.Changed.AddClassHandler<HexMapView>(OnSelectedHexChanged);
+        VisibleHexesProperty.Changed.AddClassHandler<HexMapView>(OnVisibleHexesChanged);
+        TerrainTypesProperty.Changed.AddClassHandler<HexMapView>(OnTerrainTypesChanged);
     }
 
     private static void OnHexRadiusChanged(HexMapView view, AvaloniaPropertyChangedEventArgs e)
@@ -111,6 +148,44 @@ public class HexMapView : Control
     private static void OnSelectedHexChanged(HexMapView view, AvaloniaPropertyChangedEventArgs e)
     {
         view.InvalidateVisual();
+    }
+
+    private static void OnVisibleHexesChanged(HexMapView view, AvaloniaPropertyChangedEventArgs e)
+    {
+        view.InvalidateVisual();
+    }
+
+    private static void OnTerrainTypesChanged(HexMapView view, AvaloniaPropertyChangedEventArgs e)
+    {
+        view.RebuildTerrainColorCache();
+        view.InvalidateVisual();
+    }
+
+    private void RebuildTerrainColorCache()
+    {
+        _terrainColorCache.Clear();
+        var terrainTypes = TerrainTypes;
+        if (terrainTypes == null) return;
+
+        foreach (var terrain in terrainTypes)
+        {
+            try
+            {
+                var color = Color.Parse(terrain.ColorHex);
+                _terrainColorCache[terrain.Id] = new SolidColorBrush(color);
+            }
+            catch
+            {
+                _terrainColorCache[terrain.Id] = Brushes.Gray;
+            }
+        }
+    }
+
+    private ISolidColorBrush GetTerrainBrush(int? terrainTypeId)
+    {
+        if (terrainTypeId.HasValue && _terrainColorCache.TryGetValue(terrainTypeId.Value, out var brush))
+            return brush;
+        return Brushes.White;
     }
 
     public HexMapView()
@@ -135,6 +210,12 @@ public class HexMapView : Control
         {
             _isDragging = true;
             _dragDelta = Vector.Zero;
+        }
+        else if (CurrentTool == "TerrainPaint" && SelectedTerrainType != null)
+        {
+            var layout = GetLayout();
+            var hex = layout.PixelToHexRounded(point);
+            TerrainPainted?.Invoke(this, (hex, SelectedTerrainType.Id));
         }
 
         InvalidateVisual();
@@ -203,40 +284,12 @@ public class HexMapView : Control
 
     public override void Render(DrawingContext context)
     {
-        // To Do Later:
-        // when we have more than one type of thing,
-        // Render order:
-        // Hex (including terrain icons)
-        // Locations (icons in hex centre)
-        // Overlays (toggleable, one at a time):
-            // Faction control by hex
-            // Hex population
-            // Times hex foraged
-            // Weather
-        // Armies/Commanders (toggleable)
-            // Rectangular Icon with Faction colour border
-                // If Army, gives #troops with army name along bottom edge
-                // If commander, commander name in center.
-            // If only one faction, stacked like game pieces with an ofset to read how many
-            // If more than one faction, multiple stacks in the same hex.
-        // Messengers (toggleable)
-            // Display consistently as a stack in one hex-corner
-        var mapModel = MapModel;
-        if (mapModel == null)
-        {
-            base.Render(context);
-            return;
-        }
-
         var layout = GetLayout();
-
         var viewportRect = new Rect(Bounds.Size);
         context.FillRectangle(Brushes.Gray, viewportRect);
-
         base.Render(context);
 
         var stroke = new Pen(Brushes.Black, 1);
-        var fill = Brushes.Transparent;
 
         if (_cachedHexRadius != HexRadius)
         {
@@ -248,17 +301,88 @@ public class HexMapView : Control
 
         using (context.PushClip(viewportRect))
         {
-            var (minCol, maxCol, minRow, maxRow) = CalculateVisibleHexRange(viewportRect, layout);
-
-            for (int row = minRow; row <= maxRow; row++)
+            // Prefer database-backed rendering if VisibleHexes is set
+            var visibleHexes = VisibleHexes;
+            if (visibleHexes != null && visibleHexes.Count > 0)
             {
-                for (int col = minCol; col <= maxCol; col++)
+                RenderDatabaseHexes(context, layout, stroke, viewportRect, visibleHexes);
+            }
+            else
+            {
+                // Fall back to in-memory model for backward compatibility
+                var mapModel = MapModel;
+                if (mapModel != null)
                 {
-                    var offset = new OffsetCoord(col, row);
-                    Hex hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, offset);
-
-                    DrawHex(context, layout, hex, stroke, fill, viewportRect, mapModel);
+                    RenderInMemoryHexes(context, layout, stroke, viewportRect, mapModel);
                 }
+            }
+        }
+    }
+
+    private void RenderDatabaseHexes(DrawingContext context, Layout layout, Pen stroke,
+        Rect viewport, IList<MapHex> hexes)
+    {
+        foreach (var mapHex in hexes)
+        {
+            var hex = mapHex.ToHex();
+            var corners = layout.PolygonCorners(hex);
+            if (corners.Count == 0) continue;
+
+            // Quick bounds check
+            double minX = corners.Min(c => c.X);
+            double maxX = corners.Max(c => c.X);
+            double minY = corners.Min(c => c.Y);
+            double maxY = corners.Max(c => c.Y);
+
+            if (maxX < viewport.Left || minX > viewport.Right ||
+                maxY < viewport.Top || minY > viewport.Bottom)
+                continue;
+
+            bool isSelected = SelectedHex.HasValue &&
+                              SelectedHex.Value.q == hex.q &&
+                              SelectedHex.Value.r == hex.r;
+
+            ISolidColorBrush fill = isSelected ? Brushes.Yellow : GetTerrainBrush(mapHex.TerrainTypeId);
+
+            if (_cachedHexGeometry != null)
+            {
+                var centerPixel = layout.HexToPixel(hex);
+                var translateMatrix = Matrix.CreateTranslation(centerPixel.X, centerPixel.Y);
+
+                using (context.PushTransform(translateMatrix))
+                {
+                    context.DrawGeometry(fill, stroke, _cachedHexGeometry);
+
+                    // Draw terrain name for debugging (can be removed later)
+                    if (mapHex.TerrainType != null)
+                    {
+                        var text = new FormattedText(
+                            mapHex.TerrainType.Name.Split(' ')[0], // First word only
+                            CultureInfo.CurrentCulture,
+                            FlowDirection.LeftToRight,
+                            Typeface.Default,
+                            8.0,
+                            Brushes.Black);
+                        context.DrawText(text, new AvaloniaPoint(-text.Width / 2, -text.Height / 2));
+                    }
+                }
+            }
+        }
+    }
+
+    private void RenderInMemoryHexes(DrawingContext context, Layout layout, Pen stroke,
+        Rect viewport, HexMapModel mapModel)
+    {
+        var (minCol, maxCol, minRow, maxRow) = CalculateVisibleHexRange(viewport, layout);
+
+        for (int row = minRow; row <= maxRow; row++)
+        {
+            for (int col = minCol; col <= maxCol; col++)
+            {
+                var offset = new OffsetCoord(col, row);
+                Hex hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, offset);
+
+                DrawHex(context, layout, hex, stroke, Brushes.Transparent, viewport, mapModel);
             }
         }
     }

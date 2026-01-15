@@ -96,16 +96,8 @@ public class WargameDbContext : DbContext
             .HasForeignKey(o => o.CommanderId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Seed default terrain types
-        modelBuilder.Entity<TerrainType>().HasData(
-            new TerrainType { Id = 1, Name = "Plains", ColorHex = "#90EE90", BaseMovementCost = 1 },
-            new TerrainType { Id = 2, Name = "Forest", ColorHex = "#228B22", BaseMovementCost = 2 },
-            new TerrainType { Id = 3, Name = "Mountains", ColorHex = "#8B4513", BaseMovementCost = 3 },
-            new TerrainType { Id = 4, Name = "Water", ColorHex = "#4169E1", BaseMovementCost = 99 },
-            new TerrainType { Id = 5, Name = "Desert", ColorHex = "#F4A460", BaseMovementCost = 2 },
-            new TerrainType { Id = 6, Name = "Swamp", ColorHex = "#556B2F", BaseMovementCost = 3 },
-            new TerrainType { Id = 7, Name = "Hills", ColorHex = "#CD853F", BaseMovementCost = 2 }
-        );
+        // Terrain types are loaded from Assets/classic-icons/classic.properties at startup
+        // See App.axaml.cs OnFrameworkInitializationCompleted()
 
         // Seed default weather types
         modelBuilder.Entity<Weather>().HasData(

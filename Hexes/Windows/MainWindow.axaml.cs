@@ -15,5 +15,13 @@ public partial class MainWindow : Window
             viewModel.HexMapViewModel.SelectHexCommand.Execute(hex);
         HexMapView.PanCompleted += (s, delta) =>
             viewModel.HexMapViewModel.CompletePanCommand.Execute(delta);
+        HexMapView.TerrainPainted += (s, args) =>
+            viewModel.HexMapViewModel.PaintTerrainCommand.Execute(args);
+
+        // Initialize ViewModel when window loads
+        Loaded += async (s, e) =>
+        {
+            await viewModel.HexMapViewModel.InitializeCommand.ExecuteAsync(null);
+        };
     }
 }

@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -6,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Services;
 using GUI.ViewModels;
-using System;
 
 namespace GUI;
 
@@ -26,11 +27,25 @@ public partial class App : Application
         ConfigureServices(services);
         Services = services.BuildServiceProvider();
 
-        // Ensure database is created and migrations applied
+        // Ensure database is created and seed terrain types from assets
         using (var scope = Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
             dbContext.Database.EnsureCreated();
+
+            // Load terrain types from properties file if not already loaded
+            if (!dbContext.TerrainTypes.Any())
+            {
+                var propertiesPath = System.IO.Path.Combine(
+                    AppContext.BaseDirectory, "Assets", "classic-icons", "classic.properties");
+
+                if (System.IO.File.Exists(propertiesPath))
+                {
+                    var terrainTypes = TerrainTypeLoader.LoadFromPropertiesFile(propertiesPath);
+                    dbContext.TerrainTypes.AddRange(terrainTypes);
+                    dbContext.SaveChanges();
+                }
+            }
         }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

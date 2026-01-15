@@ -3,44 +3,90 @@
         xmlns:vm="using:GUI"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="768"
         xmlns:local="clr-namespace:GUI"
         x:Class="GUI.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="Hexes">
+        Title="MechanicalCataphract - Hex Map Editor">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*">
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="5">
-            <ToggleButton Content="Pan"
-                          Command="{Binding HexMapViewModel.PanToolCommand}"
-                          IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                      Converter={StaticResource EqualityConverter},
-                                      ConverterParameter=Pan,
-                                      Mode=OneWay}"/>
+    <Grid ColumnDefinitions="200,*">
+        <!-- Left Panel: Tools and Terrain Palette -->
+        <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="0,0,1,0" Padding="5">
+            <ScrollViewer>
+                <StackPanel Spacing="10">
+                    <!-- Tool Selection -->
+                    <TextBlock Text="Tools" FontWeight="Bold" FontSize="14"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <ToggleButton Content="Pan"
+                                      Command="{Binding HexMapViewModel.PanToolCommand}"
+                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                                  Converter={StaticResource EqualityConverter},
+                                                  ConverterParameter=Pan,
+                                                  Mode=OneWay}"/>
+                        <ToggleButton Content="Select"
+                                      Command="{Binding HexMapViewModel.SelectToolCommand}"
+                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                                  Converter={StaticResource EqualityConverter},
+                                                  ConverterParameter=Select,
+                                                  Mode=OneWay}"/>
+                        <ToggleButton Content="Paint"
+                                      Command="{Binding HexMapViewModel.TerrainPaintToolCommand}"
+                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                                  Converter={StaticResource EqualityConverter},
+                                                  ConverterParameter=TerrainPaint,
+                                                  Mode=OneWay}"/>
+                    </StackPanel>
 
-            <ToggleButton Content="Select"
-                          Command="{Binding HexMapViewModel.SelectToolCommand}"
-                          IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                      Converter={StaticResource EqualityConverter},
-                                      ConverterParameter=Select,
-                                      Mode=OneWay}"/>
+                    <!-- Hex Size -->
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="Hex Size:" VerticalAlignment="Center"/>
+                        <NumericUpDown Value="{Binding HexMapViewModel.HexRadius, Mode=TwoWay}"
+                                       Minimum="10" Maximum="50" Increment="5"
+                                       Width="80"/>
+                    </StackPanel>
 
-            <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
-                       VerticalAlignment="Center"/>
+                    <Separator/>
 
-            <TextBlock Text="Hex Size:"
-                       VerticalAlignment="Center"/>
-            <NumericUpDown Value="{Binding HexMapViewModel.HexRadius, Mode=TwoWay}"
-                           Minimum="10" Maximum="50" Increment="5"
-                           Width="100"/>
-        </StackPanel>
+                    <!-- Terrain Palette -->
+                    <TextBlock Text="Terrain Types" FontWeight="Bold" FontSize="14"/>
+                    <ListBox ItemsSource="{Binding HexMapViewModel.TerrainTypes}"
+                             SelectedItem="{Binding HexMapViewModel.SelectedTerrainType}"
+                             MaxHeight="400">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Border Width="20" Height="20"
+                                            CornerRadius="3"
+                                            BorderBrush="Black" BorderThickness="1">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="{Binding ColorHex}"/>
+                                        </Border.Background>
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
-        <local:HexMapView x:Name="HexMapView" Grid.Row="1"
-                          MapModel="{Binding HexMapViewModel.MapModel}"
+                    <Separator/>
+
+                    <!-- Status -->
+                    <TextBlock Text="Status" FontWeight="Bold" FontSize="14"/>
+                    <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Main Map Area -->
+        <local:HexMapView x:Name="HexMapView" Grid.Column="1"
+                          VisibleHexes="{Binding HexMapViewModel.VisibleHexes}"
+                          TerrainTypes="{Binding HexMapViewModel.TerrainTypes}"
+                          SelectedTerrainType="{Binding HexMapViewModel.SelectedTerrainType}"
                           HexRadius="{Binding HexMapViewModel.HexRadius}"
                           PanOffset="{Binding HexMapViewModel.PanOffset}"
                           CurrentTool="{Binding HexMapViewModel.CurrentTool}"

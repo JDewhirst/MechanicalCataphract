@@ -29,6 +29,12 @@
 
   <ItemGroup>
     <Folder Include="Data\" />
-    <Folder Include="Assets\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copy Assets to output directory -->
+    <None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Also include as Avalonia resources for runtime loading -->
+    <AvaloniaResource Include="Assets\**\*.png" />
   </ItemGroup>
 </Project>
