@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Hexes;
 
 namespace GUI;
 
@@ -17,6 +18,12 @@ public partial class MainWindow : Window
             viewModel.HexMapViewModel.CompletePanCommand.Execute(delta);
         HexMapView.TerrainPainted += (s, args) =>
             viewModel.HexMapViewModel.PaintTerrainCommand.Execute(args);
+        HexMapView.RoadPainted += (s, hex) =>
+            viewModel.HexMapViewModel.PaintRoadCommand.Execute(hex);
+        HexMapView.RiverPainted += (s, hex) =>
+            viewModel.HexMapViewModel.PaintRiverCommand.Execute(hex);
+        HexMapView.EraseRequested += (s, hex) =>
+            viewModel.HexMapViewModel.EraseCommand.Execute(hex);
 
         // Initialize ViewModel when window loads
         Loaded += async (s, e) =>

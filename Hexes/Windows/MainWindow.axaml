@@ -20,26 +20,44 @@
                 <StackPanel Spacing="10">
                     <!-- Tool Selection -->
                     <TextBlock Text="Tools" FontWeight="Bold" FontSize="14"/>
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <ToggleButton Content="Pan"
+                    <WrapPanel Orientation="Horizontal">
+                        <ToggleButton Content="Pan" Margin="2"
                                       Command="{Binding HexMapViewModel.PanToolCommand}"
                                       IsChecked="{Binding HexMapViewModel.CurrentTool,
                                                   Converter={StaticResource EqualityConverter},
                                                   ConverterParameter=Pan,
                                                   Mode=OneWay}"/>
-                        <ToggleButton Content="Select"
+                        <ToggleButton Content="Select" Margin="2"
                                       Command="{Binding HexMapViewModel.SelectToolCommand}"
                                       IsChecked="{Binding HexMapViewModel.CurrentTool,
                                                   Converter={StaticResource EqualityConverter},
                                                   ConverterParameter=Select,
                                                   Mode=OneWay}"/>
-                        <ToggleButton Content="Paint"
+                        <ToggleButton Content="Terrain" Margin="2"
                                       Command="{Binding HexMapViewModel.TerrainPaintToolCommand}"
                                       IsChecked="{Binding HexMapViewModel.CurrentTool,
                                                   Converter={StaticResource EqualityConverter},
                                                   ConverterParameter=TerrainPaint,
                                                   Mode=OneWay}"/>
-                    </StackPanel>
+                        <ToggleButton Content="Road" Margin="2"
+                                      Command="{Binding HexMapViewModel.RoadPaintToolCommand}"
+                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                                  Converter={StaticResource EqualityConverter},
+                                                  ConverterParameter=RoadPaint,
+                                                  Mode=OneWay}"/>
+                        <ToggleButton Content="River" Margin="2"
+                                      Command="{Binding HexMapViewModel.RiverPaintToolCommand}"
+                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                                  Converter={StaticResource EqualityConverter},
+                                                  ConverterParameter=RiverPaint,
+                                                  Mode=OneWay}"/>
+                        <ToggleButton Content="Erase" Margin="2"
+                                      Command="{Binding HexMapViewModel.EraseToolCommand}"
+                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                                  Converter={StaticResource EqualityConverter},
+                                                  ConverterParameter=Erase,
+                                                  Mode=OneWay}"/>
+                    </WrapPanel>
 
                     <!-- Hex Size -->
                     <StackPanel Orientation="Horizontal" Spacing="5">

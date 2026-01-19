@@ -47,6 +47,14 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    // Road painting state - tracks first hex in two-click road creation
+    [ObservableProperty]
+    private Hex? _roadStartHex;
+
+    // River Painting state - tracks first hex in two-click river creation
+    [ObservableProperty]
+    private Hex? _riverStartHex;
+
     public HexMapViewModel(IMapService mapService)
     {
         _mapService = mapService;
@@ -135,6 +143,30 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void RoadPaintTool()
+    {
+        CurrentTool = "RoadPaint";
+        RoadStartHex = null;
+        StatusMessage = "Tool: Road - Click first hex";
+    }
+
+    [RelayCommand]
+    private void RiverPaintTool()
+    {
+        CurrentTool = "RiverPaint";
+        RiverStartHex = null;
+        StatusMessage = "Tool: River -  Click first hex";
+    }
+
+    [RelayCommand]
+    private void EraseTool()
+    {
+        CurrentTool = "Erase";
+        RoadStartHex = null;
+        StatusMessage = "Tool: Erase - Click hex to clear roads/rivers";
+    }
+
+    [RelayCommand]
     private void SelectHex(Hex hex)
     {
         SelectedHex = hex;
@@ -169,6 +201,154 @@ public partial class HexMapViewModel : ObservableObject
 
         var terrainName = TerrainTypes.FirstOrDefault(t => t.Id == args.terrainTypeId)?.Name ?? "Unknown";
         StatusMessage = $"Painted {terrainName} at ({args.hex.q}, {args.hex.r})";
+    }
+
+    [RelayCommand]
+    private async Task PaintRoadAsync(Hex clickedHex)
+    {
+        if (!RoadStartHex.HasValue)
+        {
+            // First click - set start hex
+            RoadStartHex = clickedHex;
+            StatusMessage = $"Road start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
+            return;
+        }
+
+        var startHex = RoadStartHex.Value;
+
+        // Check if same hex clicked - cancel
+        if (startHex.q == clickedHex.q && startHex.r == clickedHex.r)
+        {
+            RoadStartHex = null;
+            StatusMessage = "Road cancelled - Click first hex";
+            return;
+        }
+
+        // Find direction from start to clicked hex
+        int? dirFromStart = GetNeighborDirection(startHex, clickedHex);
+        if (!dirFromStart.HasValue)
+        {
+            // Not adjacent - start over with this hex
+            RoadStartHex = clickedHex;
+            StatusMessage = $"Not adjacent. New start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
+            return;
+        }
+
+        // Get opposite direction for the other hex
+        int dirFromEnd = (dirFromStart.Value + 3) % 6;
+
+        // Check if road already exists - toggle off if so
+        var startMapHex = VisibleHexes.FirstOrDefault(h => h.Q == startHex.q && h.R == startHex.r);
+        bool hasRoad = startMapHex?.HasRoadInDirection(dirFromStart.Value) ?? false;
+
+        // Set road on both hexes
+        await _mapService.SetRoadAsync(startHex, dirFromStart.Value, !hasRoad);
+        await _mapService.SetRoadAsync(clickedHex, dirFromEnd, !hasRoad);
+
+        // Update local hexes in collection
+        await RefreshHexInCollection(startHex);
+        await RefreshHexInCollection(clickedHex);
+
+        // Reset for next road
+        RoadStartHex = null;
+        StatusMessage = hasRoad
+            ? $"Removed road between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})"
+            : $"Added road between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})";
+    }
+
+    /// <summary>
+    /// Gets the direction index (0-5) from hex A to hex B, or null if not adjacent.
+    /// </summary>
+    private static int? GetNeighborDirection(Hex from, Hex to)
+    {
+        for (int dir = 0; dir < 6; dir++)
+        {
+            var neighbor = from.Neighbor(dir);
+            if (neighbor.q == to.q && neighbor.r == to.r)
+                return dir;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Reloads a hex from the database and updates the local collection.
+    /// </summary>
+    private async Task RefreshHexInCollection(Hex hex)
+    {
+        for (int i = 0; i < VisibleHexes.Count; i++)
+        {
+            var mapHex = VisibleHexes[i];
+            if (mapHex.Q == hex.q && mapHex.R == hex.r)
+            {
+                var updatedHex = await _mapService.GetHexAsync(hex);
+                if (updatedHex != null)
+                {
+                    VisibleHexes[i] = updatedHex;
+                }
+                break;
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task PaintRiverAsync(Hex clickedHex)
+    {
+        if (!RiverStartHex.HasValue)
+        {
+            // First click - set start hex
+            RiverStartHex = clickedHex;
+            StatusMessage = $"River start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
+            return;
+        }
+
+        var startHex = RiverStartHex.Value;
+
+        // Check if same hex clicked - cancel
+        if (startHex.q == clickedHex.q && startHex.r == clickedHex.r)
+        {
+            RiverStartHex = null;
+            StatusMessage = "River cancelled - Click first hex";
+            return;
+        }
+
+        // Find direction from start to clicked hex
+        int? dirFromStart = GetNeighborDirection(startHex, clickedHex);
+        if (!dirFromStart.HasValue)
+        {
+            // Not adjacent - start over with this hex
+            RiverStartHex = clickedHex;
+            StatusMessage = $"Not adjacent. New start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
+            return;
+        }
+
+        // Get opposite direction for the other hex
+        int dirFromEnd = (dirFromStart.Value + 3) % 6;
+
+        // Check if road already exists - toggle off if so
+        var startMapHex = VisibleHexes.FirstOrDefault(h => h.Q == startHex.q && h.R == startHex.r);
+        bool hasRiver = startMapHex?.HasRiverOnEdge(dirFromStart.Value) ?? false;
+
+        // Set river on both hexes
+        await _mapService.SetRiverAsync(startHex, dirFromStart.Value, !hasRiver);
+        await _mapService.SetRiverAsync(clickedHex, dirFromEnd, !hasRiver);
+
+        // Update local hexes in collection
+        await RefreshHexInCollection(startHex);
+        await RefreshHexInCollection(clickedHex);
+
+        // Reset for next river
+        RiverStartHex = null;
+        StatusMessage = hasRiver
+            ? $"Removed river between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})"
+            : $"Added river between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})";
+    }
+
+    [RelayCommand]
+    private async Task EraseAsync(Hex hex)
+    {
+        await _mapService.ClearRoadsAndRiversAsync(hex);
+        await RefreshHexInCollection(hex);
+        StatusMessage = $"Cleared roads/rivers at ({hex.q}, {hex.r})";
     }
 
     partial void OnSelectedTerrainTypeChanged(TerrainType? value)

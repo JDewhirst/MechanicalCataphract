@@ -145,6 +145,16 @@ public class MapService : IMapService
         await _context.SaveChangesAsync();
     }
 
+    public async Task ClearRoadsAndRiversAsync(Hex hex)
+    {
+        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
+        if (mapHex == null) return;
+
+        mapHex.RoadDirections = null;
+        mapHex.RiverEdges = null;
+        await _context.SaveChangesAsync();
+    }
+
     public async Task SetFactionControlAsync(Hex hex, int? factionId)
     {
         var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);

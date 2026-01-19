@@ -22,6 +22,7 @@ public interface IMapService
     Task SetTerrainAsync(Hex hex, int terrainTypeId);
     Task SetRoadAsync(Hex hex, int direction, bool hasRoad);
     Task SetRiverAsync(Hex hex, int edge, bool hasRiver);
+    Task ClearRoadsAndRiversAsync(Hex hex);
 
     // Faction control
     Task SetFactionControlAsync(Hex hex, int? factionId);
