@@ -89,6 +89,7 @@ public class HexMapView : Control
     public event EventHandler<Hex>? RoadPainted;
     public event EventHandler<Hex>? RiverPainted;
     public event EventHandler<Hex>? EraseRequested;
+    public event EventHandler<(Hex hex, string? locationName)>? LocationPainted;
 
     #endregion
 
@@ -164,6 +165,11 @@ public class HexMapView : Control
                 break;
             case "Erase":
                 EraseRequested?.Invoke(this, hex);
+                break;
+            case "LocationPaint":
+                // For now, use the location type name as the location name
+                // TODO: Add UI to input custom location name
+                LocationPainted?.Invoke(this, (hex, null));
                 break;
         }
 

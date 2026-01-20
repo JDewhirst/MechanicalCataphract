@@ -39,4 +39,9 @@ public interface IMapService
     // Terrain types and weather
     Task<IList<TerrainType>> GetTerrainTypesAsync();
     Task<IList<Weather>> GetWeatherTypesAsync();
+
+    // Location types
+    Task<IList<LocationType>> GetLocationTypesAsync();
+    Task SetLocationAsync(Hex hex, int? locationTypeId, string? locationName, int? locationFactionId = null);
+    Task ClearLocationAsync(Hex hex);
 }

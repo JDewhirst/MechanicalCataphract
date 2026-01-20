@@ -25,6 +25,12 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private TerrainType? _selectedTerrainType;
 
+    [ObservableProperty]
+    private ObservableCollection<LocationType> _locationTypes = new();
+
+    [ObservableProperty]
+    private LocationType? _selectedLocationType;
+
     // Map dimensions
     private int _mapRows;
     private int _mapColumns;
@@ -69,6 +75,13 @@ public partial class HexMapViewModel : ObservableObject
 
         if (TerrainTypes.Count > 0)
             SelectedTerrainType = TerrainTypes[0];
+
+        // Load location types
+        var locationTypes = await _mapService.GetLocationTypesAsync();
+        LocationTypes = new ObservableCollection<LocationType>(locationTypes);
+
+        if (LocationTypes.Count > 0)
+            SelectedLocationType = LocationTypes[0];
 
         // Check if map exists, if not create one
         if (!await _mapService.MapExistsAsync())
@@ -164,6 +177,13 @@ public partial class HexMapViewModel : ObservableObject
         CurrentTool = "Erase";
         RoadStartHex = null;
         StatusMessage = "Tool: Erase - Click hex to clear roads/rivers";
+    }
+
+    [RelayCommand]
+    private void LocationPaintTool()
+    {
+        CurrentTool = "LocationPaint";
+        StatusMessage = $"Tool: Location Paint - {SelectedLocationType?.Name ?? "None"}";
     }
 
     [RelayCommand]
@@ -351,11 +371,43 @@ public partial class HexMapViewModel : ObservableObject
         StatusMessage = $"Cleared roads/rivers at ({hex.q}, {hex.r})";
     }
 
+    [RelayCommand]
+    private async Task PaintLocationAsync((Hex hex, string? locationName) args)
+    {
+        if (SelectedLocationType == null)
+        {
+            StatusMessage = "No location type selected";
+            return;
+        }
+
+        await _mapService.SetLocationAsync(args.hex, SelectedLocationType.Id, args.locationName);
+        await RefreshHexInCollection(args.hex);
+
+        var name = string.IsNullOrEmpty(args.locationName) ? SelectedLocationType.Name : args.locationName;
+        StatusMessage = $"Set location '{name}' ({SelectedLocationType.Name}) at ({args.hex.q}, {args.hex.r})";
+    }
+
+    [RelayCommand]
+    private async Task ClearLocationAsync(Hex hex)
+    {
+        await _mapService.ClearLocationAsync(hex);
+        await RefreshHexInCollection(hex);
+        StatusMessage = $"Cleared location at ({hex.q}, {hex.r})";
+    }
+
     partial void OnSelectedTerrainTypeChanged(TerrainType? value)
     {
         if (CurrentTool == "TerrainPaint" && value != null)
         {
             StatusMessage = $"Tool: Terrain Paint - {value.Name}";
+        }
+    }
+
+    partial void OnSelectedLocationTypeChanged(LocationType? value)
+    {
+        if (CurrentTool == "LocationPaint" && value != null)
+        {
+            StatusMessage = $"Tool: Location Paint - {value.Name}";
         }
     }
 }

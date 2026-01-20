@@ -222,4 +222,33 @@ public class MapService : IMapService
     {
         return await _context.WeatherTypes.ToListAsync();
     }
+
+    public async Task<IList<LocationType>> GetLocationTypesAsync()
+    {
+        return await _context.LocationTypes.ToListAsync();
+    }
+
+    public async Task SetLocationAsync(Hex hex, int? locationTypeId, string? locationName, int? locationFactionId = null)
+    {
+        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
+        if (mapHex != null)
+        {
+            mapHex.LocationTypeId = locationTypeId;
+            mapHex.LocationName = locationName;
+            mapHex.LocationFactionId = locationFactionId;
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task ClearLocationAsync(Hex hex)
+    {
+        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
+        if (mapHex != null)
+        {
+            mapHex.LocationTypeId = null;
+            mapHex.LocationName = null;
+            mapHex.LocationFactionId = null;
+            await _context.SaveChangesAsync();
+        }
+    }
 }

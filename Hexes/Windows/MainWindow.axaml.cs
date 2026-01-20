@@ -8,6 +8,7 @@ public partial class MainWindow : Window
     public MainWindow(MainWindowViewModel viewModel)
     {
         DataContext = viewModel;
+        viewModel.MainWindow = this;
         InitializeComponent();
 
         // Wire HexMapView events to ViewModel commands
@@ -24,6 +25,8 @@ public partial class MainWindow : Window
             viewModel.HexMapViewModel.PaintRiverCommand.Execute(hex);
         HexMapView.EraseRequested += (s, hex) =>
             viewModel.HexMapViewModel.EraseCommand.Execute(hex);
+        HexMapView.LocationPainted += (s, args) =>
+            viewModel.HexMapViewModel.PaintLocationCommand.Execute(args);
 
         // Initialize ViewModel when window loads
         Loaded += async (s, e) =>

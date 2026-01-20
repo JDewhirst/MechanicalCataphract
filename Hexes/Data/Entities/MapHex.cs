@@ -34,7 +34,8 @@ public class MapHex
 
     // Location (embedded, formerly separate Location entity)
     public string? LocationName { get; set; }
-    public int? LocationType { get; set; }  // 0=City, 1=Town, 2=Fort, etc.
+    public int? LocationTypeId { get; set; }
+    public LocationType? LocationType { get; set; }
     public int? LocationFactionId { get; set; }
     public Faction? LocationFaction { get; set; }
 

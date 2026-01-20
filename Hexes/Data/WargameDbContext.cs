@@ -12,6 +12,7 @@ public class WargameDbContext : DbContext
     public DbSet<Army> Armies { get; set; }
     public DbSet<Brigade> Brigades { get; set; }
     public DbSet<Commander> Commanders { get; set; }
+    public DbSet<LocationType> LocationTypes { get; set; }
     public DbSet<Message> Messages { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<GameState> GameStates { get; set; }
@@ -95,6 +96,13 @@ public class WargameDbContext : DbContext
             .HasForeignKey(h => h.LocationFactionId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // MapHex -> LocationType
+        modelBuilder.Entity<MapHex>()
+            .HasOne(h => h.LocationType)
+            .WithMany()
+            .HasForeignKey(h => h.LocationTypeId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Order -> Commander
         modelBuilder.Entity<Order>()
             .HasOne(o => o.Commander)
@@ -112,6 +120,14 @@ public class WargameDbContext : DbContext
             new Weather { Id = 3, Name = "Storm", MovementModifier = 0.5, CombatModifier = 0.7 },
             new Weather { Id = 4, Name = "Snow", MovementModifier = 0.5, CombatModifier = 0.8 },
             new Weather { Id = 5, Name = "Fog", MovementModifier = 0.75, CombatModifier = 0.8 }
+        );
+
+        // Seed default location types
+        modelBuilder.Entity<LocationType>().HasData(
+            new LocationType { Id = 1, Name = "City", ColorHex = "#8B0000" },
+            new LocationType { Id = 2, Name = "Town", ColorHex = "#CD5C5C" },
+            new LocationType { Id = 3, Name = "Fort", ColorHex = "#4B0082" },
+            new LocationType { Id = 4, Name = "Village", ColorHex = "#DAA520" }
         );
     }
 }

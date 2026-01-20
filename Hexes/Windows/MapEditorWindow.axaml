@@ -1,0 +1,113 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:GUI.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+        x:Class="GUI.MapEditorWindow"
+        x:DataType="vm:HexMapViewModel"
+        Title="Map Editor"
+        Width="300" Height="600"
+        WindowStartupLocation="CenterOwner">
+
+    <ScrollViewer>
+        <StackPanel Spacing="10" Margin="10">
+            <!-- Tool Selection -->
+            <TextBlock Text="Tools" FontWeight="Bold" FontSize="14"/>
+            <WrapPanel Orientation="Horizontal">
+                <ToggleButton Content="Terrain" Margin="2"
+                              Command="{Binding TerrainPaintToolCommand}"
+                              IsChecked="{Binding CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=TerrainPaint,
+                                          Mode=OneWay}"/>
+                <ToggleButton Content="Road" Margin="2"
+                              Command="{Binding RoadPaintToolCommand}"
+                              IsChecked="{Binding CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=RoadPaint,
+                                          Mode=OneWay}"/>
+                <ToggleButton Content="River" Margin="2"
+                              Command="{Binding RiverPaintToolCommand}"
+                              IsChecked="{Binding CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=RiverPaint,
+                                          Mode=OneWay}"/>
+                <ToggleButton Content="Location" Margin="2"
+                              Command="{Binding LocationPaintToolCommand}"
+                              IsChecked="{Binding CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=LocationPaint,
+                                          Mode=OneWay}"/>
+                <ToggleButton Content="Erase" Margin="2"
+                              Command="{Binding EraseToolCommand}"
+                              IsChecked="{Binding CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=Erase,
+                                          Mode=OneWay}"/>
+            </WrapPanel>
+
+            <Separator/>
+
+            <!-- Hex Size -->
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="Hex Size:" VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding HexRadius, Mode=TwoWay}"
+                               Minimum="10" Maximum="50" Increment="5"
+                               Width="80"/>
+            </StackPanel>
+
+            <Separator/>
+
+            <!-- Terrain Palette -->
+            <TextBlock Text="Terrain Types" FontWeight="Bold" FontSize="14"/>
+            <ListBox ItemsSource="{Binding TerrainTypes}"
+                     SelectedItem="{Binding SelectedTerrainType}"
+                     MaxHeight="250">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Width="20" Height="20"
+                                    CornerRadius="3"
+                                    BorderBrush="Black" BorderThickness="1">
+                                <Border.Background>
+                                    <SolidColorBrush Color="{Binding ColorHex}"/>
+                                </Border.Background>
+                            </Border>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Separator/>
+
+            <!-- Location Palette -->
+            <TextBlock Text="Location Types" FontWeight="Bold" FontSize="14"/>
+            <ListBox ItemsSource="{Binding LocationTypes}"
+                     SelectedItem="{Binding SelectedLocationType}"
+                     MaxHeight="150">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Width="20" Height="20"
+                                    CornerRadius="3"
+                                    BorderBrush="Black" BorderThickness="1">
+                                <Border.Background>
+                                    <SolidColorBrush Color="{Binding ColorHex}"/>
+                                </Border.Background>
+                            </Border>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Separator/>
+
+            <!-- Status -->
+            <TextBlock Text="Status" FontWeight="Bold" FontSize="14"/>
+            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"/>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

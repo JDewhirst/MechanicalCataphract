@@ -3,105 +3,113 @@
         xmlns:vm="using:GUI"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="768"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         xmlns:local="clr-namespace:GUI"
         x:Class="GUI.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="MechanicalCataphract - Hex Map Editor">
+        Title="MechanicalCataphract - Wargame Manager">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <Grid ColumnDefinitions="200,*">
-        <!-- Left Panel: Tools and Terrain Palette -->
-        <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="0,0,1,0" Padding="5">
-            <ScrollViewer>
-                <StackPanel Spacing="10">
-                    <!-- Tool Selection -->
-                    <TextBlock Text="Tools" FontWeight="Bold" FontSize="14"/>
-                    <WrapPanel Orientation="Horizontal">
-                        <ToggleButton Content="Pan" Margin="2"
-                                      Command="{Binding HexMapViewModel.PanToolCommand}"
-                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                                  Converter={StaticResource EqualityConverter},
-                                                  ConverterParameter=Pan,
-                                                  Mode=OneWay}"/>
-                        <ToggleButton Content="Select" Margin="2"
-                                      Command="{Binding HexMapViewModel.SelectToolCommand}"
-                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                                  Converter={StaticResource EqualityConverter},
-                                                  ConverterParameter=Select,
-                                                  Mode=OneWay}"/>
-                        <ToggleButton Content="Terrain" Margin="2"
-                                      Command="{Binding HexMapViewModel.TerrainPaintToolCommand}"
-                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                                  Converter={StaticResource EqualityConverter},
-                                                  ConverterParameter=TerrainPaint,
-                                                  Mode=OneWay}"/>
-                        <ToggleButton Content="Road" Margin="2"
-                                      Command="{Binding HexMapViewModel.RoadPaintToolCommand}"
-                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                                  Converter={StaticResource EqualityConverter},
-                                                  ConverterParameter=RoadPaint,
-                                                  Mode=OneWay}"/>
-                        <ToggleButton Content="River" Margin="2"
-                                      Command="{Binding HexMapViewModel.RiverPaintToolCommand}"
-                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                                  Converter={StaticResource EqualityConverter},
-                                                  ConverterParameter=RiverPaint,
-                                                  Mode=OneWay}"/>
-                        <ToggleButton Content="Erase" Margin="2"
-                                      Command="{Binding HexMapViewModel.EraseToolCommand}"
-                                      IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                                  Converter={StaticResource EqualityConverter},
-                                                  ConverterParameter=Erase,
-                                                  Mode=OneWay}"/>
-                    </WrapPanel>
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="200,*,250">
+        <!-- Row 0: Top Bar spanning all columns -->
+        <Border Grid.Row="0" Grid.ColumnSpan="3"
+                BorderBrush="Gray" BorderThickness="0,0,0,1"
+                Padding="5">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="Edit Map"
+                        Command="{Binding OpenMapEditorCommand}"/>
 
-                    <!-- Hex Size -->
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <TextBlock Text="Hex Size:" VerticalAlignment="Center"/>
-                        <NumericUpDown Value="{Binding HexMapViewModel.HexRadius, Mode=TwoWay}"
-                                       Minimum="10" Maximum="50" Increment="5"
-                                       Width="80"/>
+                <Separator/>
+
+                <Button Content="Zoom +"
+                        Command="{Binding ZoomInCommand}"/>
+                <Button Content="Zoom -"
+                        Command="{Binding ZoomOutCommand}"/>
+
+                <Separator/>
+
+                <ToggleButton Content="Pan"
+                              Command="{Binding HexMapViewModel.PanToolCommand}"
+                              IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=Pan,
+                                          Mode=OneWay}"/>
+                <ToggleButton Content="Select"
+                              Command="{Binding HexMapViewModel.SelectToolCommand}"
+                              IsChecked="{Binding HexMapViewModel.CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=Select,
+                                          Mode=OneWay}"/>
+
+                <Separator/>
+
+                <TextBlock Text="Overlay:" VerticalAlignment="Center"/>
+                <ComboBox Width="120"
+                          SelectedIndex="0"
+                          ItemsSource="{Binding OverlayOptions}"
+                          SelectedItem="{Binding SelectedOverlay}"/>
+
+                <Separator/>
+
+                <TextBlock Text="Status:" VerticalAlignment="Center" FontWeight="Bold"/>
+                <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
+                           VerticalAlignment="Center"
+                           MaxWidth="300"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Row 1 Col 0: Left Panel - Selected Object Details -->
+        <Border Grid.Row="1" Grid.Column="0"
+                BorderBrush="Gray" BorderThickness="0,0,1,0">
+            <ScrollViewer>
+                <StackPanel Spacing="10" Margin="10">
+                    <TextBlock Text="Selected Hex" FontWeight="Bold" FontSize="14"/>
+
+                    <!-- Show when a hex is selected -->
+                    <StackPanel IsVisible="{Binding HexMapViewModel.SelectedMapHex, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="Coordinates:" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.Q, StringFormat='Q: {0}'}"/>
+                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.R, StringFormat='R: {0}'}"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+                            <TextBlock Text="Terrain:" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.TerrainType.Name}"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0"
+                                    IsVisible="{Binding HexMapViewModel.SelectedMapHex.LocationName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="Location:" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.LocationName}"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+                            <TextBlock Text="Population:" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.PopulationDensity}"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+                            <TextBlock Text="Times Foraged:" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.TimesForaged}"/>
+                        </StackPanel>
                     </StackPanel>
 
-                    <Separator/>
-
-                    <!-- Terrain Palette -->
-                    <TextBlock Text="Terrain Types" FontWeight="Bold" FontSize="14"/>
-                    <ListBox ItemsSource="{Binding HexMapViewModel.TerrainTypes}"
-                             SelectedItem="{Binding HexMapViewModel.SelectedTerrainType}"
-                             MaxHeight="400">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Border Width="20" Height="20"
-                                            CornerRadius="3"
-                                            BorderBrush="Black" BorderThickness="1">
-                                        <Border.Background>
-                                            <SolidColorBrush Color="{Binding ColorHex}"/>
-                                        </Border.Background>
-                                    </Border>
-                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-
-                    <Separator/>
-
-                    <!-- Status -->
-                    <TextBlock Text="Status" FontWeight="Bold" FontSize="14"/>
-                    <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
-                               TextWrapping="Wrap"/>
+                    <!-- Show when no hex is selected -->
+                    <TextBlock Text="Click on a hex to see details"
+                               IsVisible="{Binding HexMapViewModel.SelectedMapHex, Converter={x:Static ObjectConverters.IsNull}}"
+                               Foreground="Gray"
+                               FontStyle="Italic"/>
                 </StackPanel>
             </ScrollViewer>
         </Border>
 
-        <!-- Main Map Area -->
-        <local:HexMapView x:Name="HexMapView" Grid.Column="1"
+        <!-- Row 1 Col 1: Main Map Area -->
+        <local:HexMapView x:Name="HexMapView" Grid.Row="1" Grid.Column="1"
                           VisibleHexes="{Binding HexMapViewModel.VisibleHexes}"
                           TerrainTypes="{Binding HexMapViewModel.TerrainTypes}"
                           SelectedTerrainType="{Binding HexMapViewModel.SelectedTerrainType}"
@@ -109,5 +117,33 @@
                           PanOffset="{Binding HexMapViewModel.PanOffset}"
                           CurrentTool="{Binding HexMapViewModel.CurrentTool}"
                           SelectedHex="{Binding HexMapViewModel.SelectedHex}"/>
+
+        <!-- Row 1 Col 2: Right Panel - Admin Data -->
+        <Border Grid.Row="1" Grid.Column="2"
+                BorderBrush="Gray" BorderThickness="1,0,0,0">
+            <ScrollViewer>
+                <StackPanel Spacing="5" Margin="5">
+                    <Expander Header="Factions" IsExpanded="True">
+                        <TextBlock Text="(No factions yet)" Foreground="Gray" Margin="10,5"/>
+                    </Expander>
+
+                    <Expander Header="Commanders" IsExpanded="False">
+                        <TextBlock Text="(No commanders yet)" Foreground="Gray" Margin="10,5"/>
+                    </Expander>
+
+                    <Expander Header="Armies" IsExpanded="False">
+                        <TextBlock Text="(No armies yet)" Foreground="Gray" Margin="10,5"/>
+                    </Expander>
+
+                    <Expander Header="Orders" IsExpanded="False">
+                        <TextBlock Text="(No orders yet)" Foreground="Gray" Margin="10,5"/>
+                    </Expander>
+
+                    <Expander Header="Messages" IsExpanded="False">
+                        <TextBlock Text="(No messages yet)" Foreground="Gray" Margin="10,5"/>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
     </Grid>
 </Window>
