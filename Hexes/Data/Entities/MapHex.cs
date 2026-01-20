@@ -32,9 +32,15 @@ public class MapHex
     public int PopulationDensity { get; set; }
     public int TimesForaged { get; set; }
 
+    // Location (embedded, formerly separate Location entity)
+    public string? LocationName { get; set; }
+    public int? LocationType { get; set; }  // 0=City, 1=Town, 2=Fort, etc.
+    public int? LocationFactionId { get; set; }
+    public Faction? LocationFaction { get; set; }
+
     // Navigation
     public ICollection<Army> Armies { get; set; } = new List<Army>();
-    public ICollection<Location> Locations { get; set; } = new List<Location>();
+    public ICollection<Commander> Commanders { get; set; } = new List<Commander>();
 
     // Helper to convert to Hex struct
     public Hex ToHex() => new Hex(Q, R, -Q - R);

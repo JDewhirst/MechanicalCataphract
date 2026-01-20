@@ -17,6 +17,11 @@ public class Commander
     public int FactionId { get; set; }
     public Faction? Faction { get; set; }
 
+    // Location (FK to MapHex)
+    public int? LocationQ { get; set; }
+    public int? LocationR { get; set; }
+    public MapHex? Location { get; set; }
+
     // Navigation
     public ICollection<Army> CommandedArmies { get; set; } = new List<Army>();
 }

@@ -13,8 +13,8 @@ public class Brigade
     public int? FactionId { get; set; }
     public Faction? Faction { get; set; }
 
-    // Unit type (ID for enum, to be defined later)
-    public int UnitType { get; set; }
+    // Unit type
+    public UnitType UnitType { get; set; } = UnitType.Infantry;
 
     // Stats
     public int Number { get; set; }

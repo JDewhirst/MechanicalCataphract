@@ -12,7 +12,6 @@ public class WargameDbContext : DbContext
     public DbSet<Army> Armies { get; set; }
     public DbSet<Brigade> Brigades { get; set; }
     public DbSet<Commander> Commanders { get; set; }
-    public DbSet<Location> Locations { get; set; }
     public DbSet<Message> Messages { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<GameState> GameStates { get; set; }
@@ -82,12 +81,19 @@ public class WargameDbContext : DbContext
             .HasForeignKey(c => c.FactionId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Location -> MapHex
-        modelBuilder.Entity<Location>()
-            .HasOne(l => l.Hex)
-            .WithMany(h => h.Locations)
-            .HasForeignKey(l => new { l.HexQ, l.HexR })
-            .OnDelete(DeleteBehavior.Cascade);
+        // Commander -> MapHex (location)
+        modelBuilder.Entity<Commander>()
+            .HasOne(c => c.Location)
+            .WithMany(h => h.Commanders)
+            .HasForeignKey(c => new { c.LocationQ, c.LocationR })
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // MapHex -> LocationFaction (for embedded location)
+        modelBuilder.Entity<MapHex>()
+            .HasOne(h => h.LocationFaction)
+            .WithMany()
+            .HasForeignKey(h => h.LocationFactionId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Order -> Commander
         modelBuilder.Entity<Order>()
