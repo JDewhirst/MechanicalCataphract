@@ -37,6 +37,9 @@ public class HexMapView : Control
     public static readonly StyledProperty<TerrainType?> SelectedTerrainTypeProperty =
         AvaloniaProperty.Register<HexMapView, TerrainType?>(nameof(SelectedTerrainType));
 
+    public static readonly StyledProperty<string?> SelectedOverlayProperty =
+        AvaloniaProperty.Register<HexMapView, string?>(nameof(SelectedOverlay), defaultValue: "None");
+
     public double HexRadius
     {
         get => GetValue(HexRadiusProperty);
@@ -79,6 +82,12 @@ public class HexMapView : Control
         set => SetValue(SelectedTerrainTypeProperty, value);
     }
 
+    public string? SelectedOverlay
+    {
+        get => GetValue(SelectedOverlayProperty);
+        set => SetValue(SelectedOverlayProperty, value);
+    }
+
     #endregion
 
     #region Events
@@ -98,10 +107,14 @@ public class HexMapView : Control
     private double _cachedHexRadius = -1;
     private StreamGeometry? _cachedHexGeometry;
     private Dictionary<int, ISolidColorBrush> _terrainColorCache = new();
+    private Dictionary<int, ISolidColorBrush> _factionColorCache = new();
 
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
     private static readonly Pen RiverPen = new Pen(new SolidColorBrush(Color.Parse("#4169E1")), 4);
+
+    // Selection highlight (semi-transparent yellow ~70% opacity)
+    private static readonly ISolidColorBrush SelectionBrush = new SolidColorBrush(Color.FromArgb(180, 255, 255, 0));
 
     #endregion
 
@@ -122,12 +135,17 @@ public class HexMapView : Control
         });
         PanOffsetProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         SelectedHexProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
-        VisibleHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        VisibleHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
+        {
+            view.RebuildFactionColorCache();
+            view.InvalidateVisual();
+        });
         TerrainTypesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
         {
             view.RebuildTerrainColorCache();
             view.InvalidateVisual();
         });
+        SelectedOverlayProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
     }
 
     public HexMapView()
@@ -244,17 +262,33 @@ public class HexMapView : Control
             maxY < viewport.Top || minY > viewport.Bottom)
             return;
 
-        // Determine fill color
+        // Determine if hex is selected
         bool isSelected = SelectedHex.HasValue &&
                           SelectedHex.Value.q == mapHex.Q &&
                           SelectedHex.Value.r == mapHex.R;
-        var fill = isSelected ? Brushes.Yellow : GetTerrainBrush(mapHex.TerrainTypeId);
 
-        // Draw hex geometry
+        // Layer rendering: terrain → overlay → selection
+        var terrainFill = GetTerrainBrush(mapHex.TerrainTypeId);
+        var overlayBrush = GetOverlayBrushWithAlpha(mapHex);
+
+        // Draw hex geometry with layered fills
         var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
         using (context.PushTransform(translateMatrix))
         {
-            context.DrawGeometry(fill, StrokePen, _cachedHexGeometry!);
+            // 1. Draw terrain base layer (always)
+            context.DrawGeometry(terrainFill, StrokePen, _cachedHexGeometry!);
+
+            // 2. Draw overlay on top (if not "None")
+            if (overlayBrush != null)
+            {
+                context.DrawGeometry(overlayBrush, null, _cachedHexGeometry!);
+            }
+
+            // 3. Draw selection highlight last (if selected)
+            if (isSelected)
+            {
+                context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
+            }
 
             // Draw coordinate label
             var text = new FormattedText(
@@ -361,6 +395,143 @@ public class HexMapView : Control
         if (terrainTypeId.HasValue && _terrainColorCache.TryGetValue(terrainTypeId.Value, out var brush))
             return brush;
         return Brushes.White;
+    }
+
+    /// <summary>
+    /// Returns semi-transparent overlay brush based on selected overlay mode.
+    /// Returns null for "None" (no overlay should be drawn on top of terrain).
+    /// </summary>
+    private ISolidColorBrush? GetOverlayBrushWithAlpha(MapHex mapHex)
+    {
+        return SelectedOverlay switch
+        {
+            "Faction Control" => GetFactionBrushWithAlpha(mapHex),
+            "Population Density" => GetPopulationBrushWithAlpha(mapHex.PopulationDensity),
+            "Times Foraged" => GetForagedBrushWithAlpha(mapHex.TimesForaged),
+            "Weather" => GetWeatherBrushWithAlpha(mapHex),
+            _ => null // "None" - no overlay
+        };
+    }
+
+    /// <summary>
+    /// Returns semi-transparent faction color for overlay (~50% opacity).
+    /// Uses cache for faction colors.
+    /// </summary>
+    private ISolidColorBrush GetFactionBrushWithAlpha(MapHex mapHex)
+    {
+        if (!mapHex.ControllingFactionId.HasValue)
+            return new SolidColorBrush(Color.FromArgb(128, 128, 128, 128)); // Semi-transparent gray
+
+        // Get base color from cache or parse from faction
+        Color baseColor;
+        if (_factionColorCache.TryGetValue(mapHex.ControllingFactionId.Value, out var cachedBrush))
+        {
+            baseColor = cachedBrush.Color;
+        }
+        else if (mapHex.ControllingFaction != null)
+        {
+            try
+            {
+                baseColor = Color.Parse(mapHex.ControllingFaction.ColorHex);
+                _factionColorCache[mapHex.ControllingFactionId.Value] = new SolidColorBrush(baseColor);
+            }
+            catch
+            {
+                baseColor = Color.Parse("#808080"); // Gray fallback
+            }
+        }
+        else
+        {
+            baseColor = Color.Parse("#808080"); // Gray fallback
+        }
+
+        return new SolidColorBrush(Color.FromArgb(128, baseColor.R, baseColor.G, baseColor.B));
+    }
+
+    /// <summary>
+    /// Semi-transparent heat map for population density overlay (~50% opacity).
+    /// </summary>
+    private static ISolidColorBrush GetPopulationBrushWithAlpha(int density)
+    {
+        // Clamp to 0-100
+        density = Math.Max(0, Math.Min(100, density));
+
+        // Interpolate from light blue (#ADD8E6) to deep red (#8B0000)
+        double t = density / 100.0;
+
+        byte r = (byte)(173 + (139 - 173) * t);
+        byte g = (byte)(216 + (0 - 216) * t);
+        byte b = (byte)(230 + (0 - 230) * t);
+
+        return new SolidColorBrush(Color.FromArgb(128, r, g, b));
+    }
+
+    /// <summary>
+    /// Semi-transparent foraged gradient overlay (~50% opacity).
+    /// </summary>
+    private static ISolidColorBrush GetForagedBrushWithAlpha(int timesForaged)
+    {
+        // Clamp to 0-10
+        timesForaged = Math.Max(0, Math.Min(10, timesForaged));
+
+        // Interpolate from green (#228B22) to brown (#8B4513)
+        double t = timesForaged / 10.0;
+
+        byte r = (byte)(34 + (139 - 34) * t);
+        byte g = (byte)(139 + (69 - 139) * t);
+        byte b = (byte)(34 + (19 - 34) * t);
+
+        return new SolidColorBrush(Color.FromArgb(128, r, g, b));
+    }
+
+    /// <summary>
+    /// Returns semi-transparent weather color overlay (~50% opacity).
+    /// </summary>
+    private static ISolidColorBrush GetWeatherBrushWithAlpha(MapHex mapHex)
+    {
+        if (!mapHex.WeatherId.HasValue || mapHex.Weather == null)
+            return new SolidColorBrush(Color.FromArgb(128, 240, 240, 240)); // Semi-transparent off-white
+
+        var weatherName = mapHex.Weather.Name?.ToLowerInvariant() ?? "";
+
+        return weatherName switch
+        {
+            "clear" => new SolidColorBrush(Color.FromArgb(128, 135, 206, 235)),  // Light blue
+            "rain" => new SolidColorBrush(Color.FromArgb(128, 65, 105, 225)),    // Dark blue
+            "storm" => new SolidColorBrush(Color.FromArgb(128, 139, 0, 139)),    // Purple
+            "snow" => new SolidColorBrush(Color.FromArgb(128, 255, 250, 250)),   // White
+            "fog" => new SolidColorBrush(Color.FromArgb(128, 211, 211, 211)),    // Light gray
+            _ => new SolidColorBrush(Color.FromArgb(128, 240, 240, 240))         // Off-white
+        };
+    }
+
+    /// <summary>
+    /// Rebuilds the faction color cache from visible hexes.
+    /// </summary>
+    private void RebuildFactionColorCache()
+    {
+        _factionColorCache.Clear();
+        var hexes = VisibleHexes;
+        if (hexes == null) return;
+
+        foreach (var hex in hexes)
+        {
+            if (hex.ControllingFactionId.HasValue && hex.ControllingFaction != null)
+            {
+                if (!_factionColorCache.ContainsKey(hex.ControllingFactionId.Value))
+                {
+                    try
+                    {
+                        _factionColorCache[hex.ControllingFactionId.Value] =
+                            new SolidColorBrush(Color.Parse(hex.ControllingFaction.ColorHex));
+                    }
+                    catch
+                    {
+                        _factionColorCache[hex.ControllingFactionId.Value] = Brushes.Gray;
+                    }
+                }
+            }
+        }
     }
 
     #endregion

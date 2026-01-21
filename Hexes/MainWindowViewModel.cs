@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GUI.ViewModels;
@@ -14,19 +13,6 @@ public partial class MainWindowViewModel : ObservableObject
 
     // Reference to MapEditorWindow to avoid opening multiple
     private MapEditorWindow? _mapEditorWindow;
-
-    // Overlay options for the dropdown
-    public ObservableCollection<string> OverlayOptions { get; } = new()
-    {
-        "None",
-        "Faction Control",
-        "Population Density",
-        "Times Foraged",
-        "Weather"
-    };
-
-    [ObservableProperty]
-    private string _selectedOverlay = "None";
 
     public MainWindowViewModel(HexMapViewModel hexMapViewModel)
     {

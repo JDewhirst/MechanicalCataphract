@@ -49,8 +49,8 @@
                 <TextBlock Text="Overlay:" VerticalAlignment="Center"/>
                 <ComboBox Width="120"
                           SelectedIndex="0"
-                          ItemsSource="{Binding OverlayOptions}"
-                          SelectedItem="{Binding SelectedOverlay}"/>
+                          ItemsSource="{Binding HexMapViewModel.OverlayOptions}"
+                          SelectedItem="{Binding HexMapViewModel.SelectedOverlay}"/>
 
                 <Separator/>
 
@@ -116,7 +116,8 @@
                           HexRadius="{Binding HexMapViewModel.HexRadius}"
                           PanOffset="{Binding HexMapViewModel.PanOffset}"
                           CurrentTool="{Binding HexMapViewModel.CurrentTool}"
-                          SelectedHex="{Binding HexMapViewModel.SelectedHex}"/>
+                          SelectedHex="{Binding HexMapViewModel.SelectedHex}"
+                          SelectedOverlay="{Binding HexMapViewModel.SelectedOverlay}"/>
 
         <!-- Row 1 Col 2: Right Panel - Admin Data -->
         <Border Grid.Row="1" Grid.Column="2"

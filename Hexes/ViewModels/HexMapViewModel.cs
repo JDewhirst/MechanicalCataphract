@@ -31,6 +31,19 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private LocationType? _selectedLocationType;
 
+    // Overlay options for map visualization
+    public ObservableCollection<string> OverlayOptions { get; } = new()
+    {
+        "None",
+        "Faction Control",
+        "Population Density",
+        "Times Foraged",
+        "Weather"
+    };
+
+    [ObservableProperty]
+    private string _selectedOverlay = "None";
+
     // Map dimensions
     private int _mapRows;
     private int _mapColumns;
