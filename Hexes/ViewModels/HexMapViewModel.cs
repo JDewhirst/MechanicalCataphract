@@ -23,6 +23,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly IOrderService _orderService;
     private readonly IMessageService _messageService;
     private readonly IGameStateService _gameStateService;
+    private readonly ITimeAdvanceService _timeAdvanceService;
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -146,7 +147,8 @@ public partial class HexMapViewModel : ObservableObject
         ICommanderService commanderService,
         IOrderService orderService,
         IMessageService messageService,
-        IGameStateService gameStateService)
+        IGameStateService gameStateService,
+        ITimeAdvanceService timeAdvanceService)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -155,6 +157,7 @@ public partial class HexMapViewModel : ObservableObject
         _orderService = orderService;
         _messageService = messageService;
         _gameStateService = gameStateService;
+        _timeAdvanceService = timeAdvanceService;
     }
 
     [RelayCommand]
@@ -285,21 +288,16 @@ public partial class HexMapViewModel : ObservableObject
     [RelayCommand]
     async Task AdvanceTimeAsync()
     {
-        var previousGameTime = GameTime;
-        await _gameStateService.AdvanceGameTimeAsync(TimeSpan.FromHours(1));
-        var gameState = await _gameStateService.GetGameStateAsync();
-        GameTime = gameState.CurrentGameTime;
-
-        // All armies eat their daily supplies.
-        if (GameTime.Hour > gameState.SupplyUsageTime.Hours && previousGameTime.Hour < gameState.SupplyUsageTime.Hours)
+        var result = await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+        if (result.Success)
         {
-            var supplyEatValue = 0;
-            foreach (Army a in Armies)
-            {
-                var army = await _armyService.GetArmyWithBrigadesAsync(a.Id);
-                supplyEatValue = army.Supp
-                a.CarriedSupply -= 
-            }
+            GameTime = result.NewGameTime;
+            StatusMessage = $"Advanced to {result.NewGameTime:g}. " +
+                            $"{result.MessagesDelivered} messages delivered.";
+        }
+        else
+        {
+            StatusMessage = $"Failed to advance time: {result.Error}";
         }
 
     }

@@ -8,6 +8,7 @@ public class TerrainType
     public string Name { get; set; } = string.Empty;
     public string IconPath { get; set; } = string.Empty;
     public int BaseMovementCost { get; set; } = 1;
+    public bool IsWater { get; set; } = false;
     public string ColorHex { get; set; } = "#FFFFFF";
 
     // Navigation

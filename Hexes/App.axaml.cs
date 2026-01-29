@@ -86,6 +86,7 @@ public partial class App : Application
         services.AddScoped<IGameStateService, GameStateService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IMessageService, MessageService>();
+        services.AddScoped<ITimeAdvanceService, TimeAdvanceService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

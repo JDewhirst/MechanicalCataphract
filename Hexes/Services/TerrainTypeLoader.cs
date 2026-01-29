@@ -59,6 +59,9 @@ public static class TerrainTypeLoader
                     if (int.TryParse(value, out var elevation))
                         terrain.BaseMovementCost = Math.Max(1, elevation / 2 + 1);
                     break;
+                case "category":
+                    terrain.IsWater = value.Equals("Water", StringComparison.OrdinalIgnoreCase);
+                    break;
             }
         }
 
