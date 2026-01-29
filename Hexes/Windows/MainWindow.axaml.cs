@@ -14,7 +14,34 @@ public partial class MainWindow : Window
         // Wire HexMapView events to ViewModel commands
         // Events cannot be bound directly to ICommand in Avalonia XAML
         HexMapView.HexClicked += (s, hex) =>
+        {
+            // Check if we're in forage selection mode
+            if (viewModel.HexMapViewModel.IsForageModeActive)
+            {
+                viewModel.HexMapViewModel.ToggleForageHexSelection(hex);
+                return;
+            }
+            // Clear all entity selections when hex is selected
+            viewModel.HexMapViewModel.SelectedFaction = null;
+            viewModel.HexMapViewModel.SelectedArmy = null;
+            viewModel.HexMapViewModel.SelectedCommander = null;
+            viewModel.HexMapViewModel.SelectedOrder = null;
+            viewModel.HexMapViewModel.SelectedMessage = null;
             viewModel.HexMapViewModel.SelectHexCommand.Execute(hex);
+        };
+
+        HexMapView.ArmyClicked += (s, army) =>
+        {
+            // SelectedArmy setter clears other selections
+            viewModel.HexMapViewModel.SelectedArmy = army;
+        };
+
+        HexMapView.CommanderClicked += (s, commander) =>
+        {
+            // SelectedCommander setter clears other selections
+            viewModel.HexMapViewModel.SelectedCommander = commander;
+        };
+
         HexMapView.PanCompleted += (s, delta) =>
             viewModel.HexMapViewModel.CompletePanCommand.Execute(delta);
         HexMapView.TerrainPainted += (s, args) =>
@@ -33,5 +60,9 @@ public partial class MainWindow : Window
         {
             await viewModel.HexMapViewModel.InitializeCommand.ExecuteAsync(null);
         };
+    }
+
+    private void Border_ActualThemeVariantChanged(object? sender, System.EventArgs e)
+    {
     }
 }

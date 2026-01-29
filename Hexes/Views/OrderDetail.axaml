@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
+             x:Class="GUI.Views.OrderDetail"
+             x:DataType="vm:OrderViewModel">
+
+    <StackPanel Spacing="8" Margin="5">
+        <!-- Commander info (read-only) -->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="From:" FontWeight="SemiBold" FontSize="11"/>
+            <TextBlock Text="{Binding Commander.Name, FallbackValue='(Unknown)'}" FontSize="11"/>
+        </StackPanel>
+
+        <!-- Contents -->
+        <StackPanel>
+            <TextBlock Text="Order Contents" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Contents, Mode=TwoWay}"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     MinHeight="80"
+                     MaxHeight="150"/>
+        </StackPanel>
+
+        <!-- Status -->
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <CheckBox Content="Processed"
+                      IsChecked="{Binding Processed, Mode=TwoWay}"/>
+            <TextBlock FontSize="11" VerticalAlignment="Center" Foreground="Gray"
+                       IsVisible="{Binding Processed}">
+                <Run Text="at "/>
+                <Run Text="{Binding ProcessedAt, StringFormat='{}{0:g}', TargetNullValue='?'}"/>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Timestamps -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
+            <TextBlock FontSize="10" Foreground="Gray">
+                <Run Text="Created: "/>
+                <Run Text="{Binding CreatedAt, StringFormat='{}{0:g}'}"/>
+            </TextBlock>
+        </Border>
+    </StackPanel>
+</UserControl>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
 using Avalonia;
@@ -39,6 +40,18 @@ public class HexMapView : Control
 
     public static readonly StyledProperty<string?> SelectedOverlayProperty =
         AvaloniaProperty.Register<HexMapView, string?>(nameof(SelectedOverlay), defaultValue: "None");
+
+    public static readonly StyledProperty<IList<Army>?> ArmiesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<Army>?>(nameof(Armies));
+
+    public static readonly StyledProperty<IList<Commander>?> CommandersProperty =
+        AvaloniaProperty.Register<HexMapView, IList<Commander>?>(nameof(Commanders));
+
+    public static readonly StyledProperty<Army?> SelectedArmyProperty =
+        AvaloniaProperty.Register<HexMapView, Army?>(nameof(SelectedArmy));
+
+    public static readonly StyledProperty<Commander?> SelectedCommanderProperty =
+        AvaloniaProperty.Register<HexMapView, Commander?>(nameof(SelectedCommander));
 
     public double HexRadius
     {
@@ -88,18 +101,56 @@ public class HexMapView : Control
         set => SetValue(SelectedOverlayProperty, value);
     }
 
+    public static readonly StyledProperty<IList<Hex>?> ForageSelectedHexesProperty =
+    AvaloniaProperty.Register<HexMapView, IList<Hex>?>(nameof(ForageSelectedHexes));
+
+    public IList<Hex>? ForageSelectedHexes
+    {
+        get => GetValue(ForageSelectedHexesProperty);
+        set => SetValue(ForageSelectedHexesProperty, value);
+    }
+
+    public IList<Army>? Armies
+    {
+        get => GetValue(ArmiesProperty);
+        set => SetValue(ArmiesProperty, value);
+    }
+
+    public IList<Commander>? Commanders
+    {
+        get => GetValue(CommandersProperty);
+        set => SetValue(CommandersProperty, value);
+    }
+
+    public Army? SelectedArmy
+    {
+        get => GetValue(SelectedArmyProperty);
+        set => SetValue(SelectedArmyProperty, value);
+    }
+
+    public Commander? SelectedCommander
+    {
+        get => GetValue(SelectedCommanderProperty);
+        set => SetValue(SelectedCommanderProperty, value);
+    }
+
     #endregion
 
     #region Events
 
     public event EventHandler<Hex>? HexClicked;
+    public event EventHandler<Army>? ArmyClicked;
+    public event EventHandler<Commander>? CommanderClicked;
     public event EventHandler<Vector>? PanCompleted;
     public event EventHandler<(Hex hex, int terrainTypeId)>? TerrainPainted;
     public event EventHandler<Hex>? RoadPainted;
     public event EventHandler<Hex>? RiverPainted;
     public event EventHandler<Hex>? EraseRequested;
     public event EventHandler<(Hex hex, string? locationName)>? LocationPainted;
-
+    private void OnForageSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        InvalidateVisual();
+    }
     #endregion
 
     #region Cached Geometry
@@ -115,6 +166,12 @@ public class HexMapView : Control
 
     // Selection highlight (semi-transparent yellow ~70% opacity)
     private static readonly ISolidColorBrush SelectionBrush = new SolidColorBrush(Color.FromArgb(180, 255, 255, 0));
+
+    // Army/Commander marker rendering
+    private static readonly Pen MarkerOutlinePen = new Pen(Brushes.Black, 2);
+    private static readonly Pen CommanderOutlinePen = new Pen(Brushes.White, 2);
+    private static readonly Pen SelectionOutlinePen = new Pen(Brushes.Yellow, 3);
+    private static readonly ISolidColorBrush DefaultMarkerBrush = new SolidColorBrush(Color.Parse("#808080"));
 
     #endregion
 
@@ -146,6 +203,24 @@ public class HexMapView : Control
             view.InvalidateVisual();
         });
         SelectedOverlayProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        ArmiesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        CommandersProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        SelectedArmyProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        SelectedCommanderProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        ForageSelectedHexesProperty.Changed.AddClassHandler<HexMapView>((view, args) =>
+        {
+            // Unsubscribe from old collection
+            if (args.OldValue is System.Collections.Specialized.INotifyCollectionChanged oldCollection)
+            {
+                oldCollection.CollectionChanged -= view.OnForageSelectionChanged;
+            }
+            // Subscribe to new collection
+            if (args.NewValue is System.Collections.Specialized.INotifyCollectionChanged newCollection)
+            {
+                newCollection.CollectionChanged += view.OnForageSelectionChanged;
+            }
+            view.InvalidateVisual();
+        });
     }
 
     public HexMapView()
@@ -161,37 +236,134 @@ public class HexMapView : Control
     {
         var point = e.GetPosition(this);
         _lastPointerPosition = point;
-        var hex = GetLayout().PixelToHexRounded(point);
+        var layout = GetLayout();
+        var hex = layout.PixelToHexRounded(point);
 
-        switch (CurrentTool)
+        var pointerPoint = e.GetCurrentPoint(this);
+
+        // Right-click always starts panning
+        if (pointerPoint.Properties.IsRightButtonPressed)
         {
-            case "Select":
-                HexClicked?.Invoke(this, hex);
-                break;
-            case "Pan":
-                _isDragging = true;
-                _dragDelta = Vector.Zero;
-                break;
-            case "TerrainPaint" when SelectedTerrainType != null:
-                TerrainPainted?.Invoke(this, (hex, SelectedTerrainType.Id));
-                break;
-            case "RoadPaint":
-                RoadPainted?.Invoke(this, hex);
-                break;
-            case "RiverPaint":
-                RiverPainted?.Invoke(this, hex);
-                break;
-            case "Erase":
-                EraseRequested?.Invoke(this, hex);
-                break;
-            case "LocationPaint":
-                // For now, use the location type name as the location name
-                // TODO: Add UI to input custom location name
-                LocationPainted?.Invoke(this, (hex, null));
-                break;
+            _isDragging = true;
+            _dragDelta = Vector.Zero;
+            InvalidateVisual();
+            return;
         }
 
-        InvalidateVisual();
+        // Left-click: tool actions or context-sensitive selection
+        if (pointerPoint.Properties.IsLeftButtonPressed)
+        {
+            // Check if we're in a map editing tool mode
+            switch (CurrentTool)
+            {
+                case "TerrainPaint" when SelectedTerrainType != null:
+                    TerrainPainted?.Invoke(this, (hex, SelectedTerrainType.Id));
+                    InvalidateVisual();
+                    return;
+                case "RoadPaint":
+                    RoadPainted?.Invoke(this, hex);
+                    InvalidateVisual();
+                    return;
+                case "RiverPaint":
+                    RiverPainted?.Invoke(this, hex);
+                    InvalidateVisual();
+                    return;
+                case "Erase":
+                    EraseRequested?.Invoke(this, hex);
+                    InvalidateVisual();
+                    return;
+                case "LocationPaint":
+                    LocationPainted?.Invoke(this, (hex, null));
+                    InvalidateVisual();
+                    return;
+                case "ForageSelect":
+                    HexClicked?.Invoke(this, hex);
+                    return;
+            }
+
+            // Default: context-sensitive selection
+            // Check for army click first (armies are larger markers)
+            var clickedArmy = FindArmyAtPoint(point, layout);
+            if (clickedArmy != null)
+            {
+                ArmyClicked?.Invoke(this, clickedArmy);
+                InvalidateVisual();
+                return;
+            }
+
+            // Check for commander click
+            var clickedCommander = FindCommanderAtPoint(point, layout);
+            if (clickedCommander != null)
+            {
+                CommanderClicked?.Invoke(this, clickedCommander);
+                InvalidateVisual();
+                return;
+            }
+
+            // Default to hex selection
+            HexClicked?.Invoke(this, hex);
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>
+    /// Finds an army at the given screen point, or null if none found.
+    /// </summary>
+    private Army? FindArmyAtPoint(AvaloniaPoint point, Layout layout)
+    {
+        var armies = Armies;
+        if (armies == null || armies.Count == 0) return null;
+
+        double hitRadius = Math.Max(10, HexRadius * 0.4);
+
+        foreach (var army in armies)
+        {
+            var hex = new Hex(army.LocationQ, army.LocationR, -army.LocationQ - army.LocationR);
+            var center = layout.HexToPixel(hex);
+            // Army markers are offset up-left
+            var markerCenter = new AvaloniaPoint(center.X - 5, center.Y - 5);
+
+            double distance = Math.Sqrt(
+                Math.Pow(point.X - markerCenter.X, 2) +
+                Math.Pow(point.Y - markerCenter.Y, 2));
+
+            if (distance <= hitRadius)
+                return army;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds a commander at the given screen point, or null if none found.
+    /// </summary>
+    private Commander? FindCommanderAtPoint(AvaloniaPoint point, Layout layout)
+    {
+        var commanders = Commanders;
+        if (commanders == null || commanders.Count == 0) return null;
+
+        double hitRadius = Math.Max(8, HexRadius * 0.3);
+
+        foreach (var commander in commanders)
+        {
+            if (commander.LocationQ == null || commander.LocationR == null)
+                continue;
+
+            var hex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
+                -commander.LocationQ.Value - commander.LocationR.Value);
+            var center = layout.HexToPixel(hex);
+            // Commander markers are offset down-right
+            var markerCenter = new AvaloniaPoint(center.X + 5, center.Y + 5);
+
+            double distance = Math.Sqrt(
+                Math.Pow(point.X - markerCenter.X, 2) +
+                Math.Pow(point.Y - markerCenter.Y, 2));
+
+            if (distance <= hitRadius)
+                return commander;
+        }
+
+        return null;
     }
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -242,6 +414,10 @@ public class HexMapView : Control
             {
                 DrawHex(context, layout, mapHex, viewport);
             }
+
+            // Render army and commander markers on top of hexes
+            RenderArmyMarkers(context, layout, viewport);
+            RenderCommanderMarkers(context, layout, viewport);
         }
     }
 
@@ -267,6 +443,10 @@ public class HexMapView : Control
                           SelectedHex.Value.q == mapHex.Q &&
                           SelectedHex.Value.r == mapHex.R;
 
+        // Determine if we are currently using the Forage tool
+        bool isForageSelected = ForageSelectedHexes != null &&
+            ForageSelectedHexes.Any(fh => fh.q == mapHex.Q && fh.r == mapHex.R);
+
         // Layer rendering: terrain → overlay → selection
         var terrainFill = GetTerrainBrush(mapHex.TerrainTypeId);
         var overlayBrush = GetOverlayBrushWithAlpha(mapHex);
@@ -286,6 +466,12 @@ public class HexMapView : Control
 
             // 3. Draw selection highlight last (if selected)
             if (isSelected)
+            {
+                context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
+            }
+
+            // 4. Draw forage selection highlight
+            if (isForageSelected)
             {
                 context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
             }
@@ -336,6 +522,171 @@ public class HexMapView : Control
                 var corner2 = corners[(cornerIdx + 1) % 6];
                 context.DrawLine(RiverPen, corner1, corner2);
             }
+        }
+    }
+
+    /// <summary>
+    /// Renders army markers as filled circles at their hex locations.
+    /// Armies are rendered as larger circles offset slightly to avoid overlap with commanders.
+    /// </summary>
+    private void RenderArmyMarkers(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var armies = Armies;
+        if (armies == null || armies.Count == 0) return;
+
+        foreach (var army in armies)
+        {
+            var hex = new Hex(army.LocationQ, army.LocationR, -army.LocationQ - army.LocationR);
+            var center = layout.HexToPixel(hex);
+
+            // Viewport culling
+            if (center.X < viewport.Left - 20 || center.X > viewport.Right + 20 ||
+                center.Y < viewport.Top - 20 || center.Y > viewport.Bottom + 20)
+                continue;
+
+            // Get faction color or default gray
+            var factionBrush = GetArmyMarkerBrush(army);
+
+            // Draw army marker: filled circle with black outline
+            // Offset slightly up-left from hex center
+            var markerCenter = new AvaloniaPoint(center.X - 5, center.Y - 5);
+            double markerRadius = Math.Max(6, HexRadius * 0.35);
+
+            // Check if this army is selected - draw selection highlight
+            bool isSelected = SelectedArmy != null && SelectedArmy.Id == army.Id;
+            if (isSelected)
+            {
+                // Draw yellow selection ring behind the marker
+                context.DrawEllipse(null, SelectionOutlinePen, markerCenter, markerRadius + 3, markerRadius + 3);
+            }
+
+            context.DrawEllipse(factionBrush, MarkerOutlinePen, markerCenter, markerRadius, markerRadius);
+
+            // Draw army initial letter in the marker
+            if (!string.IsNullOrEmpty(army.Name))
+            {
+                var initial = army.Name[0].ToString().ToUpperInvariant();
+                var text = new FormattedText(
+                    initial,
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    Typeface.Default,
+                    Math.Max(8, markerRadius * 1.2),
+                    Brushes.White);
+                context.DrawText(text, new AvaloniaPoint(
+                    markerCenter.X - text.Width / 2,
+                    markerCenter.Y - text.Height / 2));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Renders commander markers as smaller diamond shapes at their hex locations.
+    /// </summary>
+    private void RenderCommanderMarkers(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var commanders = Commanders;
+        if (commanders == null || commanders.Count == 0) return;
+
+        foreach (var commander in commanders)
+        {
+            // Skip commanders without a location
+            if (commander.LocationQ == null || commander.LocationR == null)
+                continue;
+
+            var hex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
+                -commander.LocationQ.Value - commander.LocationR.Value);
+            var center = layout.HexToPixel(hex);
+
+            // Viewport culling
+            if (center.X < viewport.Left - 20 || center.X > viewport.Right + 20 ||
+                center.Y < viewport.Top - 20 || center.Y > viewport.Bottom + 20)
+                continue;
+
+            // Get faction color or default gray
+            var factionBrush = GetCommanderMarkerBrush(commander);
+
+            // Draw commander marker: small diamond offset down-right from hex center
+            var markerCenter = new AvaloniaPoint(center.X + 5, center.Y + 5);
+            double markerSize = Math.Max(5, HexRadius * 0.25);
+
+            // Check if this commander is selected
+            bool isSelected = SelectedCommander != null && SelectedCommander.Id == commander.Id;
+
+            // Draw selection highlight first (larger diamond behind)
+            if (isSelected)
+            {
+                double selectionSize = markerSize + 3;
+                var selectionGeom = new StreamGeometry();
+                using (var ctx = selectionGeom.Open())
+                {
+                    ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - selectionSize), true);
+                    ctx.LineTo(new AvaloniaPoint(markerCenter.X + selectionSize, markerCenter.Y));
+                    ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + selectionSize));
+                    ctx.LineTo(new AvaloniaPoint(markerCenter.X - selectionSize, markerCenter.Y));
+                    ctx.EndFigure(true);
+                }
+                context.DrawGeometry(null, SelectionOutlinePen, selectionGeom);
+            }
+
+            // Draw diamond shape
+            var diamondGeom = new StreamGeometry();
+            using (var ctx = diamondGeom.Open())
+            {
+                ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - markerSize), true);
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X + markerSize, markerCenter.Y));
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + markerSize));
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X - markerSize, markerCenter.Y));
+                ctx.EndFigure(true);
+            }
+
+            context.DrawGeometry(factionBrush, CommanderOutlinePen, diamondGeom);
+        }
+    }
+
+    /// <summary>
+    /// Gets the brush for an army marker based on its faction color.
+    /// </summary>
+    private ISolidColorBrush GetArmyMarkerBrush(Army army)
+    {
+        if (army.Faction == null)
+            return DefaultMarkerBrush;
+
+        if (_factionColorCache.TryGetValue(army.FactionId, out var brush))
+            return brush;
+
+        try
+        {
+            brush = new SolidColorBrush(Color.Parse(army.Faction.ColorHex));
+            _factionColorCache[army.FactionId] = brush;
+            return brush;
+        }
+        catch
+        {
+            return DefaultMarkerBrush;
+        }
+    }
+
+    /// <summary>
+    /// Gets the brush for a commander marker based on their faction color.
+    /// </summary>
+    private ISolidColorBrush GetCommanderMarkerBrush(Commander commander)
+    {
+        if (commander.Faction == null)
+            return DefaultMarkerBrush;
+
+        if (_factionColorCache.TryGetValue(commander.FactionId, out var brush))
+            return brush;
+
+        try
+        {
+            brush = new SolidColorBrush(Color.Parse(commander.Faction.ColorHex));
+            _factionColorCache[commander.FactionId] = brush;
+            return brush;
+        }
+        catch
+        {
+            return DefaultMarkerBrush;
         }
     }
 
@@ -420,7 +771,7 @@ public class HexMapView : Control
     private ISolidColorBrush GetFactionBrushWithAlpha(MapHex mapHex)
     {
         if (!mapHex.ControllingFactionId.HasValue)
-            return new SolidColorBrush(Color.FromArgb(128, 128, 128, 128)); // Semi-transparent gray
+            return new SolidColorBrush(Color.FromArgb(191, 128, 128, 128)); // Semi-transparent gray
 
         // Get base color from cache or parse from faction
         Color baseColor;
@@ -445,7 +796,7 @@ public class HexMapView : Control
             baseColor = Color.Parse("#808080"); // Gray fallback
         }
 
-        return new SolidColorBrush(Color.FromArgb(128, baseColor.R, baseColor.G, baseColor.B));
+        return new SolidColorBrush(Color.FromArgb(191, baseColor.R, baseColor.G, baseColor.B));
     }
 
     /// <summary>

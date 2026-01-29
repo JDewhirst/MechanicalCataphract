@@ -13,7 +13,7 @@ public class GameState
     public DateTime CurrentGameTime { get; set; } = DateTime.UtcNow;
 
     // Scheduled times for automated events
-    public TimeSpan SupplyUsageTime { get; set; } = new TimeSpan(6, 0, 0); // 6 AM
+    public TimeSpan SupplyUsageTime { get; set; } = new TimeSpan(21, 0, 0); // 9 PM
     public TimeSpan WeatherUpdateTime { get; set; } = new TimeSpan(0, 0, 0); // Midnight
 
     // Map dimensions

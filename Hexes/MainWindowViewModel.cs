@@ -33,7 +33,15 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         _mapEditorWindow = new MapEditorWindow(HexMapViewModel);
-        _mapEditorWindow.Closed += (_, _) => _mapEditorWindow = null;
+        _mapEditorWindow.Closed += (_, _) =>
+        {
+            _mapEditorWindow = null;
+            // Reset to Select tool when editor closes
+            HexMapViewModel.CurrentTool = "Select";
+            HexMapViewModel.RoadStartHex = null;
+            HexMapViewModel.RiverStartHex = null;
+            HexMapViewModel.StatusMessage = "Tool: Select";
+        };
 
         // Show as owned window so it stays on top of main window
         if (MainWindow != null)

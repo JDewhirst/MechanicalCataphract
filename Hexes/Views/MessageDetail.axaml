@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="250"
+             x:Class="GUI.Views.MessageDetail"
+             x:DataType="vm:MessageViewModel">
+
+    <StackPanel Spacing="8" Margin="5">
+        <!-- Sender/Target info-->
+        <Border CornerRadius="3" Padding="8">
+            <StackPanel Spacing="3">
+                <TextBlock Text="From:" FontWeight="SemiBold" FontSize="11"/>
+                <ComboBox ItemsSource="{Binding AvailableCommanders}"
+                        SelectedItem="{Binding SenderCommander, Mode=TwoWay}"
+                        HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="entities:Commander">
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="To:" FontWeight="SemiBold" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding AvailableCommanders}"
+                SelectedItem="{Binding TargetCommander, Mode=TwoWay}"
+                HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Commander">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            </StackPanel>
+        </Border>
+
+        <!-- Content -->
+        <StackPanel>
+            <TextBlock Text="Content" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Content, Mode=TwoWay}"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     MinHeight="60"
+                     MaxHeight="120"/>
+        </StackPanel>
+
+        <!-- Status -->
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <CheckBox Content="Delivered"
+                      IsChecked="{Binding Delivered, Mode=TwoWay}"/>
+            <TextBlock FontSize="11" VerticalAlignment="Center" Foreground="Gray"
+                       IsVisible="{Binding Delivered}">
+                <Run Text="at "/>
+                <Run Text="{Binding DeliveredAt, StringFormat='{}{0:g}', TargetNullValue='?'}"/>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Timestamps -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
+            <TextBlock FontSize="10" Foreground="Gray">
+                <Run Text="Created: "/>
+                <Run Text="{Binding CreatedAt, StringFormat='{}{0:g}'}"/>
+            </TextBlock>
+        </Border>
+    </StackPanel>
+</UserControl>

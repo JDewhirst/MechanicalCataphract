@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="350"
+             x:Class="GUI.Views.HexDetail"
+             x:DataType="vm:MapHexViewModel">
+
+    <StackPanel Spacing="8" Margin="5">
+        <!-- Coordinates (read-only) -->
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="Coordinates:" FontWeight="Bold" FontSize="12"/>
+            <TextBlock FontSize="12">
+                <Run Text="Q: "/>
+                <Run Text="{Binding Q}"/>
+                <Run Text="  R: "/>
+                <Run Text="{Binding R}"/>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Terrain (read-only - changed via map editor) -->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Terrain:" FontWeight="SemiBold" FontSize="11"/>
+            <TextBlock Text="{Binding TerrainType.Name, FallbackValue='Unknown'}" FontSize="11"/>
+        </StackPanel>
+
+        <!-- Location Name -->
+        <StackPanel>
+            <TextBlock Text="Location Name" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding LocationName, Mode=TwoWay}"
+                     Watermark="(unnamed)"/>
+        </StackPanel>
+
+        <!-- Location Type (read-only) -->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Location Type:" FontWeight="SemiBold" FontSize="11"/>
+            <TextBlock Text="{Binding LocationType.Name, FallbackValue='(None)'}" FontSize="11"/>
+        </StackPanel>
+
+        <!-- Two-column grid for stats -->
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="10">
+            <!-- Row 0: Population / Times Foraged -->
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Text="Population" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding PopulationDensity, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1">
+                <TextBlock Text="Times Foraged" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding TimesForaged, Mode=TwoWay}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Faction Control selection -->
+         <StackPanel Margin="0,5,0,0">
+             <TextBlock Text="Faction" FontWeight="SemiBold" FontSize="11"/>
+             <ComboBox ItemsSource="{Binding AvailableFactions}"
+                       SelectedItem="{Binding ControllingFaction, Mode=TwoWay}"
+                       HorizontalAlignment="Stretch">
+                 <ComboBox.ItemTemplate>
+                     <DataTemplate x:DataType="entities:Faction">
+                         <TextBlock Text="{Binding Name}"/>
+                     </DataTemplate>
+                 </ComboBox.ItemTemplate>
+             </ComboBox>
+         </StackPanel>
+
+        <!-- Weather (read-only) -->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Weather:" FontWeight="SemiBold" FontSize="11"/>
+            <TextBlock Text="{Binding Entity.Weather.Name, FallbackValue='(None)'}" FontSize="11"/>
+        </StackPanel>
+
+        <!-- Roads/Rivers info -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
+            <StackPanel Spacing="3">
+                <TextBlock FontSize="11" Foreground="Gray">
+                    <Run Text="Roads: "/>
+                    <Run Text="{Binding Entity.RoadDirections, FallbackValue='(none)'}"/>
+                </TextBlock>
+                <TextBlock FontSize="11" Foreground="Gray">
+                    <Run Text="Rivers: "/>
+                    <Run Text="{Binding Entity.RiverEdges, FallbackValue='(none)'}"/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+
+        <!-- Related entities section -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
+            <StackPanel Spacing="3">
+                <TextBlock Text="At this location:" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock FontSize="11" Foreground="Gray">
+                    <Run Text="Armies: "/>
+                    <Run Text="{Binding Entity.Armies.Count, FallbackValue=0}"/>
+                </TextBlock>
+                <TextBlock FontSize="11" Foreground="Gray">
+                    <Run Text="Commanders: "/>
+                    <Run Text="{Binding Entity.Commanders.Count, FallbackValue=0}"/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

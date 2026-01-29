@@ -84,6 +84,19 @@ public class ArmyService : IArmyService
             .FirstOrDefaultAsync(a => a.Id == armyId);
     }
 
+    public async Task TransferBrigadeAsync(int brigadeId, int targetArmyId)
+    {
+        var brigade = await _context.Brigades.FindAsync(brigadeId);
+        if (brigade == null) return;
+
+        var targetArmy = await _context.Armies.FindAsync(targetArmyId);
+        if (targetArmy == null) return;
+
+        brigade.ArmyId = targetArmyId;
+        brigade.FactionId = targetArmy.FactionId;  // Brigade inherits target army's faction
+        await _context.SaveChangesAsync();
+    }
+
     public async Task MoveArmyAsync(int armyId, Hex destination)
     {
         var army = await _context.Armies.FindAsync(armyId);
@@ -109,5 +122,28 @@ public class ArmyService : IArmyService
             .ToListAsync();
 
         return brigades.Count > 0 ? brigades.Max(b => b.ScoutingRange) : 0;
+    }
+
+    public async Task<Brigade> AddBrigadeAsync(Brigade brigade)
+    {
+        _context.Brigades.Add(brigade);
+        await _context.SaveChangesAsync();
+        return brigade;
+    }
+
+    public async Task UpdateBrigadeAsync(Brigade brigade)
+    {
+        _context.Brigades.Update(brigade);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteBrigadeAsync(int brigadeId)
+    {
+        var brigade = await _context.Brigades.FindAsync(brigadeId);
+        if (brigade != null)
+        {
+            _context.Brigades.Remove(brigade);
+            await _context.SaveChangesAsync();
+        }
     }
 }

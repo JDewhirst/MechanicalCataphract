@@ -15,6 +15,19 @@ public partial class App : Application
 {
     public static IServiceProvider? Services { get; private set; }
 
+    /// <summary>
+    /// Reference to the main window, used for showing dialogs.
+    /// </summary>
+    public static MainWindow? MainWindow { get; private set; }
+
+    /// <summary>
+    /// Gets a service from the DI container.
+    /// </summary>
+    public static T GetService<T>() where T : class
+    {
+        return Services?.GetRequiredService<T>() ?? throw new InvalidOperationException($"Service {typeof(T).Name} not found");
+    }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -52,6 +65,7 @@ public partial class App : Application
         {
             var mainWindowViewModel = Services.GetRequiredService<MainWindowViewModel>();
             var mainWindow = new MainWindow(mainWindowViewModel);
+            MainWindow = mainWindow;
             desktop.MainWindow = mainWindow;
         }
 
@@ -70,6 +84,8 @@ public partial class App : Application
         services.AddScoped<IArmyService, ArmyService>();
         services.AddScoped<ICommanderService, CommanderService>();
         services.AddScoped<IGameStateService, GameStateService>();
+        services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IMessageService, MessageService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

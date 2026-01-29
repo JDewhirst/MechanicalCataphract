@@ -29,7 +29,7 @@ public interface IMapService
     Task<IList<MapHex>> GetHexesControlledByFactionAsync(int factionId);
 
     // Forage tracking
-    Task IncrementForageCountAsync(Hex hex);
+    Task<int> ForageHexesAsync(IEnumerable<Hex> hexes);
     Task ResetForageCountsAsync();
 
     // Weather
@@ -44,4 +44,7 @@ public interface IMapService
     Task<IList<LocationType>> GetLocationTypesAsync();
     Task SetLocationAsync(Hex hex, int? locationTypeId, string? locationName, int? locationFactionId = null);
     Task ClearLocationAsync(Hex hex);
+
+    // General hex update
+    Task UpdateHexAsync(MapHex hex);
 }

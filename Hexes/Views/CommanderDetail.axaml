@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="300"
+             x:Class="GUI.Views.CommanderDetail"
+             x:DataType="vm:CommanderViewModel">
+
+    <StackPanel Spacing="8" Margin="5">
+        <!-- Name -->
+        <StackPanel>
+            <TextBlock Text="Name" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Name, Mode=TwoWay}"
+                     Watermark="Commander name"/>
+        </StackPanel>
+
+        <!-- Age -->
+        <StackPanel>
+            <TextBlock Text="Age" FontWeight="SemiBold" FontSize="11"/>
+            <NumericUpDown Value="{Binding Age, Mode=TwoWay}"
+                           Minimum="16" Maximum="100" Increment="1"/>
+        </StackPanel>
+
+        <!-- Discord Handle -->
+        <StackPanel>
+            <TextBlock Text="Discord Handle" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding DiscordHandle, Mode=TwoWay}"
+                     Watermark="@username"/>
+        </StackPanel>
+
+        <!-- Location (read-only) -->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Location:" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox FontSize="11"
+                Text="{Binding LocationQ, Mode=TwoWay, TargetNullValue='?'}">   
+            </TextBox>
+            <TextBox
+                Text="{Binding LocationR, Mode=TwoWay, TargetNullValue='?'}">
+            </TextBox>
+        </StackPanel>
+
+        <!-- Faction (read-only) -->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Faction:" FontWeight="SemiBold" FontSize="11"/>
+            <TextBlock Text="{Binding Faction.Name, FallbackValue='(None)'}" FontSize="11"/>
+        </StackPanel>
+
+        <!-- Stats (read-only) -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
+            <StackPanel Spacing="3">
+                <TextBlock FontSize="11" Foreground="Gray">
+                    <Run Text="Commands "/>
+                    <Run Text="{Binding Entity.CommandedArmies.Count, FallbackValue=0}"/>
+                    <Run Text=" armies"/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

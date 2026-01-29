@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -5,6 +6,8 @@ using System.Threading.Tasks;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels.EntityViewModels;
+using GUI.Windows;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
@@ -14,6 +17,16 @@ namespace GUI.ViewModels;
 public partial class HexMapViewModel : ObservableObject
 {
     private readonly IMapService _mapService;
+    private readonly IFactionService _factionService;
+    private readonly IArmyService _armyService;
+    private readonly ICommanderService _commanderService;
+    private readonly IOrderService _orderService;
+    private readonly IMessageService _messageService;
+    private readonly IGameStateService _gameStateService;
+
+    // Database-backed gamestate data
+    [ObservableProperty]
+    private DateTime _gameTime = new();
 
     // Database-backed hex data
     [ObservableProperty]
@@ -43,6 +56,17 @@ public partial class HexMapViewModel : ObservableObject
 
     [ObservableProperty]
     private string _selectedOverlay = "None";
+
+    // Properties for forage mode
+    [ObservableProperty] 
+    private bool _isForageModeActive;
+
+    [ObservableProperty] 
+    private Army? _forageTargetArmy;
+
+    [ObservableProperty] 
+    private ObservableCollection<Hex> _forageSelectedHexes = new();
+    public int ForageSelectedCount => ForageSelectedHexes.Count;
 
     // Map dimensions
     private int _mapRows;
@@ -74,9 +98,63 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private Hex? _riverStartHex;
 
-    public HexMapViewModel(IMapService mapService)
+    // Entity collections for admin panels
+    [ObservableProperty]
+    private ObservableCollection<Faction> _factions = new();
+
+    [ObservableProperty]
+    private ObservableCollection<Army> _armies = new();
+
+    [ObservableProperty]
+    private ObservableCollection<Commander> _commanders = new();
+
+    [ObservableProperty]
+    private ObservableCollection<Order> _orders = new();
+
+    [ObservableProperty]
+    private ObservableCollection<Message> _messages = new();
+
+    // Selected entities for highlighting and left panel display
+    [ObservableProperty]
+    private object? _selectedEntity;
+
+    /// <summary>
+    /// The ViewModel for the currently selected entity, used by the left panel.
+    /// </summary>
+    [ObservableProperty]
+    private IEntityViewModel? _selectedEntityViewModel;
+
+    [ObservableProperty]
+    private Faction? _selectedFaction;
+
+    [ObservableProperty]
+    private Army? _selectedArmy;
+
+    [ObservableProperty]
+    private Commander? _selectedCommander;
+
+    [ObservableProperty]
+    private Order? _selectedOrder;
+
+    [ObservableProperty]
+    private Message? _selectedMessage;
+
+    public HexMapViewModel(
+        IMapService mapService,
+        IFactionService factionService,
+        IArmyService armyService,
+        ICommanderService commanderService,
+        IOrderService orderService,
+        IMessageService messageService,
+        IGameStateService gameStateService)
     {
         _mapService = mapService;
+        _factionService = factionService;
+        _armyService = armyService;
+        _commanderService = commanderService;
+        _orderService = orderService;
+        _messageService = messageService;
+        _gameStateService = gameStateService;
     }
 
     [RelayCommand]
@@ -110,7 +188,64 @@ public partial class HexMapViewModel : ObservableObject
         // Load all hexes (for small maps; for large maps would use viewport-based loading)
         await LoadVisibleHexesAsync();
 
-        StatusMessage = $"Loaded {VisibleHexes.Count} hexes, {TerrainTypes.Count} terrain types";
+        // Load all entities for admin panels
+        await LoadAllEntitiesAsync();
+
+        StatusMessage = $"Loaded {VisibleHexes.Count} hexes, {Factions.Count} factions, {Armies.Count} armies";
+    }
+
+    private async Task LoadAllEntitiesAsync()
+    {
+        var factions = await _factionService.GetAllAsync();
+        Factions = new ObservableCollection<Faction>(factions);
+
+        var armies = await _armyService.GetAllAsync();
+        Armies = new ObservableCollection<Army>(armies);
+
+        var commanders = await _commanderService.GetAllAsync();
+        Commanders = new ObservableCollection<Commander>(commanders);
+
+        var orders = await _orderService.GetAllAsync();
+        Orders = new ObservableCollection<Order>(orders);
+
+        var messages = await _messageService.GetAllAsync();
+        Messages = new ObservableCollection<Message>(messages);
+
+        var gameState = await _gameStateService.GetGameStateAsync();
+        GameTime = gameState.CurrentGameTime;
+    }
+
+    /// <summary>
+    /// Reloads a specific entity collection from the database.
+    /// </summary>
+    public async Task RefreshFactionsAsync()
+    {
+        var factions = await _factionService.GetAllAsync();
+        Factions = new ObservableCollection<Faction>(factions);
+    }
+
+    public async Task RefreshArmiesAsync()
+    {
+        var armies = await _armyService.GetAllAsync();
+        Armies = new ObservableCollection<Army>(armies);
+    }
+
+    public async Task RefreshCommandersAsync()
+    {
+        var commanders = await _commanderService.GetAllAsync();
+        Commanders = new ObservableCollection<Commander>(commanders);
+    }
+
+    public async Task RefreshOrdersAsync()
+    {
+        var orders = await _orderService.GetAllAsync();
+        Orders = new ObservableCollection<Order>(orders);
+    }
+
+    public async Task RefreshMessagesAsync()
+    {
+        var messages = await _messageService.GetAllAsync();
+        Messages = new ObservableCollection<Message>(messages);
     }
 
     private async Task LoadVisibleHexesAsync()
@@ -145,6 +280,28 @@ public partial class HexMapViewModel : ObservableObject
             StatusMessage = string.Empty;
             SelectedMapHex = null;
         }
+    }
+
+    [RelayCommand]
+    async Task AdvanceTimeAsync()
+    {
+        var previousGameTime = GameTime;
+        await _gameStateService.AdvanceGameTimeAsync(TimeSpan.FromHours(1));
+        var gameState = await _gameStateService.GetGameStateAsync();
+        GameTime = gameState.CurrentGameTime;
+
+        // All armies eat their daily supplies.
+        if (GameTime.Hour > gameState.SupplyUsageTime.Hours && previousGameTime.Hour < gameState.SupplyUsageTime.Hours)
+        {
+            var supplyEatValue = 0;
+            foreach (Army a in Armies)
+            {
+                var army = await _armyService.GetArmyWithBrigadesAsync(a.Id);
+                supplyEatValue = army.Supp
+                a.CarriedSupply -= 
+            }
+        }
+
     }
 
     [RelayCommand]
@@ -423,4 +580,415 @@ public partial class HexMapViewModel : ObservableObject
             StatusMessage = $"Tool: Location Paint - {value.Name}";
         }
     }
+
+    // Selection clearing - when one entity type is selected, clear others
+    partial void OnSelectedFactionChanged(Faction? value)
+    {
+        if (value != null)
+        {
+            SelectedArmy = null;
+            SelectedCommander = null;
+            SelectedOrder = null;
+            SelectedMessage = null;
+            SelectedHex = null;
+            SelectedMapHex = null;
+            SelectedEntityViewModel = new FactionViewModel(value, _factionService);
+            StatusMessage = $"Selected faction: {value.Name}";
+            _ = LoadFactionWithDetailsAsync(value.Id);
+        }
+    }
+
+    partial void OnSelectedArmyChanged(Army? value)
+    {
+        if (value != null)
+        {
+            SelectedFaction = null;
+            SelectedCommander = null;
+            SelectedOrder = null;
+            SelectedMessage = null;
+            SelectedHex = null;
+            SelectedMapHex = null;
+
+            // Load army with brigades - the Armies collection doesn't include them
+            _ = LoadArmyWithDetails(value.Id);
+
+            StatusMessage = $"Selected army: {value.Name}";
+        }
+    }
+
+    private async Task LoadFactionWithDetailsAsync(int factionId)
+    {
+        var factionWithDetails = await
+    _factionService.GetFactionWithArmiesAndCommandersAsync(factionId);
+        if (factionWithDetails != null)
+        {
+            var factionVm = new FactionViewModel(factionWithDetails, _factionService);
+
+            // Wire up navigation events
+            factionVm.ArmySelected += army => SelectedArmy = army;
+            factionVm.CommanderSelected += commander => SelectedCommander = commander;
+
+            SelectedEntityViewModel = factionVm;
+            StatusMessage = $"Selected faction: {factionWithDetails.Name}";
+        }
+    }
+
+    private async Task LoadArmyWithDetails(int armyId)
+    {
+        var armyWithDetails = await _armyService.GetArmyWithBrigadesAsync(armyId);
+        if (armyWithDetails != null)
+        {
+            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions);
+            armyVm.TransferRequested += OnBrigadeTransferRequested;
+            SelectedEntityViewModel = armyVm;
+        }
+    }
+
+    /// <summary>
+    /// Handles brigade transfer request by showing army picker dialog.
+    /// </summary>
+    private async Task<Army?> OnBrigadeTransferRequested(Brigade brigade)
+    {
+        if (App.MainWindow == null) return null;
+
+        // Get all armies except the current one
+        var otherArmies = Armies.Where(a => a.Id != SelectedArmy?.Id).ToList();
+
+        if (otherArmies.Count == 0)
+        {
+            StatusMessage = "No other armies to transfer to";
+            return null;
+        }
+
+        var dialog = new TransferBrigadeDialog(otherArmies, SelectedArmy?.Id ?? 0, brigade.Name);
+        var result = await dialog.ShowDialog<Army?>(App.MainWindow);
+
+        if (result != null)
+        {
+            StatusMessage = $"Transferred {brigade.Name} to {result.Name}";
+        }
+
+        return result;
+    }
+
+    partial void OnSelectedCommanderChanged(Commander? value)
+    {
+        if (value != null)
+        {
+            SelectedFaction = null;
+            SelectedArmy = null;
+            SelectedOrder = null;
+            SelectedMessage = null;
+            SelectedHex = null;
+            SelectedMapHex = null;
+            SelectedEntityViewModel = new CommanderViewModel(value, _commanderService);
+            StatusMessage = $"Selected commander: {value.Name}";
+        }
+    }
+
+    partial void OnSelectedOrderChanged(Order? value)
+    {
+        if (value != null)
+        {
+            SelectedFaction = null;
+            SelectedArmy = null;
+            SelectedCommander = null;
+            SelectedMessage = null;
+            SelectedHex = null;
+            SelectedMapHex = null;
+            SelectedEntityViewModel = new OrderViewModel(value, _orderService);
+            StatusMessage = $"Selected order from {value.Commander?.Name ?? "?"}";
+        }
+    }
+
+    partial void OnSelectedMessageChanged(Message? value)
+    {
+        if (value != null)
+        {
+            SelectedFaction = null;
+            SelectedArmy = null;
+            SelectedCommander = null;
+            SelectedOrder = null;
+            SelectedHex = null;
+            SelectedMapHex = null;
+            SelectedEntityViewModel = new MessageViewModel(value, _messageService, Commanders);
+            StatusMessage = $"Selected message: {value.SenderCommander?.Name ?? "?"} → {value.TargetCommander?.Name ?? "?"}";
+        }
+    }
+
+    partial void OnSelectedMapHexChanged(MapHex? value)
+    {
+        if (value != null)
+        {
+            SelectedFaction = null;
+            SelectedArmy = null;
+            SelectedCommander = null;
+            SelectedOrder = null;
+            SelectedMessage = null;
+            SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions); 
+            StatusMessage = $"Selected Hex: {value.LocationName}";
+            _ = LoadHexWithDetailsAsync(value.Q, value.R);
+        }
+    }
+
+    private async Task LoadHexWithDetailsAsync(int Q, int R)
+    {
+        var hexWithDetails = await _mapService.GetHexAsync(Q,R);
+        if (hexWithDetails != null)
+        {
+            var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions);
+
+            SelectedEntityViewModel = hexVm;
+            StatusMessage = $"Selected hex: {hexWithDetails.Q}, {hexWithDetails.R}";
+        }
+    }
+
+    #region Entity CRUD Commands
+
+    [RelayCommand]
+    private async Task AddFactionAsync()
+    {
+        var faction = new Faction
+        {
+            Name = "New Faction",
+            ColorHex = "#808080",
+            IsPlayerFaction = true
+        };
+        await _factionService.CreateAsync(faction);
+        await RefreshFactionsAsync();
+        StatusMessage = $"Created faction: {faction.Name}";
+    }
+
+    [RelayCommand]
+    private async Task DeleteFactionAsync(Faction faction)
+    {
+        if (faction == null) return;
+        await _factionService.DeleteAsync(faction.Id);
+        await RefreshFactionsAsync();
+        StatusMessage = $"Deleted faction: {faction.Name}";
+    }
+
+    [RelayCommand]
+    private async Task AddArmyAsync()
+    {
+        // Get first faction as default, or create without faction
+        var defaultFaction = Factions.FirstOrDefault();
+        var army = new Army
+        {
+            Name = "New Army",
+            LocationQ = 0,
+            LocationR = 0,
+            FactionId = defaultFaction?.Id ?? 1,
+            Morale = 10,
+            Wagons = 0,
+            CarriedSupply = 0
+        };
+        await _armyService.CreateAsync(army);
+        await RefreshArmiesAsync();
+        StatusMessage = $"Created army: {army.Name}";
+    }
+
+    [RelayCommand]
+    private async Task DeleteArmyAsync(Army army)
+    {
+        if (army == null) return;
+        await _armyService.DeleteAsync(army.Id);
+        await RefreshArmiesAsync();
+        StatusMessage = $"Deleted army: {army.Name}";
+    }
+
+    [RelayCommand]
+    private async Task AddCommanderAsync()
+    {
+        var defaultFaction = Factions.FirstOrDefault();
+        var commander = new Commander
+        {
+            Name = "New Commander",
+            FactionId = defaultFaction?.Id ?? 1,
+            Age = 30
+        };
+        await _commanderService.CreateAsync(commander);
+        await RefreshCommandersAsync();
+        StatusMessage = $"Created commander: {commander.Name}";
+    }
+
+    [RelayCommand]
+    private async Task DeleteCommanderAsync(Commander commander)
+    {
+        if (commander == null) return;
+        await _commanderService.DeleteAsync(commander.Id);
+        await RefreshCommandersAsync();
+        StatusMessage = $"Deleted commander: {commander.Name}";
+    }
+
+    [RelayCommand]
+    private async Task AddBrigadeToArmyAsync(Army army)
+    {
+        if (army == null) return;
+
+        var brigade = new Brigade
+        {
+            Name = "New Brigade",
+            ArmyId = army.Id,
+            FactionId = army.FactionId,
+            UnitType = UnitType.Infantry,
+            Number = 1000,
+            ScoutingRange = 1
+        };
+
+        // Need a brigade service - for now use DbContext directly via army service
+        // This is a temporary workaround until we add IBrigadeService
+        var armyWithBrigades = await _armyService.GetArmyWithBrigadesAsync(army.Id);
+        if (armyWithBrigades != null)
+        {
+            armyWithBrigades.Brigades.Add(brigade);
+            await _armyService.UpdateAsync(armyWithBrigades);
+            await RefreshArmiesAsync();
+            StatusMessage = $"Added brigade to {army.Name}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task AddOrderAsync()
+    {
+        var defaultCommander = Commanders.FirstOrDefault();
+        if (defaultCommander == null)
+        {
+            StatusMessage = "Create a commander first";
+            return;
+        }
+
+        var order = new Order
+        {
+            CommanderId = defaultCommander.Id,
+            Contents = "New order",
+            Processed = false,
+            CreatedAt = System.DateTime.UtcNow
+        };
+        await _orderService.CreateAsync(order);
+        await RefreshOrdersAsync();
+        StatusMessage = $"Created order for {defaultCommander.Name}";
+    }
+
+    [RelayCommand]
+    private async Task DeleteOrderAsync(Order order)
+    {
+        if (order == null) return;
+        await _orderService.DeleteAsync(order.Id);
+        await RefreshOrdersAsync();
+        StatusMessage = "Deleted order";
+    }
+
+    [RelayCommand]
+    private async Task AddMessageAsync()
+    {
+        var commanders = Commanders.ToList();
+        if (commanders.Count < 2)
+        {
+            StatusMessage = "Need at least 2 commanders for messages";
+            return;
+        }
+
+        var message = new Message
+        {
+            SenderCommanderId = commanders[0].Id,
+            SenderLocationQ = commanders[0].LocationQ ?? 0,
+            SenderLocationR = commanders[0].LocationR ?? 0,
+            TargetCommanderId = commanders[1].Id,
+            TargetLocationQ = commanders[1].LocationQ ?? 0,
+            TargetLocationR = commanders[1].LocationR ?? 0,
+            Content = "New message",
+            Delivered = false,
+            CreatedAt = System.DateTime.UtcNow
+        };
+        await _messageService.CreateAsync(message);
+        await RefreshMessagesAsync();
+        StatusMessage = $"Created message from {commanders[0].Name} to {commanders[1].Name}";
+    }
+
+    [RelayCommand]
+    private async Task DeleteMessageAsync(Message message)
+    {
+        if (message == null) return;
+        await _messageService.DeleteAsync(message.Id);
+        await RefreshMessagesAsync();
+        StatusMessage = "Deleted message";
+    }
+
+    #endregion
+
+    #region Automated Foraging Commands
+
+    [RelayCommand]
+    private void StartForageMode()
+    {
+        if (ForageTargetArmy == null)
+        {
+            StatusMessage = "Select an army first";
+            return;
+        }
+        ForageSelectedHexes.Clear();
+        IsForageModeActive = true;
+        CurrentTool = "ForageSelect";
+        StatusMessage = $"Forage Mode: Click hexes to select for {ForageTargetArmy.Name}";
+    }
+
+    [RelayCommand]
+    private void CancelForageMode()
+    {
+        ForageSelectedHexes.Clear();
+        IsForageModeActive = false;
+        CurrentTool = "Pan";
+        StatusMessage = "Forage cancelled";
+    }
+
+    public void ToggleForageHexSelection(Hex hex)
+    {
+        if (ForageSelectedHexes.Contains(hex))
+            ForageSelectedHexes.Remove(hex);
+        else
+            ForageSelectedHexes.Add(hex);
+
+        OnPropertyChanged(nameof(ForageSelectedCount));
+        StatusMessage = $"Forage Mode: {ForageSelectedHexes.Count} hex(es) selected";
+    }
+
+    [RelayCommand]
+    private async Task ConfirmForageAsync()
+    {
+        if (ForageTargetArmy == null || ForageSelectedHexes.Count == 0)
+        {
+            StatusMessage = "No hexes selected";
+            return;
+        }
+
+        // Calculate supply and update hexes
+        var supplyGained = await _mapService.ForageHexesAsync(ForageSelectedHexes);
+
+        // Update army's carried supply
+        ForageTargetArmy.CarriedSupply += supplyGained;
+        await _armyService.UpdateAsync(ForageTargetArmy);
+
+        var armyName = ForageTargetArmy.Name;
+        var hexCount = ForageSelectedHexes.Count;
+
+        // Exit forage mode
+        ForageSelectedHexes.Clear();
+        IsForageModeActive = false;
+        CurrentTool = "Pan";
+
+        // Refresh if this army is currently selected
+        if (SelectedEntityViewModel is ArmyViewModel armyVm && armyVm.Id ==
+        ForageTargetArmy.Id)
+        {
+            await LoadArmyWithDetails(ForageTargetArmy.Id);
+        }
+
+        // Refresh visible hexes to show updated TimesForaged
+        await LoadVisibleHexesAsync();
+
+        StatusMessage = $"Foraged {hexCount} hexes for {armyName}, gained {supplyGained} supply";
+    }
+
+    #endregion
 }

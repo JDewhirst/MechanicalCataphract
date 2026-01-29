@@ -1,0 +1,102 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
+             x:Class="GUI.Views.FactionDetail"
+             x:DataType="vm:FactionViewModel">
+
+    <StackPanel Spacing="8" Margin="5">
+        <!-- Name -->
+        <StackPanel>
+            <TextBlock Text="Name" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Name, Mode=TwoWay}"
+                     Watermark="Faction name"/>
+        </StackPanel>
+
+        <!-- Color with preview -->
+        <StackPanel>
+            <TextBlock Text="Color" FontWeight="SemiBold" FontSize="11"/>
+            <Grid ColumnDefinitions="*,30">
+                <TextBox Grid.Column="0"
+                         Text="{Binding ColorHex, Mode=TwoWay}"
+                         Watermark="#RRGGBB"/>
+                <Border Grid.Column="1"
+                        Width="24" Height="24"
+                        CornerRadius="3"
+                        Margin="5,0,0,0"
+                        BorderBrush="Gray"
+                        BorderThickness="1">
+                    <Border.Background>
+                        <SolidColorBrush Color="{Binding ColorHex, FallbackValue=#808080}"/>
+                    </Border.Background>
+                </Border>
+            </Grid>
+        </StackPanel>
+
+        <!-- IsPlayerFaction -->
+        <CheckBox Content="Player Faction"
+                  IsChecked="{Binding IsPlayerFaction, Mode=TwoWay}"/>
+
+        <!-- Rules (multiline) -->
+        <StackPanel>
+            <TextBlock Text="Rules" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Rules, Mode=TwoWay}"
+                     Watermark="Special rules for this faction..."
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     MinHeight="60"
+                     MaxHeight="120"/>
+        </StackPanel>
+
+         <!-- Armies section -->
+         <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,8,0,0">
+             <StackPanel Spacing="5">
+                 <TextBlock Text="Armies" FontWeight="Bold" FontSize="12"/>
+
+                 <ItemsControl ItemsSource="{Binding Armies}">
+                     <ItemsControl.ItemTemplate>
+                         <DataTemplate x:DataType="entities:Army">
+                             <Button Classes="link"
+                                     Content="{Binding Name}"
+                                     Command="{Binding
+         $parent[UserControl].((vm:FactionViewModel)DataContext).SelectArmyCommand}"
+                                     CommandParameter="{Binding}"
+                                     Padding="2" Margin="0,1"/>
+                         </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                 </ItemsControl>
+
+                 <TextBlock Text="(No armies)"
+                            IsVisible="{Binding !Armies.Count}"
+                            Foreground="Gray" FontStyle="Italic" FontSize="11"/>
+             </StackPanel>
+         </Border>
+
+         <!-- Commanders section -->
+         <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
+             <StackPanel Spacing="5">
+                 <TextBlock Text="Commanders" FontWeight="Bold" FontSize="12"/>
+
+                 <ItemsControl ItemsSource="{Binding Commanders}">
+                     <ItemsControl.ItemTemplate>
+                         <DataTemplate x:DataType="entities:Commander">
+                             <Button Classes="link"
+                                     Content="{Binding Name}"
+                                     Command="{Binding
+         $parent[UserControl].((vm:FactionViewModel)DataContext).SelectCommanderCommand}"
+                                     CommandParameter="{Binding}"
+                                     Padding="2" Margin="0,1"/>
+                         </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                 </ItemsControl>
+
+                 <TextBlock Text="(No commanders)"
+                            IsVisible="{Binding !Commanders.Count}"
+                            Foreground="Gray" FontStyle="Italic" FontSize="11"/>
+             </StackPanel>
+         </Border>
+    </StackPanel>
+</UserControl>

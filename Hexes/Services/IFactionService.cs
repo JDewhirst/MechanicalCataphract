@@ -5,7 +5,6 @@ namespace MechanicalCataphract.Services;
 
 public interface IFactionService : IEntityService<Faction>
 {
-    Task<Faction?> GetFactionWithArmiesAsync(int factionId);
-    Task<Faction?> GetFactionWithCommandersAsync(int factionId);
+    Task<Faction?> GetFactionWithArmiesAndCommandersAsync(int factionId);
     Task<Faction?> GetFactionByNameAsync(string name);
 }

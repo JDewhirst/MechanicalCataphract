@@ -172,14 +172,21 @@ public class MapService : IMapService
             .ToListAsync();
     }
 
-    public async Task IncrementForageCountAsync(Hex hex)
+    public async Task<int> ForageHexesAsync(IEnumerable<Hex> hexes)
     {
-        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
-        if (mapHex != null)
+        int totalSupply = 0;
+        var hexList = hexes.ToList();
+
+        foreach (var hex in hexList)
         {
+            var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
+
+            totalSupply += mapHex.PopulationDensity * 500;
             mapHex.TimesForaged++;
-            await _context.SaveChangesAsync();
         }
+
+        await _context.SaveChangesAsync();
+        return totalSupply;
     }
 
     public async Task ResetForageCountsAsync()
@@ -250,5 +257,11 @@ public class MapService : IMapService
             mapHex.LocationFactionId = null;
             await _context.SaveChangesAsync();
         }
+    }
+
+    public async Task UpdateHexAsync(MapHex hex)
+    {
+        _context.MapHexes.Update(hex);
+        await _context.SaveChangesAsync();
     }
 }

@@ -1,0 +1,173 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             xmlns:infrastructure="using:Microsoft.EntityFrameworkCore.Infrastructure"
+             xmlns:views="using:GUI.Views"
+             mc:Ignorable="d" 
+             x:Class="GUI.Views.ArmyDetail"
+             x:DataType="vm:ArmyViewModel">
+
+    <StackPanel>
+        <!-- Name -->
+        <StackPanel>
+            <TextBlock Text="Name" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Name, Mode=TwoWay}"
+                     Watermark="Army name"/>
+        </StackPanel>
+        <!-- Commander selection -->
+         <StackPanel Margin="0,5,0,0">
+             <TextBlock Text="Commander" FontWeight="SemiBold" FontSize="11"/>
+             <ComboBox ItemsSource="{Binding AvailableCommanders}"
+                       SelectedItem="{Binding Commander, Mode=TwoWay}"
+                       HorizontalAlignment="Stretch">
+                 <ComboBox.ItemTemplate>
+                     <DataTemplate x:DataType="entities:Commander">
+                         <TextBlock Text="{Binding Name}"/>
+                     </DataTemplate>
+                 </ComboBox.ItemTemplate>
+             </ComboBox>
+         </StackPanel>
+
+         <!-- Faction selection-->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Faction:" FontWeight="SemiBold" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding AvailableFactions}"
+                      SelectedItem="{Binding Faction, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+					<DataTemplate x:DataType="entities:Faction">
+						<TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
+        <!-- Location -->
+        <StackPanel Orientation="Horizontal" Spacing="5">
+            <TextBlock Text="Location:" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding LocationQ, Mode=TwoWay}"/>
+            <TextBox Text="{Binding LocationR, Mode=TwoWay}"/>
+        </StackPanel>
+
+       <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+           <TextBlock Text="Combat Strength:" FontWeight="SemiBold" FontSize="11"/>
+           <TextBlock Text="{Binding CombatStrength}" FontSize="11"/>
+       </StackPanel>
+
+        <!-- Two-column grid for stats -->
+        <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="10">
+            <!-- Row 0: Morale / Wagons -->
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Text="Morale" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding Morale, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1">
+                <TextBlock Text="Wagons" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding Wagons, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <!-- Row 1: Supply / Loot -->
+            <StackPanel Grid.Row="1" Grid.Column="0">
+                <TextBlock Text="Supply" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding CarriedSupply, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1">
+                <TextBlock Text="Loot" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding CarriedLoot, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <!-- Row 2: Coins / Non-Combatants -->
+            <StackPanel Grid.Row="2" Grid.Column="0">
+                <TextBlock Text="Coins" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding CarriedCoins, Mode=TwoWay}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="1">
+                <TextBlock Text="Non-Combatants" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding NonCombatants, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <!-- Row ?: Current Non-Combatant % / Base Non-Combatant % -->
+			<StackPanel Grid.Row="3" Grid.Column="0">
+                <TextBlock Text="Current Non-Combatant %" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding NonCombatantsPercentage}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="3" Grid.Column="1">
+                <TextBlock Text="Base Non-Combatant %" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding BaseNoncombatantsPercentage, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <!-- Row ?: Daily Supply Consumption/Days of Supply -->
+            <StackPanel Grid.Row="4" Grid.Column="0">
+				<TextBlock Text="Daily Supply Consumption" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding DailySupplyConsumption}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="4" Grid.Column="1">
+				<TextBlock Text="Days of Supply" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding DaysOfSupply}"/>
+            </StackPanel>
+
+            <!-- Row ?: Current Carry/ Max Carry -->
+            <StackPanel Grid.Row="5" Grid.Column="0">
+				<TextBlock Text="Current Carry" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding CurrentTotalCarry}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="5" Grid.Column="1">
+				<TextBlock Text="Max Carry" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding MaxCarry}"/>
+            </StackPanel>
+
+            <!-- Increment/Decrement Supply by DailySupplyConsumption -->
+            <Button Grid.Row="6" Grid.Column="0"
+                    Content="Eat Supply" FontSize="11" Padding="8,2"
+                    Command="{Binding EatSuppliesCommand}"/>
+            <Button Grid.Row="6" Grid.Column="1"
+                    Content="Undo Eat Supply" FontSize="11" Padding="8,2"
+                    Command="{Binding UndoEatSuppliesCommand}"/>
+
+            <!-- Apply Casualites Button -->
+            <Button Grid.Row="7" Grid.Column="0"
+                    Content="Apply Casualties" FontSize="11" Padding="8,2"
+                    Command="{Binding ApplyCasualtiesCommand}"/>
+            <StackPanel Grid.Row="7" Grid.Column="1">
+				<TextBlock Text="Casualty %" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding CasualtyPercentage, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <!-- Row ?: Checkboxes -->
+            <CheckBox Grid.Row="8" Grid.Column="0"
+                      Content="Garrison"
+                      IsChecked="{Binding IsGarrison, Mode=TwoWay}"/>
+            <CheckBox Grid.Row="8" Grid.Column="1"
+                      Content="Resting"
+                      IsChecked="{Binding IsResting, Mode=TwoWay}"/>
+
+            
+        </Grid>
+
+        <!-- Brigades section -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,8,0,0">
+            <StackPanel Spacing="5">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="Brigades" FontWeight="Bold" FontSize="12"/>
+                    <Button Content="+ Add" FontSize="11" Padding="8,2"
+                            Command="{Binding AddBrigadeCommand}"/>
+                </StackPanel>
+
+                <!-- Brigades list -->
+                <ItemsControl ItemsSource="{Binding Brigades}" x:Name="BrigadesItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="entities:Brigade">
+                            <views:BrigadeDetail/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="(No brigades)"
+                           IsVisible="{Binding !Brigades.Count}"
+                           Foreground="Gray" FontStyle="Italic" FontSize="11"/>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

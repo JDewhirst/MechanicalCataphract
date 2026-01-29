@@ -5,6 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         xmlns:local="clr-namespace:GUI"
+        xmlns:views="clr-namespace:GUI.Views"
+        xmlns:entityVm="using:GUI.ViewModels.EntityViewModels"
         x:Class="GUI.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="MechanicalCataphract - Wargame Manager">
@@ -13,9 +15,31 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="200,*,250">
+    <!-- Implicit DataTemplates for SelectedEntityViewModel in left panel -->
+    <Window.DataTemplates>
+        <DataTemplate DataType="entityVm:FactionViewModel">
+            <views:FactionDetail/>
+        </DataTemplate>
+        <DataTemplate DataType="entityVm:ArmyViewModel">
+            <views:ArmyDetail/>
+        </DataTemplate>
+        <DataTemplate DataType="entityVm:CommanderViewModel">
+            <views:CommanderDetail/>
+        </DataTemplate>
+        <DataTemplate DataType="entityVm:OrderViewModel">
+            <views:OrderDetail/>
+        </DataTemplate>
+        <DataTemplate DataType="entityVm:MessageViewModel">
+            <views:MessageDetail/>
+        </DataTemplate>
+        <DataTemplate DataType="entityVm:MapHexViewModel">
+            <views:HexDetail/>
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="200,Auto,*,Auto,250">
         <!-- Row 0: Top Bar spanning all columns -->
-        <Border Grid.Row="0" Grid.ColumnSpan="3"
+        <Border Grid.Row="0" Grid.ColumnSpan="5"
                 BorderBrush="Gray" BorderThickness="0,0,0,1"
                 Padding="5">
             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -28,21 +52,6 @@
                         Command="{Binding ZoomInCommand}"/>
                 <Button Content="Zoom -"
                         Command="{Binding ZoomOutCommand}"/>
-
-                <Separator/>
-
-                <ToggleButton Content="Pan"
-                              Command="{Binding HexMapViewModel.PanToolCommand}"
-                              IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                          Converter={StaticResource EqualityConverter},
-                                          ConverterParameter=Pan,
-                                          Mode=OneWay}"/>
-                <ToggleButton Content="Select"
-                              Command="{Binding HexMapViewModel.SelectToolCommand}"
-                              IsChecked="{Binding HexMapViewModel.CurrentTool,
-                                          Converter={StaticResource EqualityConverter},
-                                          ConverterParameter=Select,
-                                          Mode=OneWay}"/>
 
                 <Separator/>
 
@@ -59,57 +68,82 @@
                            VerticalAlignment="Center"
                            MaxWidth="300"
                            TextTrimming="CharacterEllipsis"/>
+
+                <Separator/>
+                <!-- Forage Controls Panel -->
+                <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
+                    Margin="0,10,0,0">
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Forage" FontWeight="Bold" FontSize="12"/>
+                        <!-- Army selection dropdown -->
+                        <ComboBox ItemsSource="{Binding HexMapViewModel.Armies}"
+                                  SelectedItem="{Binding HexMapViewModel.ForageTargetArmy}"
+                                  IsEnabled="{Binding !HexMapViewModel.IsForageModeActive}"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <!-- Start button (shown when not in forage mode) -->
+                        <Button Content="Start Forage Selection"
+                                Command="{Binding HexMapViewModel.StartForageModeCommand}"
+                                IsVisible="{Binding !HexMapViewModel.IsForageModeActive}"
+                                HorizontalAlignment="Stretch"/>
+                        <!-- Confirm/Cancel (shown when in forage mode) -->
+                        <StackPanel Orientation="Horizontal" Spacing="5"
+                                    IsVisible="{Binding HexMapViewModel.IsForageModeActive}">
+                            <Button Content="Confirm"
+                                    Command="{Binding HexMapViewModel.ConfirmForageCommand}"
+                                    Background="Green" Foreground="White"/>
+                            <Button Content="Cancel"
+                                    Command="{Binding HexMapViewModel.CancelForageModeCommand}"/>
+                        </StackPanel>
+                        <!-- Selected count (shown when in forage mode) -->
+                        <TextBlock Text="{Binding HexMapViewModel.ForageSelectedCount, StringFormat='{}{0} hex(es) selected'}"
+                                   IsVisible="{Binding HexMapViewModel.IsForageModeActive}"
+                                   FontStyle="Italic"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Game Time Control -->
+                <TextBlock Text="Game Time:"/>
+                <TextBlock Text="{Binding HexMapViewModel.GameTime}"/>
+                <Button Content="Advance Time" FontSize="11" Padding="8,3"
+                        Command="{Binding HexMapViewModel.AdvanceTimeCommand}"/> 
             </StackPanel>
         </Border>
 
-        <!-- Row 1 Col 0: Left Panel - Selected Object Details -->
+        <!-- Row 1 Col 0: Left Panel - Selected Object Details (simplified with implicit DataTemplates) -->
         <Border Grid.Row="1" Grid.Column="0"
                 BorderBrush="Gray" BorderThickness="0,0,1,0">
             <ScrollViewer>
-                <StackPanel Spacing="10" Margin="10">
-                    <TextBlock Text="Selected Hex" FontWeight="Bold" FontSize="14"/>
+                <StackPanel Margin="8">
+                    <!-- Header showing the entity type name -->
+                    <TextBlock Text="{Binding HexMapViewModel.SelectedEntityViewModel.EntityTypeName, FallbackValue='Selected Object', TargetNullValue='Selected Object'}"
+                               FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
 
-                    <!-- Show when a hex is selected -->
-                    <StackPanel IsVisible="{Binding HexMapViewModel.SelectedMapHex, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="Coordinates:" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.Q, StringFormat='Q: {0}'}"/>
-                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.R, StringFormat='R: {0}'}"/>
-                        </StackPanel>
+                    <!-- Content is automatically templated based on SelectedEntityViewModel type -->
+                    <ContentControl Content="{Binding HexMapViewModel.SelectedEntityViewModel}"/>
 
-                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
-                            <TextBlock Text="Terrain:" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.TerrainType.Name}"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0"
-                                    IsVisible="{Binding HexMapViewModel.SelectedMapHex.LocationName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <TextBlock Text="Location:" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.LocationName}"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
-                            <TextBlock Text="Population:" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.PopulationDensity}"/>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
-                            <TextBlock Text="Times Foraged:" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding HexMapViewModel.SelectedMapHex.TimesForaged}"/>
-                        </StackPanel>
-                    </StackPanel>
-
-                    <!-- Show when no hex is selected -->
-                    <TextBlock Text="Click on a hex to see details"
-                               IsVisible="{Binding HexMapViewModel.SelectedMapHex, Converter={x:Static ObjectConverters.IsNull}}"
+                    <!-- Show when no object is selected -->
+                    <TextBlock Text="Select from map or right panel"
                                Foreground="Gray"
-                               FontStyle="Italic"/>
+                               FontStyle="Italic"
+                               IsVisible="{Binding HexMapViewModel.SelectedEntityViewModel, Converter={x:Static ObjectConverters.IsNull}}"/>
                 </StackPanel>
             </ScrollViewer>
         </Border>
 
-        <!-- Row 1 Col 1: Main Map Area -->
-        <local:HexMapView x:Name="HexMapView" Grid.Row="1" Grid.Column="1"
+        <!-- Row 1 Col 1: GridSplitter between left panel and map -->
+        <GridSplitter Grid.Row="1" Grid.Column="1"
+                      Width="5"
+                      Background="DarkGray"
+                      ResizeDirection="Columns"/>
+
+        <!-- Row 1 Col 2: Main Map Area -->
+        <local:HexMapView x:Name="HexMapView" Grid.Row="1" Grid.Column="2"
                           VisibleHexes="{Binding HexMapViewModel.VisibleHexes}"
                           TerrainTypes="{Binding HexMapViewModel.TerrainTypes}"
                           SelectedTerrainType="{Binding HexMapViewModel.SelectedTerrainType}"
@@ -117,34 +151,165 @@
                           PanOffset="{Binding HexMapViewModel.PanOffset}"
                           CurrentTool="{Binding HexMapViewModel.CurrentTool}"
                           SelectedHex="{Binding HexMapViewModel.SelectedHex}"
-                          SelectedOverlay="{Binding HexMapViewModel.SelectedOverlay}"/>
+                          SelectedOverlay="{Binding HexMapViewModel.SelectedOverlay}"
+                          Armies="{Binding HexMapViewModel.Armies}"
+                          Commanders="{Binding HexMapViewModel.Commanders}"
+                          SelectedArmy="{Binding HexMapViewModel.SelectedArmy}"
+                          SelectedCommander="{Binding HexMapViewModel.SelectedCommander}"
+                          ForageSelectedHexes="{Binding HexMapViewModel.ForageSelectedHexes}"/>
 
-        <!-- Row 1 Col 2: Right Panel - Admin Data -->
-        <Border Grid.Row="1" Grid.Column="2"
+        <!-- Row 1 Col 3: GridSplitter between map and right panel -->
+        <GridSplitter Grid.Row="1" Grid.Column="3"
+                      Width="5"
+                      Background="DarkGray"
+                      ResizeDirection="Columns"/>
+
+        <!-- Row 1 Col 4: Right Panel - Admin Data with TabControl + DataGrids -->
+        <Border Grid.Row="1" Grid.Column="4"
                 BorderBrush="Gray" BorderThickness="1,0,0,0">
-            <ScrollViewer>
-                <StackPanel Spacing="5" Margin="5">
-                    <Expander Header="Factions" IsExpanded="True">
-                        <TextBlock Text="(No factions yet)" Foreground="Gray" Margin="10,5"/>
-                    </Expander>
+            <TabControl Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                <!-- Factions Tab -->
+                <TabItem Header="Factions">
+                    <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AddFactionCommand}"/>
+                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.DeleteFactionCommand}"
+                                    CommandParameter="{Binding HexMapViewModel.SelectedFaction}"/>
+                        </StackPanel>
+                        <DataGrid Grid.Row="1" x:Name="FactionsGrid"
+                                  ItemsSource="{Binding HexMapViewModel.Factions}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedFaction}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Color" Binding="{Binding ColorHex}" Width="70"/>
+                                <DataGridCheckBoxColumn Header="Player" Binding="{Binding IsPlayerFaction}" Width="50"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
 
-                    <Expander Header="Commanders" IsExpanded="False">
-                        <TextBlock Text="(No commanders yet)" Foreground="Gray" Margin="10,5"/>
-                    </Expander>
+                <!-- Commanders Tab -->
+                <TabItem Header="Cmdrs">
+                    <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AddCommanderCommand}"/>
+                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.DeleteCommanderCommand}"
+                                    CommandParameter="{Binding HexMapViewModel.SelectedCommander}"/>
+                        </StackPanel>
+                        <DataGrid Grid.Row="1" x:Name="CommandersGrid"
+                                  ItemsSource="{Binding HexMapViewModel.Commanders}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedCommander}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Faction" Binding="{Binding Faction.Name}" Width="70" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="45"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
 
-                    <Expander Header="Armies" IsExpanded="False">
-                        <TextBlock Text="(No armies yet)" Foreground="Gray" Margin="10,5"/>
-                    </Expander>
+                <!-- Armies Tab -->
+                <TabItem Header="Armies">
+                    <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AddArmyCommand}"/>
+                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.DeleteArmyCommand}"
+                                    CommandParameter="{Binding HexMapViewModel.SelectedArmy}"/>
+                        </StackPanel>
+                        <DataGrid Grid.Row="1" x:Name="ArmiesGrid"
+                                  ItemsSource="{Binding HexMapViewModel.Armies}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedArmy}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Faction" Binding="{Binding Faction.Name}" Width="70" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Morale" Binding="{Binding Morale}" Width="50"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
 
-                    <Expander Header="Orders" IsExpanded="False">
-                        <TextBlock Text="(No orders yet)" Foreground="Gray" Margin="10,5"/>
-                    </Expander>
+                <!-- Orders Tab -->
+                <TabItem Header="Orders">
+                    <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AddOrderCommand}"/>
+                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.DeleteOrderCommand}"
+                                    CommandParameter="{Binding HexMapViewModel.SelectedOrder}"/>
+                        </StackPanel>
+                        <DataGrid Grid.Row="1" x:Name="OrdersGrid"
+                                  ItemsSource="{Binding HexMapViewModel.Orders}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedOrder}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Commander" Binding="{Binding Commander.Name}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt, StringFormat='{}{0:MM/dd}'}" Width="55" IsReadOnly="True"/>
+                                <DataGridCheckBoxColumn Header="Done" Binding="{Binding Processed}" Width="45"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
 
-                    <Expander Header="Messages" IsExpanded="False">
-                        <TextBlock Text="(No messages yet)" Foreground="Gray" Margin="10,5"/>
-                    </Expander>
-                </StackPanel>
-            </ScrollViewer>
+                <!-- Messages Tab -->
+                <TabItem Header="Msgs">
+                    <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AddMessageCommand}"/>
+                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.DeleteMessageCommand}"
+                                    CommandParameter="{Binding HexMapViewModel.SelectedMessage}"/>
+                        </StackPanel>
+                        <DataGrid Grid.Row="1" x:Name="MessagesGrid"
+                                  ItemsSource="{Binding HexMapViewModel.Messages}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedMessage}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="From" Binding="{Binding SenderCommander.Name}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="To" Binding="{Binding TargetCommander.Name}" Width="*" IsReadOnly="True"/>
+                                <DataGridCheckBoxColumn Header="Dlvd" Binding="{Binding Delivered}" Width="40"/>
+                                <DataGridTextColumn Header="Dlvd Date" Binding="{Binding DeliveredAt}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
+            </TabControl>
         </Border>
     </Grid>
 </Window>

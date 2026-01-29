@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:entities="using:MechanicalCataphract.Data.Entities"
+        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="350"
+        x:Class="GUI.Windows.TransferBrigadeDialog"
+        Title="Transfer Brigade"
+        Width="300" Height="350"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="15">
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Spacing="5" Margin="0,0,0,10">
+            <TextBlock Text="Transfer Brigade To:" FontWeight="Bold" FontSize="14"/>
+            <TextBlock x:Name="BrigadeNameText" FontSize="12" Foreground="Gray"/>
+        </StackPanel>
+
+        <!-- Army List -->
+        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" CornerRadius="3">
+            <ListBox x:Name="ArmyListBox"
+                     SelectionMode="Single"
+                     Padding="5">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Army">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Border Width="16" Height="16" CornerRadius="8">
+                                <Border.Background>
+                                    <SolidColorBrush Color="{Binding Faction.ColorHex, FallbackValue=#808080}"/>
+                                </Border.Background>
+                            </Border>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Faction.Name, StringFormat='({0})'}"
+                                       Foreground="Gray" FontSize="11" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- No armies message -->
+        <TextBlock x:Name="NoArmiesText"
+                   Grid.Row="1"
+                   Text="No other armies available"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="Gray"
+                   FontStyle="Italic"
+                   IsVisible="False"/>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,15,0,0">
+            <Button Content="Cancel" Width="80" Click="OnCancelClick"/>
+            <Button x:Name="OkButton" Content="Transfer" Width="80" Click="OnOkClick" IsEnabled="False"/>
+        </StackPanel>
+    </Grid>
+</Window>

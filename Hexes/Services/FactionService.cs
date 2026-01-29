@@ -48,17 +48,10 @@ public class FactionService : IFactionService
         }
     }
 
-    public async Task<Faction?> GetFactionWithArmiesAsync(int factionId)
+    public async Task<Faction?> GetFactionWithArmiesAndCommandersAsync(int factionId)
     {
         return await _context.Factions
             .Include(f => f.Armies)
-            .ThenInclude(a => a.Brigades)
-            .FirstOrDefaultAsync(f => f.Id == factionId);
-    }
-
-    public async Task<Faction?> GetFactionWithCommandersAsync(int factionId)
-    {
-        return await _context.Factions
             .Include(f => f.Commanders)
             .FirstOrDefaultAsync(f => f.Id == factionId);
     }

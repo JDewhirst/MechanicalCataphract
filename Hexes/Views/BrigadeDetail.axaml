@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             xmlns:views="using:GUI.Views"
+             mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="150"
+             x:Class="GUI.Views.BrigadeDetail"
+             x:DataType="entities:Brigade">
+
+    <Border BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="8" Margin="2">
+        <Grid ColumnDefinitions="Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="5" ColumnSpacing="10">
+            <!-- Row 0: Name -->
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Text="Name" FontWeight="SemiBold" FontSize="10"/>
+                <TextBox Text="{Binding Name, Mode=TwoWay}"
+                         Watermark="Brigade name"
+                         FontSize="12"
+                         LostFocus="OnFieldLostFocus"/>
+            </StackPanel>
+
+            <!-- Row 1: UnitType and Number -->
+            <StackPanel Grid.Row="0" Grid.Column="1">
+                <TextBlock Text="Unit Type" FontWeight="SemiBold" FontSize="10"/>
+                <ComboBox x:Name="UnitTypeComboBox"
+                          SelectedItem="{Binding UnitType, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch"
+                          SelectionChanged="OnComboBoxSelectionChanged"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="0" Grid.Column="3">
+                <TextBlock Text="Number" FontWeight="SemiBold" FontSize="10"/>
+                <TextBox Text="{Binding Number, Mode=TwoWay}"
+                        LostFocus="OnFieldLostFocus"/>
+            </StackPanel>
+
+            <!-- Row 3: Action buttons - delegate to parent ArmyViewModel -->
+            <StackPanel Grid.Row="4" Grid.Column="0"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="5">
+                <Button Content="Transfer"
+                        Click="OnTransferClicked"
+                        FontSize="11"/>
+                <Button Content="Delete"
+                        Click="OnDeleteClicked"
+                        Foreground="DarkRed"
+                        FontSize="11"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>
