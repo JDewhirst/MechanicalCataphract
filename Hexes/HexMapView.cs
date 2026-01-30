@@ -47,11 +47,17 @@ public class HexMapView : Control
     public static readonly StyledProperty<IList<Commander>?> CommandersProperty =
         AvaloniaProperty.Register<HexMapView, IList<Commander>?>(nameof(Commanders));
 
+    public static readonly StyledProperty<IList<Message>?> MessagesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<Message>?>(nameof(Messages));
+
     public static readonly StyledProperty<Army?> SelectedArmyProperty =
         AvaloniaProperty.Register<HexMapView, Army?>(nameof(SelectedArmy));
 
     public static readonly StyledProperty<Commander?> SelectedCommanderProperty =
         AvaloniaProperty.Register<HexMapView, Commander?>(nameof(SelectedCommander));
+
+    public static readonly StyledProperty<Message?> SelectedMessageProperty =
+        AvaloniaProperty.Register<HexMapView, Message?>(nameof(SelectedMessage));
 
     public double HexRadius
     {
@@ -122,6 +128,12 @@ public class HexMapView : Control
         set => SetValue(CommandersProperty, value);
     }
 
+    public IList<Message>? Messages
+    {
+        get => GetValue(MessagesProperty);
+        set => SetValue(MessagesProperty, value);
+    }
+
     public Army? SelectedArmy
     {
         get => GetValue(SelectedArmyProperty);
@@ -134,6 +146,12 @@ public class HexMapView : Control
         set => SetValue(SelectedCommanderProperty, value);
     }
 
+    public Message? SelectedMessage
+    {
+        get => GetValue(SelectedMessageProperty);
+        set => SetValue(SelectedMessageProperty, value);
+    }
+
     #endregion
 
     #region Events
@@ -141,6 +159,7 @@ public class HexMapView : Control
     public event EventHandler<Hex>? HexClicked;
     public event EventHandler<Army>? ArmyClicked;
     public event EventHandler<Commander>? CommanderClicked;
+    public event EventHandler<Message>? MessageClicked;
     public event EventHandler<Vector>? PanCompleted;
     public event EventHandler<(Hex hex, int terrainTypeId)>? TerrainPainted;
     public event EventHandler<Hex>? RoadPainted;
@@ -205,6 +224,7 @@ public class HexMapView : Control
         SelectedOverlayProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         ArmiesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         CommandersProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        MessagesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         SelectedArmyProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         SelectedCommanderProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         ForageSelectedHexesProperty.Changed.AddClassHandler<HexMapView>((view, args) =>
@@ -300,6 +320,15 @@ public class HexMapView : Control
                 return;
             }
 
+            // Check for message click
+            var clickedMessage = FindMessageAtPoint(point, layout);
+            if (clickedMessage != null)
+            {
+                MessageClicked?.Invoke(this, clickedMessage);
+                InvalidateVisual();
+                return;
+            }
+
             // Default to hex selection
             HexClicked?.Invoke(this, hex);
             InvalidateVisual();
@@ -366,6 +395,31 @@ public class HexMapView : Control
         return null;
     }
 
+    private Message? FindMessageAtPoint(AvaloniaPoint point, Layout layout)
+    {
+        var messages = Messages;
+        if (messages == null || messages.Count == 0) return null;
+
+        double hitRadius = Math.Max(10, HexRadius * 0.4);
+
+        foreach (var message in messages)
+        {
+            var hex = new Hex(message.LocationQ.Value, message.LocationR.Value, -message.LocationQ.Value - message.LocationR.Value);
+            var center = layout.HexToPixel(hex);
+            // Army markers are offset up-left
+            var markerCenter = new AvaloniaPoint(center.X - 5, center.Y - 5);
+
+            double distance = Math.Sqrt(
+                Math.Pow(point.X - markerCenter.X, 2) +
+                Math.Pow(point.Y - markerCenter.Y, 2));
+
+            if (distance <= hitRadius)
+                return message;
+        }
+
+        return null;
+    }
+
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
         if (!_isDragging) return;
@@ -418,6 +472,7 @@ public class HexMapView : Control
             // Render army and commander markers on top of hexes
             RenderArmyMarkers(context, layout, viewport);
             RenderCommanderMarkers(context, layout, viewport);
+            RenderMessageMarkers(context, layout, viewport);
         }
     }
 
@@ -641,6 +696,64 @@ public class HexMapView : Control
             }
 
             context.DrawGeometry(factionBrush, CommanderOutlinePen, diamondGeom);
+        }
+    }
+
+    private void RenderMessageMarkers(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var messages = Messages;
+        if (messages == null || messages.Count == 0) return;
+
+        foreach (var message in messages)
+        {
+            // Skip messages without a location
+            if (message.LocationQ == null || message.LocationR == null)
+                continue;
+
+            var hex = new Hex(message.LocationQ.Value, message.LocationR.Value,
+                -message.LocationQ.Value - message.LocationR.Value);
+            var center = layout.HexToPixel(hex);
+
+            // Viewport culling
+            if (center.X < viewport.Left - 20 || center.X > viewport.Right + 20 ||
+                center.Y < viewport.Top - 20 || center.Y > viewport.Bottom + 20)
+                continue;
+
+            // Draw message marker: small ??? offset up-right from hex center
+            var markerCenter = new AvaloniaPoint(center.X, center.Y);
+            double markerSize = Math.Max(5, HexRadius * 0.25);
+
+            // Check if this commander is selected
+            bool isSelected = SelectedMessage != null && SelectedMessage.Id == message.Id;
+
+            // Draw selection highlight first (larger diamond behind)
+            if (isSelected)
+            {
+                double selectionSize = markerSize + 3;
+                var selectionGeom = new StreamGeometry();
+                using (var ctx = selectionGeom.Open())
+                {
+                    ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - selectionSize), true);
+                    ctx.LineTo(new AvaloniaPoint(markerCenter.X + selectionSize, markerCenter.Y));
+                    ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + selectionSize));
+                    ctx.LineTo(new AvaloniaPoint(markerCenter.X - selectionSize, markerCenter.Y));
+                    ctx.EndFigure(true);
+                }
+                context.DrawGeometry(null, SelectionOutlinePen, selectionGeom);
+            }
+
+            // Draw diamond shape
+            var diamondGeom = new StreamGeometry();
+            using (var ctx = diamondGeom.Open())
+            {
+                ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - markerSize), true);
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X + markerSize, markerCenter.Y));
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + markerSize));
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X - markerSize, markerCenter.Y));
+                ctx.EndFigure(true);
+            }
+
+            context.DrawGeometry(DefaultMarkerBrush, CommanderOutlinePen, diamondGeom);
         }
     }
 

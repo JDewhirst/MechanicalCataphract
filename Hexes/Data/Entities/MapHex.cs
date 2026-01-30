@@ -42,6 +42,7 @@ public class MapHex
     // Navigation
     public ICollection<Army> Armies { get; set; } = new List<Army>();
     public ICollection<Commander> Commanders { get; set; } = new List<Commander>();
+    public ICollection<Message> Messages { get; set; } = new List<Message>();
 
     // Helper to convert to Hex struct
     public Hex ToHex() => new Hex(Q, R, -Q - R);

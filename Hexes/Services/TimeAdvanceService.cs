@@ -41,21 +41,17 @@ namespace MechanicalCataphract.Services
                 var newTime = gameState.CurrentGameTime.Add(amount);
                 gameState.CurrentGameTime = newTime;
 
-                // 2. Process messages (in order)
-                var messagesDelivered = await ProcessMessageDeliveryAsync(newTime);
+                // 2. Process message movement (in order)
+                var messagesDelivered = await ProcessMessageMovementAsync(newTime);
 
-                // 3. Process orders
-                var ordersExecuted = await ProcessOrdersAsync(newTime);
-
-                // 4. Process supply consumption
+                // 2. Process supply consumption
                 int armiesSupplied = 0;
                 if (newTime.Hour == gameState.SupplyUsageTime.Hours + 1)
                 {
                     armiesSupplied = await ProcessAllArmyDailySupplyConsumptionAsync();
                 }
 
-
-                // 5. Future: weather, etc.
+                // 3. Future: weather, army movement, event spreading etc.
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -65,7 +61,6 @@ namespace MechanicalCataphract.Services
                     Success = true,
                     NewGameTime = newTime,
                     MessagesDelivered = messagesDelivered,
-                    OrdersExecuted = ordersExecuted,
                     ArmiesSupplied = armiesSupplied
                 };
             }
@@ -79,7 +74,7 @@ namespace MechanicalCataphract.Services
                 };
             }
         }
-
+        
         private async Task<int> ProcessAllArmyDailySupplyConsumptionAsync()
         {
             int armiesSupplied = 0;
@@ -93,12 +88,10 @@ namespace MechanicalCataphract.Services
             return armiesSupplied;
         }
 
-        private async Task<int> ProcessMessageDeliveryAsync(DateTime currentTime)
+        private async Task<int> ProcessMessageMovementAsync(DateTime currentTime)
         {
             return 0;
         }
-        private async Task<int> ProcessOrdersAsync(DateTime currentTime)
-        { return 0; }
 
     }
 }

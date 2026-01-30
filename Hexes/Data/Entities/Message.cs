@@ -21,6 +21,14 @@ public class Message
     // Content
     public string Content { get; set; } = string.Empty;
 
+    // Location (composite FK to MapHex)
+    public int? LocationQ { get; set; }
+    public int? LocationR { get; set; }
+    public MapHex? Location { get; set; }
+
+    // Path - currently planned path to take
+
+
     // Status
     public bool Delivered { get; set; }
     public DateTime? DeliveredAt { get; set; }

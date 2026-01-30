@@ -42,6 +42,10 @@ public partial class MainWindow : Window
             viewModel.HexMapViewModel.SelectedCommander = commander;
         };
 
+        HexMapView.MessageClicked += (s, message) =>
+        {
+            viewModel.HexMapViewModel.SelectedMessage = (message);
+        };
         HexMapView.PanCompleted += (s, delta) =>
             viewModel.HexMapViewModel.CompletePanCommand.Execute(delta);
         HexMapView.TerrainPainted += (s, args) =>
@@ -63,6 +67,10 @@ public partial class MainWindow : Window
     }
 
     private void Border_ActualThemeVariantChanged(object? sender, System.EventArgs e)
+    {
+    }
+
+    private void HexMapView_ActualThemeVariantChanged(object? sender, System.EventArgs e)
     {
     }
 }

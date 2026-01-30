@@ -9,6 +9,14 @@
              x:DataType="vm:MessageViewModel">
 
     <StackPanel Spacing="8" Margin="5">
+        <!-- Location -->
+        <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="LocationQ"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="LocationR"/>
+            <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding LocationQ, Mode=TwoWay}"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LocationR, Mode=TwoWay}"/>
+        </Grid>
+
         <!-- Sender/Target info-->
         <Border CornerRadius="3" Padding="8">
             <StackPanel Spacing="3">

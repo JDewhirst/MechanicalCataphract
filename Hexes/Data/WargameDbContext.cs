@@ -110,6 +110,13 @@ public class WargameDbContext : DbContext
             .HasForeignKey(o => o.CommanderId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Message -> MapHex (location)
+        modelBuilder.Entity<Message>()
+            .HasOne(a => a.Location)
+            .WithMany(h => h.Messages)
+            .HasForeignKey(a => new { a.LocationQ, a.LocationR })
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Seed default faction
         modelBuilder.Entity<Faction>().HasData(
             new Faction { Id = 1, Name = "No Faction", ColorHex = "#808080" }

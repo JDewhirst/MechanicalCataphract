@@ -154,8 +154,10 @@
                           SelectedOverlay="{Binding HexMapViewModel.SelectedOverlay}"
                           Armies="{Binding HexMapViewModel.Armies}"
                           Commanders="{Binding HexMapViewModel.Commanders}"
+                          Messages="{Binding HexMapViewModel.Messages}"
                           SelectedArmy="{Binding HexMapViewModel.SelectedArmy}"
                           SelectedCommander="{Binding HexMapViewModel.SelectedCommander}"
+                          SelectedMessage="{Binding HexMapViewModel.SelectedMessage}"
                           ForageSelectedHexes="{Binding HexMapViewModel.ForageSelectedHexes}"/>
 
         <!-- Row 1 Col 3: GridSplitter between map and right panel -->
@@ -217,7 +219,7 @@
                                   GridLinesVisibility="Horizontal"
                                   SelectionMode="Single">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay}" Width="*"/>
                                 <DataGridTextColumn Header="Faction" Binding="{Binding Faction.Name}" Width="70" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="45"/>
                             </DataGrid.Columns>

@@ -62,6 +62,17 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
     public int? TargetLocationQ => _message.TargetLocationQ;
     public int? TargetLocationR => _message.TargetLocationR;
 
+    public int? LocationQ
+    {
+        get => _message.LocationQ;
+        set { if (_message.LocationQ != value) { _message.LocationQ = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+    public int? LocationR
+    {
+        get => _message.LocationR;
+        set { if (_message.LocationR != value) { _message.LocationR = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
     public string Content
     {
         get => _message.Content;
