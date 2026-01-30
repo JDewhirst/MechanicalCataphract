@@ -1,4 +1,5 @@
 ﻿using MechanicalCataphract.Data;
+using MechanicalCataphract.Data.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,7 +48,12 @@ namespace MechanicalCataphract.Services
                 var ordersExecuted = await ProcessOrdersAsync(newTime);
 
                 // 4. Process supply consumption
-                var armiesSupplied = await ProcessSupplyConsumptionAsync();
+                int armiesSupplied = 0;
+                if (newTime.Hour == gameState.SupplyUsageTime.Hours + 1)
+                {
+                    armiesSupplied = await ProcessAllArmyDailySupplyConsumptionAsync();
+                }
+
 
                 // 5. Future: weather, etc.
 
@@ -74,13 +80,25 @@ namespace MechanicalCataphract.Services
             }
         }
 
+        private async Task<int> ProcessAllArmyDailySupplyConsumptionAsync()
+        {
+            int armiesSupplied = 0;
+            var armies = await _armyService.GetAllAsync();
+            foreach (Army army in armies)
+            {
+                army.CarriedSupply -= await _armyService.GetDailySupplyConsumptionAsync(army.Id);
+                armiesSupplied += 1;
+            }
+
+            return armiesSupplied;
+        }
+
         private async Task<int> ProcessMessageDeliveryAsync(DateTime currentTime)
         {
             return 0;
         }
         private async Task<int> ProcessOrdersAsync(DateTime currentTime)
         { return 0; }
-        private async Task<int> ProcessSupplyConsumptionAsync()
-        { return 0; }
+
     }
 }

@@ -110,6 +110,11 @@ public class WargameDbContext : DbContext
             .HasForeignKey(o => o.CommanderId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Seed default faction
+        modelBuilder.Entity<Faction>().HasData(
+            new Faction { Id = 1, Name = "No Faction", ColorHex = "#808080" }
+            );
+
         // Terrain types are loaded from Assets/classic-icons/classic.properties at startup
         // See App.axaml.cs OnFrameworkInitializationCompleted()
 

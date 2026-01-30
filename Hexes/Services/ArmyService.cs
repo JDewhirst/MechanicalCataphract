@@ -5,6 +5,7 @@ using Hexes;
 using Microsoft.EntityFrameworkCore;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
+using GUI.ViewModels.EntityViewModels;
 
 namespace MechanicalCataphract.Services;
 
@@ -146,4 +147,20 @@ public class ArmyService : IArmyService
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task<int> GetDailySupplyConsumptionAsync(int armyId)
+    {
+        var army = await GetArmyWithBrigadesAsync(armyId);
+        return army.Brigades.Sum(b => b.Number * GetUnitSupplyConsumption(b.UnitType)) + (GetUnitSupplyConsumption(UnitType.Infantry) * army.NonCombatants) + (GetUnitSupplyConsumption(UnitType.Cavalry) * army.Wagons); ;
+    }
+
+    private static int GetUnitSupplyConsumption(UnitType unitType) => unitType switch
+    {
+        UnitType.Infantry => 1,
+        UnitType.Skirmishers => 1,
+        UnitType.Cavalry => 10,
+        _ => 0
+    };
+
+
 }

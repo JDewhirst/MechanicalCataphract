@@ -651,7 +651,7 @@ public partial class HexMapViewModel : ObservableObject
 
         // Get all armies except the current one
         var otherArmies = Armies.Where(a => a.Id != SelectedArmy?.Id).ToList();
-
+        
         if (otherArmies.Count == 0)
         {
             StatusMessage = "No other armies to transfer to";

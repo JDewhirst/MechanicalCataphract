@@ -110,19 +110,12 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
 
     public int DailySupplyConsumption
     {
-        get
-        {
-            return Brigades.Sum(b => b.Number * GetUnitSupplyConsumption(b.UnitType)) + (GetUnitSupplyConsumption(UnitType.Infantry) * NonCombatants) + (GetUnitSupplyConsumption(UnitType.Cavalry)*Wagons);
+        get 
+        { 
+             return _service.GetDailySupplyConsumptionAsync(Id).Result;
         }
-    }
 
-    private static int GetUnitSupplyConsumption(UnitType unitType) => unitType switch
-    {
-        UnitType.Infantry => 1,
-        UnitType.Skirmishers => 1,
-        UnitType.Cavalry => 10,
-        _ => 0
-    };
+    }
 
     public double DaysOfSupply => (double)CarriedSupply / (double)DailySupplyConsumption;
 

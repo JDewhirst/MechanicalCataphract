@@ -13,6 +13,7 @@ public interface IArmyService : IEntityService<Army>
     Task MoveArmyAsync(int armyId, Hex destination);
     Task<int> CalculateTotalTroopsAsync(int armyId);
     Task<int> GetMaxScoutingRangeAsync(int armyId);
+    Task<int> GetDailySupplyConsumptionAsync(int armyId);
 
     // Brigade operations
     Task<Brigade> AddBrigadeAsync(Brigade brigade);
