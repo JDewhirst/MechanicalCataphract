@@ -53,6 +53,35 @@
                      MaxHeight="120"/>
         </StackPanel>
 
+        <!-- Path Selection -->
+        <StackPanel Spacing="4">
+            <!-- Show "Select Path" button when NOT in selection mode -->
+            <Button Content="Select Path"
+                    Command="{Binding SelectPathCommand}"
+                    HorizontalAlignment="Stretch"
+                    IsVisible="{Binding !IsPathSelectionActive}"/>
+            <TextBlock Text="{Binding PathLength, StringFormat='Path: {0} hexes'}"
+                       FontSize="11" Foreground="Gray"
+                       IsVisible="{Binding !IsPathSelectionActive}"/>
+
+            <!-- Show selection controls when IN selection mode -->
+            <Border BorderBrush="Cyan" BorderThickness="1" CornerRadius="3" Padding="8"
+                    IsVisible="{Binding IsPathSelectionActive}">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="Click adjacent hexes on map" FontStyle="Italic" FontSize="11"/>
+                    <TextBlock Text="{Binding PathSelectionCount, StringFormat='{}{0} hex(es) selected'}"
+                               Foreground="Cyan" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <Button Content="Confirm"
+                                Command="{Binding ConfirmPathSelectionCommand}"
+                                Background="Green" Foreground="White"/>
+                        <Button Content="Cancel"
+                                Command="{Binding CancelPathSelectionCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
         <!-- Status -->
         <StackPanel Orientation="Horizontal" Spacing="10">
             <CheckBox Content="Delivered"

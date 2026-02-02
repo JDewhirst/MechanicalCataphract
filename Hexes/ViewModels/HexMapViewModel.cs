@@ -65,9 +65,20 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty] 
     private Army? _forageTargetArmy;
 
-    [ObservableProperty] 
+    [ObservableProperty]
     private ObservableCollection<Hex> _forageSelectedHexes = new();
     public int ForageSelectedCount => ForageSelectedHexes.Count;
+
+    // Properties for path selection mode
+    [ObservableProperty]
+    private bool _isPathSelectionModeActive;
+
+    [ObservableProperty]
+    private Message? _pathSelectionTarget;
+
+    [ObservableProperty]
+    private ObservableCollection<Hex> _pathSelectionHexes = new();
+    public int PathSelectionCount => PathSelectionHexes.Count;
 
     // Map dimensions
     private int _mapRows;
@@ -459,6 +470,11 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Checks if two hexes are adjacent (neighbors).
+    /// </summary>
+    private static bool IsAdjacent(Hex a, Hex b) => GetNeighborDirection(a, b).HasValue;
+
+    /// <summary>
     /// Reloads a hex from the database and updates the local collection.
     /// </summary>
     private async Task RefreshHexInCollection(Hex hex)
@@ -709,7 +725,11 @@ public partial class HexMapViewModel : ObservableObject
             SelectedOrder = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            SelectedEntityViewModel = new MessageViewModel(value, _messageService, Commanders);
+            var messageVm = new MessageViewModel(value, _messageService, Commanders);
+            messageVm.PathSelectionRequested += StartPathSelectionMode;
+            messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+            messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+            SelectedEntityViewModel = messageVm;
             StatusMessage = $"Selected message: {value.SenderCommander?.Name ?? "?"} → {value.TargetCommander?.Name ?? "?"}";
         }
     }
@@ -986,6 +1006,114 @@ public partial class HexMapViewModel : ObservableObject
         await LoadVisibleHexesAsync();
 
         StatusMessage = $"Foraged {hexCount} hexes for {armyName}, gained {supplyGained} supply";
+    }
+
+    #endregion
+
+    #region Path Selection Commands
+
+    public void StartPathSelectionMode(Message message)
+    {
+        if (message.LocationQ == null || message.LocationR == null)
+        {
+            StatusMessage = "Message must have a location before selecting a path";
+            return;
+        }
+
+        PathSelectionTarget = message;
+        PathSelectionHexes.Clear();
+        IsPathSelectionModeActive = true;
+        CurrentTool = "PathSelect";
+        StatusMessage = "Click hexes to build path (must be adjacent)";
+
+        // Update MessageViewModel state if it's the current selection
+        if (SelectedEntityViewModel is MessageViewModel msgVm)
+        {
+            msgVm.IsPathSelectionActive = true;
+            msgVm.PathSelectionCount = 0;
+        }
+    }
+
+    public void AddPathHex(Hex hex)
+    {
+        if (PathSelectionTarget == null) return;
+
+        // Determine the last hex in the chain (message location or last selected hex)
+        Hex lastHex;
+        if (PathSelectionHexes.Count == 0)
+        {
+            lastHex = new Hex(
+                PathSelectionTarget.LocationQ!.Value,
+                PathSelectionTarget.LocationR!.Value,
+                -PathSelectionTarget.LocationQ!.Value - PathSelectionTarget.LocationR!.Value);
+        }
+        else
+        {
+            lastHex = PathSelectionHexes.Last();
+        }
+
+        // Validate adjacency using the shared helper
+        if (!IsAdjacent(lastHex, hex))
+        {
+            StatusMessage = "Hex must be adjacent to previous hex in path";
+            return;
+        }
+
+        PathSelectionHexes.Add(hex);
+        OnPropertyChanged(nameof(PathSelectionCount));
+        StatusMessage = $"Path: {PathSelectionCount} hex(es)";
+
+        // Update MessageViewModel count
+        if (SelectedEntityViewModel is MessageViewModel msgVm)
+        {
+            msgVm.PathSelectionCount = PathSelectionHexes.Count;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ConfirmPathSelectionAsync()
+    {
+        if (PathSelectionTarget == null || PathSelectionHexes.Count == 0)
+        {
+            StatusMessage = "No path selected";
+            CancelPathSelectionMode();
+            return;
+        }
+
+        PathSelectionTarget.Path = PathSelectionHexes.ToList();
+        await _messageService.UpdateAsync(PathSelectionTarget);
+        await RefreshMessagesAsync();
+
+        var pathLength = PathSelectionHexes.Count;
+        CancelPathSelectionMode();
+        StatusMessage = $"Path set: {pathLength} hex(es)";
+
+        // Recreate the MessageViewModel to reflect the updated Path
+        if (SelectedMessage != null)
+        {
+            var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders);
+            refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
+            refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+            refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+            SelectedEntityViewModel = refreshedMsgVm;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelPathSelectionMode()
+    {
+        // Update MessageViewModel state before clearing
+        if (SelectedEntityViewModel is MessageViewModel msgVm)
+        {
+            msgVm.IsPathSelectionActive = false;
+            msgVm.PathSelectionCount = 0;
+        }
+
+        PathSelectionHexes.Clear();
+        PathSelectionTarget = null;
+        IsPathSelectionModeActive = false;
+        CurrentTool = "Pan";
+        OnPropertyChanged(nameof(PathSelectionCount));
     }
 
     #endregion

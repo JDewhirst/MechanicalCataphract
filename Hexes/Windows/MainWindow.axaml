@@ -158,7 +158,8 @@
                           SelectedArmy="{Binding HexMapViewModel.SelectedArmy}"
                           SelectedCommander="{Binding HexMapViewModel.SelectedCommander}"
                           SelectedMessage="{Binding HexMapViewModel.SelectedMessage}"
-                          ForageSelectedHexes="{Binding HexMapViewModel.ForageSelectedHexes}"/>
+                          ForageSelectedHexes="{Binding HexMapViewModel.ForageSelectedHexes}"
+                          PathSelectionHexes="{Binding HexMapViewModel.PathSelectionHexes}"/>
 
         <!-- Row 1 Col 3: GridSplitter between map and right panel -->
         <GridSplitter Grid.Row="1" Grid.Column="3"

@@ -116,6 +116,15 @@ public class HexMapView : Control
         set => SetValue(ForageSelectedHexesProperty, value);
     }
 
+    public static readonly StyledProperty<IList<Hex>?> PathSelectionHexesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<Hex>?>(nameof(PathSelectionHexes));
+
+    public IList<Hex>? PathSelectionHexes
+    {
+        get => GetValue(PathSelectionHexesProperty);
+        set => SetValue(PathSelectionHexesProperty, value);
+    }
+
     public IList<Army>? Armies
     {
         get => GetValue(ArmiesProperty);
@@ -167,6 +176,11 @@ public class HexMapView : Control
     public event EventHandler<Hex>? EraseRequested;
     public event EventHandler<(Hex hex, string? locationName)>? LocationPainted;
     private void OnForageSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        InvalidateVisual();
+    }
+
+    private void OnPathSelectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         InvalidateVisual();
     }
@@ -238,6 +252,20 @@ public class HexMapView : Control
             if (args.NewValue is System.Collections.Specialized.INotifyCollectionChanged newCollection)
             {
                 newCollection.CollectionChanged += view.OnForageSelectionChanged;
+            }
+            view.InvalidateVisual();
+        });
+        PathSelectionHexesProperty.Changed.AddClassHandler<HexMapView>((view, args) =>
+        {
+            // Unsubscribe from old collection
+            if (args.OldValue is INotifyCollectionChanged oldCollection)
+            {
+                oldCollection.CollectionChanged -= view.OnPathSelectionChanged;
+            }
+            // Subscribe to new collection
+            if (args.NewValue is INotifyCollectionChanged newCollection)
+            {
+                newCollection.CollectionChanged += view.OnPathSelectionChanged;
             }
             view.InvalidateVisual();
         });
@@ -473,6 +501,8 @@ public class HexMapView : Control
             RenderArmyMarkers(context, layout, viewport);
             RenderCommanderMarkers(context, layout, viewport);
             RenderMessageMarkers(context, layout, viewport);
+            RenderMessagePaths(context, layout, viewport);
+            RenderPathSelectionPreview(context, layout, viewport);
         }
     }
 
@@ -755,6 +785,105 @@ public class HexMapView : Control
 
             context.DrawGeometry(DefaultMarkerBrush, CommanderOutlinePen, diamondGeom);
         }
+    }
+
+    /// <summary>
+    /// Renders the stored path for each message as orange lines from the message's
+    /// current location through each waypoint in the path, with directional arrows.
+    /// </summary>
+    private void RenderMessagePaths(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var messages = Messages;
+        if (messages == null) return;
+
+        var pathPen = new Pen(Brushes.Orange, 2, lineCap: PenLineCap.Round);
+
+        foreach (var message in messages)
+        {
+            if (message.Path == null || message.Path.Count == 0) continue;
+            if (message.LocationQ == null || message.LocationR == null) continue;
+
+            // Start from message's current location
+            var startHex = new Hex(message.LocationQ.Value, message.LocationR.Value,
+                                   -message.LocationQ.Value - message.LocationR.Value);
+            var currentPoint = layout.HexToPixel(startHex);
+
+            // Draw line and arrow to each waypoint
+            foreach (var waypoint in message.Path)
+            {
+                var nextPoint = layout.HexToPixel(waypoint);
+                context.DrawLine(pathPen, currentPoint, nextPoint);
+                DrawArrowhead(context, currentPoint, nextPoint, Brushes.Orange, 8);
+                currentPoint = nextPoint;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Renders the path selection preview as cyan lines connecting selected hexes,
+    /// with highlighted circles at each waypoint and directional arrows.
+    /// </summary>
+    private void RenderPathSelectionPreview(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var hexes = PathSelectionHexes;
+        if (hexes == null || hexes.Count == 0) return;
+
+        var previewPen = new Pen(Brushes.Cyan, 3, lineCap: PenLineCap.Round);
+
+        // Draw lines connecting consecutive hexes with arrows
+        for (int i = 0; i < hexes.Count - 1; i++)
+        {
+            var from = layout.HexToPixel(hexes[i]);
+            var to = layout.HexToPixel(hexes[i + 1]);
+            context.DrawLine(previewPen, from, to);
+            DrawArrowhead(context, from, to, Brushes.Cyan, 10);
+        }
+
+        // Highlight each selected hex with a small circle
+        foreach (var hex in hexes)
+        {
+            var center = layout.HexToPixel(hex);
+            context.DrawEllipse(Brushes.Cyan, null, center, 5, 5);
+        }
+    }
+
+    /// <summary>
+    /// Draws an arrowhead at the midpoint of a line segment pointing from 'from' to 'to'.
+    /// </summary>
+    private static void DrawArrowhead(DrawingContext context, AvaloniaPoint from, AvaloniaPoint to, ISolidColorBrush brush, double size)
+    {
+        // Calculate midpoint
+        var midX = (from.X + to.X) / 2;
+        var midY = (from.Y + to.Y) / 2;
+        var mid = new AvaloniaPoint(midX, midY);
+
+        // Calculate direction angle
+        var dx = to.X - from.X;
+        var dy = to.Y - from.Y;
+        var angle = Math.Atan2(dy, dx);
+
+        // Arrowhead points (triangle pointing in direction of travel)
+        var arrowAngle = Math.PI / 6; // 30 degrees
+        var p1 = new AvaloniaPoint(
+            mid.X + size * Math.Cos(angle),
+            mid.Y + size * Math.Sin(angle));
+        var p2 = new AvaloniaPoint(
+            mid.X - size * Math.Cos(angle - arrowAngle),
+            mid.Y - size * Math.Sin(angle - arrowAngle));
+        var p3 = new AvaloniaPoint(
+            mid.X - size * Math.Cos(angle + arrowAngle),
+            mid.Y - size * Math.Sin(angle + arrowAngle));
+
+        // Draw filled triangle
+        var arrowGeom = new StreamGeometry();
+        using (var ctx = arrowGeom.Open())
+        {
+            ctx.BeginFigure(p1, true);
+            ctx.LineTo(p2);
+            ctx.LineTo(p3);
+            ctx.EndFigure(true);
+        }
+        context.DrawGeometry(brush, null, arrowGeom);
     }
 
     /// <summary>

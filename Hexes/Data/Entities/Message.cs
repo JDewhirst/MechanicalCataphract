@@ -1,4 +1,6 @@
+using Hexes;
 using System;
+using System.Collections.Generic;
 
 namespace MechanicalCataphract.Data.Entities;
 
@@ -28,6 +30,7 @@ public class Message
 
     // Path - currently planned path to take
 
+    public List<Hex>? Path { get; set; }
 
     // Status
     public bool Delivered { get; set; }

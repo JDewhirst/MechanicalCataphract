@@ -15,6 +15,13 @@ public partial class MainWindow : Window
         // Events cannot be bound directly to ICommand in Avalonia XAML
         HexMapView.HexClicked += (s, hex) =>
         {
+            // Check if we're in path selection mode
+            if (viewModel.HexMapViewModel.IsPathSelectionModeActive)
+            {
+                viewModel.HexMapViewModel.AddPathHex(hex);
+                return;
+            }
+
             // Check if we're in forage selection mode
             if (viewModel.HexMapViewModel.IsForageModeActive)
             {

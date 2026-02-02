@@ -1,4 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
 using System;
@@ -96,6 +98,56 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 
     public DateTime CreatedAt => _message.CreatedAt;
     public DateTime? DeliveredAt => _message.DeliveredAt;
+
+    public List<Hex>? Path
+    {
+        get => _message.Path;
+        set { if (_message.Path != value) { _message.Path = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
+    public int PathLength => _message.Path?.Count ?? 0;
+
+    // Path selection mode state (set by HexMapViewModel)
+    [ObservableProperty]
+    private bool _isPathSelectionActive;
+
+    [ObservableProperty]
+    private int _pathSelectionCount;
+
+    /// <summary>
+    /// Event raised when user wants to select a path for this message.
+    /// HexMapViewModel subscribes to this to enter path selection mode.
+    /// </summary>
+    public event Action<Message>? PathSelectionRequested;
+
+    /// <summary>
+    /// Event raised when user confirms path selection.
+    /// </summary>
+    public event Func<Task>? PathSelectionConfirmRequested;
+
+    /// <summary>
+    /// Event raised when user cancels path selection.
+    /// </summary>
+    public event Action? PathSelectionCancelRequested;
+
+    [RelayCommand]
+    private void SelectPath()
+    {
+        PathSelectionRequested?.Invoke(_message);
+    }
+
+    [RelayCommand]
+    private async Task ConfirmPathSelection()
+    {
+        if (PathSelectionConfirmRequested != null)
+            await PathSelectionConfirmRequested.Invoke();
+    }
+
+    [RelayCommand]
+    private void CancelPathSelection()
+    {
+        PathSelectionCancelRequested?.Invoke();
+    }
 
     private async Task SaveAsync()
     {

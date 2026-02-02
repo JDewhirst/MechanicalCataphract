@@ -1,5 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using MechanicalCataphract.Data.Entities;
+using Hexes;
 
 namespace MechanicalCataphract.Data;
 
@@ -116,6 +122,24 @@ public class WargameDbContext : DbContext
             .WithMany(h => h.Messages)
             .HasForeignKey(a => new { a.LocationQ, a.LocationR })
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Message.Path -> JSON serialization for List<Hex>
+        // Uses custom converter because Hex struct has readonly fields
+        var hexJsonOptions = new JsonSerializerOptions();
+        hexJsonOptions.Converters.Add(new HexJsonConverter());
+
+        // Value comparer for List<Hex> - required for EF Core to detect changes
+        var hexListComparer = new ValueComparer<List<Hex>?>(
+            (c1, c2) => c1 == null && c2 == null || c1 != null && c2 != null && c1.SequenceEqual(c2),
+            c => c == null ? 0 : c.Aggregate(0, (a, v) => HashCode.Combine(a, v.q, v.r, v.s)),
+            c => c == null ? null : c.ToList());
+
+        modelBuilder.Entity<Message>()
+            .Property(m => m.Path)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, hexJsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<List<Hex>>(v, hexJsonOptions))
+            .Metadata.SetValueComparer(hexListComparer);
 
         // Seed default faction
         modelBuilder.Entity<Faction>().HasData(
