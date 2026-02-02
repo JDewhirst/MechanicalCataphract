@@ -87,6 +87,7 @@ public partial class App : Application
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<ITimeAdvanceService, TimeAdvanceService>();
+        services.AddScoped<IPathfindingService, PathfindingService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

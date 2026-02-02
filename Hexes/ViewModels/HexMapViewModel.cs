@@ -24,6 +24,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly IMessageService _messageService;
     private readonly IGameStateService _gameStateService;
     private readonly ITimeAdvanceService _timeAdvanceService;
+    private readonly IPathfindingService _pathfindingService;
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -159,7 +160,8 @@ public partial class HexMapViewModel : ObservableObject
         IOrderService orderService,
         IMessageService messageService,
         IGameStateService gameStateService,
-        ITimeAdvanceService timeAdvanceService)
+        ITimeAdvanceService timeAdvanceService,
+        IPathfindingService pathfindingService)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -169,6 +171,7 @@ public partial class HexMapViewModel : ObservableObject
         _messageService = messageService;
         _gameStateService = gameStateService;
         _timeAdvanceService = timeAdvanceService;
+        _pathfindingService = pathfindingService;
     }
 
     [RelayCommand]
@@ -725,7 +728,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedOrder = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            var messageVm = new MessageViewModel(value, _messageService, Commanders);
+            var messageVm = new MessageViewModel(value, _messageService, Commanders, _pathfindingService);
             messageVm.PathSelectionRequested += StartPathSelectionMode;
             messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
@@ -1091,7 +1094,7 @@ public partial class HexMapViewModel : ObservableObject
         // Recreate the MessageViewModel to reflect the updated Path
         if (SelectedMessage != null)
         {
-            var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders);
+            var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _pathfindingService);
             refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
             refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;

@@ -432,10 +432,14 @@ public class HexMapView : Control
 
         foreach (var message in messages)
         {
+            // Skip messages without a location
+            if (message.LocationQ == null || message.LocationR == null)
+                continue;
+
             var hex = new Hex(message.LocationQ.Value, message.LocationR.Value, -message.LocationQ.Value - message.LocationR.Value);
             var center = layout.HexToPixel(hex);
-            // Army markers are offset up-left
-            var markerCenter = new AvaloniaPoint(center.X - 5, center.Y - 5);
+            // Message markers are at hex center
+            var markerCenter = new AvaloniaPoint(center.X, center.Y);
 
             double distance = Math.Sqrt(
                 Math.Pow(point.X - markerCenter.X, 2) +

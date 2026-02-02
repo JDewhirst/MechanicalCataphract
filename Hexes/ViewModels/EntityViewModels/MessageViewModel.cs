@@ -5,6 +5,7 @@ using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace GUI.ViewModels.EntityViewModels;
@@ -16,6 +17,7 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 {
     private readonly Message _message;
     private readonly IMessageService _service;
+    private readonly IPathfindingService? _pathfindingService;
 
     public string EntityTypeName => "Message";
 
@@ -61,8 +63,17 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 
     public int? SenderLocationQ => _message.SenderLocationQ;
     public int? SenderLocationR => _message.SenderLocationR;
-    public int? TargetLocationQ => _message.TargetLocationQ;
-    public int? TargetLocationR => _message.TargetLocationR;
+
+    public int? TargetLocationQ
+    {
+        get => _message.TargetLocationQ;
+        set { if (_message.TargetLocationQ != value) { _message.TargetLocationQ = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+    public int? TargetLocationR
+    {
+        get => _message.TargetLocationR;
+        set { if (_message.TargetLocationR != value) { _message.TargetLocationR = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
 
     public int? LocationQ
     {
@@ -114,6 +125,9 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
     [ObservableProperty]
     private int _pathSelectionCount;
 
+    [ObservableProperty]
+    private string? _pathComputeStatus;
+
     /// <summary>
     /// Event raised when user wants to select a path for this message.
     /// HexMapViewModel subscribes to this to enter path selection mode.
@@ -149,15 +163,56 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         PathSelectionCancelRequested?.Invoke();
     }
 
+    [RelayCommand]
+    private async Task ComputePath()
+    {
+        if (_pathfindingService == null)
+        {
+            PathComputeStatus = "Pathfinding not available";
+            return;
+        }
+
+        if (LocationQ == null || LocationR == null)
+        {
+            PathComputeStatus = "Current location not set";
+            return;
+        }
+
+        if (TargetLocationQ == null || TargetLocationR == null)
+        {
+            PathComputeStatus = "Target location not set";
+            return;
+        }
+
+        PathComputeStatus = "Computing...";
+
+        var start = new Hex(LocationQ.Value, LocationR.Value, -LocationQ.Value - LocationR.Value);
+        var end = new Hex(TargetLocationQ.Value, TargetLocationR.Value, -TargetLocationQ.Value - TargetLocationR.Value);
+
+        var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Message);
+
+        if (result.Success)
+        {
+            Path = result.Path.ToList();
+            OnPropertyChanged(nameof(PathLength));
+            PathComputeStatus = $"Path found: {result.Path.Count} hexes, cost {result.TotalCost}";
+        }
+        else
+        {
+            PathComputeStatus = result.FailureReason ?? "Path computation failed";
+        }
+    }
+
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_message);
     }
 
-    public MessageViewModel(Message message, IMessageService service, IEnumerable<Commander> availableCommanders)
+    public MessageViewModel(Message message, IMessageService service, IEnumerable<Commander> availableCommanders, IPathfindingService? pathfindingService = null)
     {
         _message = message;
         _service = service;
         _availableCommanders = availableCommanders;
+        _pathfindingService = pathfindingService;
     }
 }
