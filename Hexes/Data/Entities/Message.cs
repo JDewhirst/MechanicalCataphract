@@ -28,9 +28,9 @@ public class Message
     public int? LocationR { get; set; }
     public MapHex? Location { get; set; }
 
-    // Path - currently planned path to take
-
-    public List<Hex>? Path { get; set; }
+    // Movement
+    public List<Hex>? Path { get; set; } //currently planned path
+    public int TimeInTransit { get; set; } //time in transit to next step of path 
 
     // Status
     public bool Delivered { get; set; }

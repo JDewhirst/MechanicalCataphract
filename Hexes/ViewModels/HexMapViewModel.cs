@@ -233,8 +233,28 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Reloads a specific entity collection from the database.
+    /// Reloads entity collections from the database.
     /// </summary>
+    [RelayCommand]
+    public async Task RefreshAllAsync()
+    {
+        // Reload all data from database
+        //await RefreshHexesAsync();      // VisibleHexes
+        await RefreshArmiesAsync();     // Armies
+        await RefreshCommandersAsync(); // Commanders
+        await RefreshMessagesAsync();   // Messages
+        await RefreshFactionsAsync();   // Factions
+        await RefreshOrdersAsync();     // Orders
+        //await RefreshGameStateAsync();  // GameTime, etc.
+
+        // Clear selections (optional - entities may have changed)
+        SelectedArmy = null;
+        SelectedCommander = null;
+        SelectedMessage = null;
+        SelectedEntityViewModel = null;
+
+        StatusMessage = "Data refreshed";
+    }
     public async Task RefreshFactionsAsync()
     {
         var factions = await _factionService.GetAllAsync();
@@ -313,6 +333,7 @@ public partial class HexMapViewModel : ObservableObject
         {
             StatusMessage = $"Failed to advance time: {result.Error}";
         }
+        await RefreshAllAsync();  // Refresh everything
 
     }
 

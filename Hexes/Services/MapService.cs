@@ -259,6 +259,30 @@ public class MapService : IMapService
         }
     }
 
+    public async Task<bool> HasRoadBetweenAsync(Hex a, Hex b)
+    {
+        var direction = GetNeighborDirection(a, b);
+        if (direction == null)
+            return false; // Not adjacent
+
+        var hexA = await GetHexAsync(a);
+        if (hexA == null)
+            return false;
+
+        return hexA.HasRoadInDirection(direction.Value);
+    }
+
+    public static int? GetNeighborDirection(Hex from, Hex to)
+    {
+        for (int dir = 0; dir < 6; dir++)
+        {
+            if (from.Neighbor(dir).q == to.q && from.Neighbor(dir).r == to.r)
+                return dir;
+        }
+        return null; // Not adjacent
+    }
+
+
     public async Task UpdateHexAsync(MapHex hex)
     {
         _context.MapHexes.Update(hex);

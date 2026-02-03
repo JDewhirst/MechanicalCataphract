@@ -80,6 +80,15 @@ namespace Hexes
             return Subtract(b).Length();
         }
 
+        public int? DirectionTo(Hex neighbor)
+        {
+            for (int dir = 0; dir < 6; dir++)
+            {
+                if (Neighbor(dir).q == neighbor.q && Neighbor(dir).r == neighbor.r)
+                    return dir;
+            }
+            return null; // Not adjacent
+        }
     }
 
     public struct FractionalHex

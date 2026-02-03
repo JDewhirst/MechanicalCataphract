@@ -15,6 +15,7 @@ namespace MechanicalCataphract.Services
         private readonly IArmyService _armyService;
         private readonly IMessageService _messageService;
         private readonly IMapService _mapService;
+        private readonly IPathfindingService _pathfindingService;
         // Inject other services as needed
 
         public TimeAdvanceService(
@@ -22,13 +23,15 @@ namespace MechanicalCataphract.Services
             IGameStateService gameStateService,
             IArmyService armyService,
             IMessageService messageService,
-            IMapService mapService)
+            IMapService mapService,
+            IPathfindingService pathfindingService)
         {
             _context = context;
             _gameStateService = gameStateService;
             _armyService = armyService;
             _messageService = messageService;
             _mapService = mapService;
+            _pathfindingService = pathfindingService;
         }
 
         public async Task<TimeAdvanceResult> AdvanceTimeAsync(TimeSpan amount)
@@ -42,7 +45,7 @@ namespace MechanicalCataphract.Services
                 gameState.CurrentGameTime = newTime;
 
                 // 2. Process message movement (in order)
-                var messagesDelivered = await ProcessMessageMovementAsync(newTime);
+                var messagesMoved = await ProcessMessageMovementAsync(newTime);
 
                 // 2. Process supply consumption
                 int armiesSupplied = 0;
@@ -60,7 +63,7 @@ namespace MechanicalCataphract.Services
                 {
                     Success = true,
                     NewGameTime = newTime,
-                    MessagesDelivered = messagesDelivered,
+                    MessagesDelivered = messagesMoved,
                     ArmiesSupplied = armiesSupplied
                 };
             }
@@ -90,7 +93,13 @@ namespace MechanicalCataphract.Services
 
         private async Task<int> ProcessMessageMovementAsync(DateTime currentTime)
         {
-            return 0;
+            int messagesMoved = 0;
+            var messages = await _messageService.GetAllAsync();
+            foreach (Message message in messages)
+            {
+                messagesMoved += await _pathfindingService.Move(message, 1);
+            }
+            return messagesMoved;
         }
 
     }

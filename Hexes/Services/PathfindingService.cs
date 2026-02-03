@@ -10,14 +10,18 @@ namespace MechanicalCataphract.Services;
 public class PathfindingService : IPathfindingService
 {
     private readonly IMapService _mapService;
+    private readonly IMessageService _messageService;
 
     // Cost constants (in abstract units, representing 6 miles per hex)
     private const int RoadCost = 6;
     private const int OffRoadCost = 12;
 
-    public PathfindingService(IMapService mapService)
+    public PathfindingService(
+        IMapService mapService,
+        IMessageService messageService)
     {
         _mapService = mapService;
+        _messageService = messageService;
     }
 
     public async Task<PathResult> FindPathAsync(Hex start, Hex end, TravelEntityType entityType = TravelEntityType.Message)
@@ -46,7 +50,7 @@ public class PathfindingService : IPathfindingService
         var openSet = new PriorityQueue<Hex, int>();
         var cameFrom = new Dictionary<(int q, int r), Hex>();
         var gScore = new Dictionary<(int q, int r), int> { [(start.q, start.r)] = 0 };
-        var fScore = new Dictionary<(int q, int r), int> { [(start.q, start.r)] = Heuristic(start, end) };
+        var fScore = new Dictionary<(int q, int r), int> { [(start.q, start.r)] = PathfindingHeuristic(start, end) };
 
         openSet.Enqueue(start, fScore[(start.q, start.r)]);
 
@@ -90,7 +94,7 @@ public class PathfindingService : IPathfindingService
                     // This path is better
                     cameFrom[neighborKey] = current;
                     gScore[neighborKey] = tentativeGScore;
-                    fScore[neighborKey] = tentativeGScore + Heuristic(neighbor, end);
+                    fScore[neighborKey] = tentativeGScore + PathfindingHeuristic(neighbor, end);
 
                     // Add to open set (PriorityQueue handles duplicates by priority)
                     openSet.Enqueue(neighbor, fScore[neighborKey]);
@@ -106,7 +110,7 @@ public class PathfindingService : IPathfindingService
     /// Heuristic function for A* - hex distance multiplied by minimum cost.
     /// Admissible because it never overestimates the actual cost.
     /// </summary>
-    private static int Heuristic(Hex a, Hex b)
+    private static int PathfindingHeuristic(Hex a, Hex b)
     {
         return a.Distance(b) * RoadCost;
     }
@@ -158,5 +162,42 @@ public class PathfindingService : IPathfindingService
         // Don't include start hex in path
         path.Reverse();
         return path;
+    }
+
+    public async Task<int> Move(Message message, int hours)
+    {
+        // 1. Get current location as Hex
+        if (message.LocationQ == null || message.LocationR == null)
+            return 0; // No location
+
+        if (message.Path == null || message.Path.Count == 0)
+            return 0; // No path to follow
+
+        var currentHex = new Hex(
+            message.LocationQ.Value,
+            message.LocationR.Value,
+            -message.LocationQ.Value - message.LocationR.Value);
+
+        // 2. Next waypoint is Path[0]
+        var nextHex = message.Path[0];
+
+        // 3. Check for road between them
+        bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
+
+        // 4. Determine cost
+        int movementCost = hasRoad ? RoadCost : OffRoadCost;
+
+        // 5. increment timeInTransit and check if reached cost
+        message.TimeInTransit += hours;
+        if (message.TimeInTransit >= movementCost)
+        {
+            message.LocationQ = nextHex.q;
+            message.LocationR = nextHex.r;
+            message.Path.Remove(nextHex);
+            message.TimeInTransit = message.TimeInTransit - movementCost;
+            return 1;
+        }
+
+        return 0;
     }
 }

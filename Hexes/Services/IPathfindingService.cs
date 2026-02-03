@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hexes;
+using MechanicalCataphract.Data.Entities;
 
 namespace MechanicalCataphract.Services;
 
@@ -15,6 +16,7 @@ public interface IPathfindingService
     /// <param name="entityType">Type of entity for travel speed calculation</param>
     /// <returns>Path result containing the route or failure reason</returns>
     Task<PathResult> FindPathAsync(Hex start, Hex end, TravelEntityType entityType = TravelEntityType.Message);
+    public Task<int> Move(Message message, int hours);
 }
 
 /// <summary>
@@ -39,4 +41,5 @@ public class PathResult
     public IReadOnlyList<Hex> Path { get; init; } = Array.Empty<Hex>();
     public int TotalCost { get; init; }
     public string? FailureReason { get; init; }
-}
+};
+

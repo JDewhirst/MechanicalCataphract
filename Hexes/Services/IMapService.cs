@@ -45,6 +45,9 @@ public interface IMapService
     Task SetLocationAsync(Hex hex, int? locationTypeId, string? locationName, int? locationFactionId = null);
     Task ClearLocationAsync(Hex hex);
 
+    // Movement Helper
+    Task<bool> HasRoadBetweenAsync(Hex a, Hex b);
+
     // General hex update
     Task UpdateHexAsync(MapHex hex);
 }
