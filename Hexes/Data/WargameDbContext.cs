@@ -141,6 +141,22 @@ public class WargameDbContext : DbContext
                 v => v == null ? null : JsonSerializer.Deserialize<List<Hex>>(v, hexJsonOptions))
             .Metadata.SetValueComparer(hexListComparer);
 
+        // Army.Path -> JSON serialization for List<Hex>
+        modelBuilder.Entity<Army>()
+            .Property(a => a.Path)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, hexJsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<List<Hex>>(v, hexJsonOptions))
+            .Metadata.SetValueComparer(hexListComparer);
+
+        // Commander.Path -> JSON serialization for List<Hex>
+        modelBuilder.Entity<Commander>()
+            .Property(c => c.Path)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, hexJsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<List<Hex>>(v, hexJsonOptions))
+            .Metadata.SetValueComparer(hexListComparer);
+
         // Seed default faction
         modelBuilder.Entity<Faction>().HasData(
             new Faction { Id = 1, Name = "No Faction", ColorHex = "#808080" }

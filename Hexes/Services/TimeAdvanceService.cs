@@ -16,7 +16,7 @@ namespace MechanicalCataphract.Services
         private readonly IMessageService _messageService;
         private readonly IMapService _mapService;
         private readonly IPathfindingService _pathfindingService;
-        // Inject other services as needed
+        private readonly ICommanderService _commanderService;
 
         public TimeAdvanceService(
             WargameDbContext context,
@@ -24,7 +24,8 @@ namespace MechanicalCataphract.Services
             IArmyService armyService,
             IMessageService messageService,
             IMapService mapService,
-            IPathfindingService pathfindingService)
+            IPathfindingService pathfindingService,
+            ICommanderService commanderService)
         {
             _context = context;
             _gameStateService = gameStateService;
@@ -32,6 +33,7 @@ namespace MechanicalCataphract.Services
             _messageService = messageService;
             _mapService = mapService;
             _pathfindingService = pathfindingService;
+            _commanderService = commanderService;
         }
 
         public async Task<TimeAdvanceResult> AdvanceTimeAsync(TimeSpan amount)
@@ -45,16 +47,22 @@ namespace MechanicalCataphract.Services
                 gameState.CurrentGameTime = newTime;
 
                 // 2. Process message movement (in order)
-                var messagesMoved = await ProcessMessageMovementAsync(newTime);
+                var messagesMoved = await ProcessMessageMovementAsync();
 
-                // 2. Process supply consumption
+                // 3. Process army movement
+                var armiesMoved = await ProcessArmyMovementAsync();
+
+                // 4. Process commander movement
+                var commandersMoved = await ProcessCommanderMovementAsync();
+
+                // 5. Process supply consumption
                 int armiesSupplied = 0;
                 if (newTime.Hour == gameState.SupplyUsageTime.Hours + 1)
                 {
                     armiesSupplied = await ProcessAllArmyDailySupplyConsumptionAsync();
                 }
 
-                // 3. Future: weather, army movement, event spreading etc.
+                // 6. Future: weather, event spreading etc.
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -64,6 +72,8 @@ namespace MechanicalCataphract.Services
                     Success = true,
                     NewGameTime = newTime,
                     MessagesDelivered = messagesMoved,
+                    ArmiesMoved = armiesMoved,
+                    CommandersMoved = commandersMoved,
                     ArmiesSupplied = armiesSupplied
                 };
             }
@@ -91,15 +101,37 @@ namespace MechanicalCataphract.Services
             return armiesSupplied;
         }
 
-        private async Task<int> ProcessMessageMovementAsync(DateTime currentTime)
+        private async Task<int> ProcessMessageMovementAsync()
         {
             int messagesMoved = 0;
             var messages = await _messageService.GetAllAsync();
             foreach (Message message in messages)
             {
-                messagesMoved += await _pathfindingService.Move(message, 1);
+                messagesMoved += await _pathfindingService.MoveMessage(message, 1);
             }
             return messagesMoved;
+        }
+
+        private async Task<int> ProcessArmyMovementAsync()
+        {
+            int armiesMoved = 0;
+            var armies = await _armyService.GetAllAsync();
+            foreach (Army army in armies)
+            {
+                armiesMoved += await _pathfindingService.MoveArmy(army, 1);
+            }
+            return armiesMoved;
+        }
+
+        private async Task<int> ProcessCommanderMovementAsync()
+        {
+            int commandersMoved = 0;
+            var commanders = await _commanderService.GetAllAsync();
+            foreach (Commander commander in commanders)
+            {
+                commandersMoved += await _pathfindingService.MoveCommander(commander, 1);
+            }
+            return commandersMoved;
         }
 
     }

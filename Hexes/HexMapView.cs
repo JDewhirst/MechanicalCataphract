@@ -375,7 +375,11 @@ public class HexMapView : Control
 
         foreach (var army in armies)
         {
-            var hex = new Hex(army.LocationQ, army.LocationR, -army.LocationQ - army.LocationR);
+            // Skip armies without a location
+            if (army.LocationQ == null || army.LocationR == null)
+                continue;
+
+            var hex = new Hex(army.LocationQ.Value, army.LocationR.Value, -army.LocationQ.Value - army.LocationR.Value);
             var center = layout.HexToPixel(hex);
             // Army markers are offset up-left
             var markerCenter = new AvaloniaPoint(center.X - 5, center.Y - 5);
@@ -506,6 +510,8 @@ public class HexMapView : Control
             RenderCommanderMarkers(context, layout, viewport);
             RenderMessageMarkers(context, layout, viewport);
             RenderMessagePaths(context, layout, viewport);
+            RenderArmyPaths(context, layout, viewport);
+            RenderCommanderPaths(context, layout, viewport);
             RenderPathSelectionPreview(context, layout, viewport);
         }
     }
@@ -625,7 +631,11 @@ public class HexMapView : Control
 
         foreach (var army in armies)
         {
-            var hex = new Hex(army.LocationQ, army.LocationR, -army.LocationQ - army.LocationR);
+            // Skip armies without a location
+            if (army.LocationQ == null || army.LocationR == null)
+                continue;
+
+            var hex = new Hex(army.LocationQ.Value, army.LocationR.Value, -army.LocationQ.Value - army.LocationR.Value);
             var center = layout.HexToPixel(hex);
 
             // Viewport culling
@@ -818,6 +828,70 @@ public class HexMapView : Control
                 var nextPoint = layout.HexToPixel(waypoint);
                 context.DrawLine(pathPen, currentPoint, nextPoint);
                 DrawArrowhead(context, currentPoint, nextPoint, Brushes.Orange, 8);
+                currentPoint = nextPoint;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Renders the stored path for each army as green lines from the army's
+    /// current location through each waypoint in the path, with directional arrows.
+    /// </summary>
+    private void RenderArmyPaths(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var armies = Armies;
+        if (armies == null) return;
+
+        var pathPen = new Pen(Brushes.Green, 2, lineCap: PenLineCap.Round);
+
+        foreach (var army in armies)
+        {
+            if (army.Path == null || army.Path.Count == 0) continue;
+            if (army.LocationQ == null || army.LocationR == null) continue;
+
+            // Start from army's current location
+            var startHex = new Hex(army.LocationQ.Value, army.LocationR.Value,
+                                   -army.LocationQ.Value - army.LocationR.Value);
+            var currentPoint = layout.HexToPixel(startHex);
+
+            // Draw line and arrow to each waypoint
+            foreach (var waypoint in army.Path)
+            {
+                var nextPoint = layout.HexToPixel(waypoint);
+                context.DrawLine(pathPen, currentPoint, nextPoint);
+                DrawArrowhead(context, currentPoint, nextPoint, Brushes.Green, 8);
+                currentPoint = nextPoint;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Renders the stored path for each commander as purple lines from the commander's
+    /// current location through each waypoint in the path, with directional arrows.
+    /// </summary>
+    private void RenderCommanderPaths(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var commanders = Commanders;
+        if (commanders == null) return;
+
+        var pathPen = new Pen(Brushes.Purple, 2, lineCap: PenLineCap.Round);
+
+        foreach (var commander in commanders)
+        {
+            if (commander.Path == null || commander.Path.Count == 0) continue;
+            if (commander.LocationQ == null || commander.LocationR == null) continue;
+
+            // Start from commander's current location
+            var startHex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
+                                   -commander.LocationQ.Value - commander.LocationR.Value);
+            var currentPoint = layout.HexToPixel(startHex);
+
+            // Draw line and arrow to each waypoint
+            foreach (var waypoint in commander.Path)
+            {
+                var nextPoint = layout.HexToPixel(waypoint);
+                context.DrawLine(pathPen, currentPoint, nextPoint);
+                DrawArrowhead(context, currentPoint, nextPoint, Brushes.Purple, 8);
                 currentPoint = nextPoint;
             }
         }

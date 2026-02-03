@@ -1,16 +1,26 @@
 using System.Collections.Generic;
+using Hexes;
 
 namespace MechanicalCataphract.Data.Entities;
 
-public class Army
+public class Army : IPathMovable
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 
     // Location (composite FK to MapHex)
-    public int LocationQ { get; set; }
-    public int LocationR { get; set; }
+    public int? LocationQ { get; set; }
+    public int? LocationR { get; set; }
     public MapHex? Location { get; set; }
+
+    // Target location for pathfinding
+    public int? TargetLocationQ { get; set; }
+    public int? TargetLocationR { get; set; }
+
+    // Movement
+    public List<Hex>? Path { get; set; }
+    public float TimeInTransit { get; set; }
+    public float MovementRate => 0.5f;
 
     // Ownership
     public int FactionId { get; set; }

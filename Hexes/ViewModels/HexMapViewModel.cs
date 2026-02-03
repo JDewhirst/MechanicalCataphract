@@ -75,7 +75,7 @@ public partial class HexMapViewModel : ObservableObject
     private bool _isPathSelectionModeActive;
 
     [ObservableProperty]
-    private Message? _pathSelectionTarget;
+    private IPathMovable? _pathSelectionTarget;
 
     [ObservableProperty]
     private ObservableCollection<Hex> _pathSelectionHexes = new();
@@ -676,8 +676,11 @@ public partial class HexMapViewModel : ObservableObject
         var armyWithDetails = await _armyService.GetArmyWithBrigadesAsync(armyId);
         if (armyWithDetails != null)
         {
-            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions);
+            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions, _pathfindingService);
             armyVm.TransferRequested += OnBrigadeTransferRequested;
+            armyVm.PathSelectionRequested += StartPathSelectionMode;
+            armyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+            armyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
             SelectedEntityViewModel = armyVm;
         }
     }
@@ -719,7 +722,11 @@ public partial class HexMapViewModel : ObservableObject
             SelectedMessage = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            SelectedEntityViewModel = new CommanderViewModel(value, _commanderService);
+            var cmdVm = new CommanderViewModel(value, _commanderService, _pathfindingService);
+            cmdVm.PathSelectionRequested += StartPathSelectionMode;
+            cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+            cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+            SelectedEntityViewModel = cmdVm;
             StatusMessage = $"Selected commander: {value.Name}";
         }
     }
@@ -1036,25 +1043,39 @@ public partial class HexMapViewModel : ObservableObject
 
     #region Path Selection Commands
 
-    public void StartPathSelectionMode(Message message)
+    public void StartPathSelectionMode(Message message) => StartPathSelectionModeForEntity(message, "Message");
+    public void StartPathSelectionMode(Army army) => StartPathSelectionModeForEntity(army, "Army");
+    public void StartPathSelectionMode(Commander commander) => StartPathSelectionModeForEntity(commander, "Commander");
+
+    private void StartPathSelectionModeForEntity(IPathMovable entity, string entityName)
     {
-        if (message.LocationQ == null || message.LocationR == null)
+        if (entity.LocationQ == null || entity.LocationR == null)
         {
-            StatusMessage = "Message must have a location before selecting a path";
+            StatusMessage = $"{entityName} must have a location before selecting a path";
             return;
         }
 
-        PathSelectionTarget = message;
+        PathSelectionTarget = entity;
         PathSelectionHexes.Clear();
         IsPathSelectionModeActive = true;
         CurrentTool = "PathSelect";
         StatusMessage = "Click hexes to build path (must be adjacent)";
 
-        // Update MessageViewModel state if it's the current selection
+        // Update ViewModel state if it's the current selection
         if (SelectedEntityViewModel is MessageViewModel msgVm)
         {
             msgVm.IsPathSelectionActive = true;
             msgVm.PathSelectionCount = 0;
+        }
+        else if (SelectedEntityViewModel is ArmyViewModel armyVm)
+        {
+            armyVm.IsPathSelectionActive = true;
+            armyVm.PathSelectionCount = 0;
+        }
+        else if (SelectedEntityViewModel is CommanderViewModel cmdVm)
+        {
+            cmdVm.IsPathSelectionActive = true;
+            cmdVm.PathSelectionCount = 0;
         }
     }
 
@@ -1087,11 +1108,13 @@ public partial class HexMapViewModel : ObservableObject
         OnPropertyChanged(nameof(PathSelectionCount));
         StatusMessage = $"Path: {PathSelectionCount} hex(es)";
 
-        // Update MessageViewModel count
+        // Update ViewModel count
         if (SelectedEntityViewModel is MessageViewModel msgVm)
-        {
             msgVm.PathSelectionCount = PathSelectionHexes.Count;
-        }
+        else if (SelectedEntityViewModel is ArmyViewModel armyVm)
+            armyVm.PathSelectionCount = PathSelectionHexes.Count;
+        else if (SelectedEntityViewModel is CommanderViewModel cmdVm)
+            cmdVm.PathSelectionCount = PathSelectionHexes.Count;
     }
 
     [RelayCommand]
@@ -1105,32 +1128,76 @@ public partial class HexMapViewModel : ObservableObject
         }
 
         PathSelectionTarget.Path = PathSelectionHexes.ToList();
-        await _messageService.UpdateAsync(PathSelectionTarget);
-        await RefreshMessagesAsync();
-
         var pathLength = PathSelectionHexes.Count;
+
+        // Save based on entity type and refresh ViewModel
+        if (PathSelectionTarget is Message msg)
+        {
+            await _messageService.UpdateAsync(msg);
+            await RefreshMessagesAsync();
+
+            // Recreate the MessageViewModel to reflect the updated Path
+            if (SelectedMessage != null)
+            {
+                var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _pathfindingService);
+                refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
+                refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+                refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+                SelectedEntityViewModel = refreshedMsgVm;
+            }
+        }
+        else if (PathSelectionTarget is Army army)
+        {
+            await _armyService.UpdateAsync(army);
+
+            // Recreate the ArmyViewModel to reflect the updated Path
+            if (SelectedArmy != null)
+            {
+                var refreshedArmyVm = new ArmyViewModel(SelectedArmy, _armyService, Commanders, Factions, _pathfindingService);
+                refreshedArmyVm.TransferRequested += OnBrigadeTransferRequested;
+                refreshedArmyVm.PathSelectionRequested += StartPathSelectionMode;
+                refreshedArmyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+                refreshedArmyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+                SelectedEntityViewModel = refreshedArmyVm;
+            }
+        }
+        else if (PathSelectionTarget is Commander commander)
+        {
+            await _commanderService.UpdateAsync(commander);
+
+            // Recreate the CommanderViewModel to reflect the updated Path
+            if (SelectedCommander != null)
+            {
+                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, _pathfindingService);
+                refreshedCmdVm.PathSelectionRequested += StartPathSelectionMode;
+                refreshedCmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+                refreshedCmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+                SelectedEntityViewModel = refreshedCmdVm;
+            }
+        }
+
         CancelPathSelectionMode();
         StatusMessage = $"Path set: {pathLength} hex(es)";
-
-        // Recreate the MessageViewModel to reflect the updated Path
-        if (SelectedMessage != null)
-        {
-            var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _pathfindingService);
-            refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
-            refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-            refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-            SelectedEntityViewModel = refreshedMsgVm;
-        }
     }
 
     [RelayCommand]
     private void CancelPathSelectionMode()
     {
-        // Update MessageViewModel state before clearing
+        // Update ViewModel state before clearing
         if (SelectedEntityViewModel is MessageViewModel msgVm)
         {
             msgVm.IsPathSelectionActive = false;
             msgVm.PathSelectionCount = 0;
+        }
+        else if (SelectedEntityViewModel is ArmyViewModel armyVm)
+        {
+            armyVm.IsPathSelectionActive = false;
+            armyVm.PathSelectionCount = 0;
+        }
+        else if (SelectedEntityViewModel is CommanderViewModel cmdVm)
+        {
+            cmdVm.IsPathSelectionActive = false;
+            cmdVm.PathSelectionCount = 0;
         }
 
         PathSelectionHexes.Clear();

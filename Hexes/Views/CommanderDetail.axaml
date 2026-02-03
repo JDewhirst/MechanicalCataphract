@@ -29,15 +29,64 @@
                      Watermark="@username"/>
         </StackPanel>
 
-        <!-- Location (read-only) -->
-        <StackPanel Orientation="Horizontal" Spacing="5">
-            <TextBlock Text="Location:" FontWeight="SemiBold" FontSize="11"/>
-            <TextBox FontSize="11"
-                Text="{Binding LocationQ, Mode=TwoWay, TargetNullValue='?'}">   
-            </TextBox>
-            <TextBox
-                Text="{Binding LocationR, Mode=TwoWay, TargetNullValue='?'}">
-            </TextBox>
+        <!-- Current Location -->
+        <StackPanel Spacing="2">
+            <TextBlock Text="Current Location" FontWeight="SemiBold" FontSize="11"/>
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Q" FontSize="10" Foreground="Gray"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="R" FontSize="10" Foreground="Gray"/>
+                <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding LocationQ, Mode=TwoWay}" Margin="0,0,2,0"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LocationR, Mode=TwoWay}" Margin="2,0,0,0"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- Target Location -->
+        <StackPanel Spacing="2">
+            <TextBlock Text="Target Location" FontWeight="SemiBold" FontSize="11"/>
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Q" FontSize="10" Foreground="Gray"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="R" FontSize="10" Foreground="Gray"/>
+                <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding TargetLocationQ, Mode=TwoWay}" Margin="0,0,2,0"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TargetLocationR, Mode=TwoWay}" Margin="2,0,0,0"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- Path Selection -->
+        <StackPanel Spacing="4">
+            <!-- Path controls when NOT in selection mode -->
+            <StackPanel Spacing="4" IsVisible="{Binding !IsPathSelectionActive}">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                    <Button Content="Compute Path"
+                            Command="{Binding ComputePathCommand}"
+                            ToolTip.Tip="Auto-compute path from current to target location"/>
+                    <Button Content="Select Path"
+                            Command="{Binding SelectPathCommand}"
+                            ToolTip.Tip="Manually select path by clicking hexes"/>
+                </StackPanel>
+                <TextBlock Text="{Binding PathLength, StringFormat='Path: {0} hexes'}"
+                           FontSize="11" Foreground="Gray"/>
+                <TextBlock Text="{Binding PathComputeStatus}"
+                           FontSize="10" Foreground="Orange"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding PathComputeStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+
+            <!-- Show selection controls when IN selection mode -->
+            <Border BorderBrush="Cyan" BorderThickness="1" CornerRadius="3" Padding="8"
+                    IsVisible="{Binding IsPathSelectionActive}">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="Click adjacent hexes on map" FontStyle="Italic" FontSize="11"/>
+                    <TextBlock Text="{Binding PathSelectionCount, StringFormat='{}{0} hex(es) selected'}"
+                               Foreground="Cyan" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <Button Content="Confirm"
+                                Command="{Binding ConfirmPathSelectionCommand}"
+                                Background="Green" Foreground="White"/>
+                        <Button Content="Cancel"
+                                Command="{Binding CancelPathSelectionCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <!-- Faction (read-only) -->

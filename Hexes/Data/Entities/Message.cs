@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace MechanicalCataphract.Data.Entities;
 
-public class Message
+public class Message : IPathMovable
 {
     public int Id { get; set; }
 
@@ -28,9 +28,10 @@ public class Message
     public int? LocationR { get; set; }
     public MapHex? Location { get; set; }
 
-    // Movement
-    public List<Hex>? Path { get; set; } //currently planned path
-    public int TimeInTransit { get; set; } //time in transit to next step of path 
+    // Movement (implements IPathMovable)
+    public List<Hex>? Path { get; set; }
+    public float TimeInTransit { get; set; }
+    public float MovementRate => 2f;
 
     // Status
     public bool Delivered { get; set; }

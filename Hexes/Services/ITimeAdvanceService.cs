@@ -19,6 +19,8 @@ namespace MechanicalCataphract.Services
 
         // Summary of what happened (for UI feedback)
         public int MessagesDelivered { get; init; }
+        public int ArmiesMoved { get; init; }
+        public int CommandersMoved { get; init; }
         public int OrdersExecuted { get; init; }
         public int ArmiesSupplied { get; init; }
     }

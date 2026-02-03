@@ -11,6 +11,8 @@ public class PathfindingService : IPathfindingService
 {
     private readonly IMapService _mapService;
     private readonly IMessageService _messageService;
+    private readonly IArmyService _armyService;
+    private readonly ICommanderService _commanderService;
 
     // Cost constants (in abstract units, representing 6 miles per hex)
     private const int RoadCost = 6;
@@ -18,10 +20,14 @@ public class PathfindingService : IPathfindingService
 
     public PathfindingService(
         IMapService mapService,
-        IMessageService messageService)
+        IMessageService messageService,
+        IArmyService armyService,
+        ICommanderService commanderService)
     {
         _mapService = mapService;
         _messageService = messageService;
+        _armyService = armyService;
+        _commanderService = commanderService;
     }
 
     public async Task<PathResult> FindPathAsync(Hex start, Hex end, TravelEntityType entityType = TravelEntityType.Message)
@@ -164,7 +170,7 @@ public class PathfindingService : IPathfindingService
         return path;
     }
 
-    public async Task<int> Move(Message message, int hours)
+    public async Task<int> MoveMessage(Message message, int hours)
     {
         // 1. Get current location as Hex
         if (message.LocationQ == null || message.LocationR == null)
@@ -189,15 +195,85 @@ public class PathfindingService : IPathfindingService
 
         // 5. increment timeInTransit and check if reached cost
         message.TimeInTransit += hours;
-        if (message.TimeInTransit >= movementCost)
+        if (message.TimeInTransit >= (movementCost / message.MovementRate))
         {
             message.LocationQ = nextHex.q;
             message.LocationR = nextHex.r;
             message.Path.Remove(nextHex);
-            message.TimeInTransit = message.TimeInTransit - movementCost;
+            message.TimeInTransit = message.TimeInTransit - movementCost / message.MovementRate;
+            await _messageService.UpdateAsync(message);
             return 1;
         }
 
+        await _messageService.UpdateAsync(message);
+        return 0;
+    }
+
+    public async Task<int> MoveArmy(Army army, int hours)
+    {
+        if (army.LocationQ == null || army.LocationR == null)
+            return 0;
+
+        if (army.Path == null || army.Path.Count == 0)
+            return 0;
+
+        var currentHex = new Hex(
+            army.LocationQ.Value,
+            army.LocationR.Value,
+            -army.LocationQ.Value - army.LocationR.Value);
+
+        var nextHex = army.Path[0];
+
+        bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
+
+        int movementCost = hasRoad ? RoadCost : OffRoadCost;
+
+        army.TimeInTransit += hours;
+        if (army.TimeInTransit >= (movementCost / army.MovementRate))
+        {
+            army.LocationQ = nextHex.q;
+            army.LocationR = nextHex.r;
+            army.Path.Remove(nextHex);
+            army.TimeInTransit = army.TimeInTransit - movementCost / army.MovementRate;
+            await _armyService.UpdateAsync(army);
+            return 1;
+        }
+
+        await _armyService.UpdateAsync(army);
+        return 0;
+    }
+
+    public async Task<int> MoveCommander(Commander commander, int hours)
+    {
+        if (commander.LocationQ == null || commander.LocationR == null)
+            return 0;
+
+        if (commander.Path == null || commander.Path.Count == 0)
+            return 0;
+
+        var currentHex = new Hex(
+            commander.LocationQ.Value,
+            commander.LocationR.Value,
+            -commander.LocationQ.Value - commander.LocationR.Value);
+
+        var nextHex = commander.Path[0];
+
+        bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
+
+        int movementCost = hasRoad ? RoadCost : OffRoadCost;
+
+        commander.TimeInTransit += hours;
+        if (commander.TimeInTransit >= (movementCost / commander.MovementRate))
+        {
+            commander.LocationQ = nextHex.q;
+            commander.LocationR = nextHex.r;
+            commander.Path.Remove(nextHex);
+            commander.TimeInTransit = commander.TimeInTransit - movementCost / commander.MovementRate;
+            await _commanderService.UpdateAsync(commander);
+            return 1;
+        }
+
+        await _commanderService.UpdateAsync(commander);
         return 0;
     }
 }

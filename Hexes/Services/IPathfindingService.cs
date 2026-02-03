@@ -16,7 +16,15 @@ public interface IPathfindingService
     /// <param name="entityType">Type of entity for travel speed calculation</param>
     /// <returns>Path result containing the route or failure reason</returns>
     Task<PathResult> FindPathAsync(Hex start, Hex end, TravelEntityType entityType = TravelEntityType.Message);
-    public Task<int> Move(Message message, int hours);
+
+    /// <summary>Moves a message along its path for the given hours.</summary>
+    Task<int> MoveMessage(Message message, int hours);
+
+    /// <summary>Moves an army along its path for the given hours.</summary>
+    Task<int> MoveArmy(Army army, int hours);
+
+    /// <summary>Moves a commander along their path for the given hours.</summary>
+    Task<int> MoveCommander(Commander commander, int hours);
 }
 
 /// <summary>
@@ -24,9 +32,11 @@ public interface IPathfindingService
 /// </summary>
 public enum TravelEntityType
 {
-    /// <summary>Messenger on horseback - fastest</summary>
+    /// <summary>Messenger on horseback - fastest (2 mph)</summary>
     Message,
-    /// <summary>Army on foot - slower</summary>
+    /// <summary>Commander traveling alone - same as messenger (2 mph)</summary>
+    Commander,
+    /// <summary>Army on foot - slower (0.5 mph)</summary>
     Army,
     /// <summary>Supply convoy - slowest</summary>
     Supply
