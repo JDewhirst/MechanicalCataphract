@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using MechanicalCataphract.Data.Entities;
@@ -61,6 +62,13 @@ public static class TerrainTypeLoader
                     break;
                 case "category":
                     terrain.IsWater = value.Equals("Water", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "isuseicon":
+                    terrain.IsUseIcon = value.Equals("true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "scalefactor":
+                    if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale))
+                        terrain.ScaleFactor = scale;
                     break;
             }
         }

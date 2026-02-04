@@ -7,6 +7,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using AvaloniaPoint = Avalonia.Point;
@@ -192,6 +194,7 @@ public class HexMapView : Control
     private StreamGeometry? _cachedHexGeometry;
     private Dictionary<int, ISolidColorBrush> _terrainColorCache = new();
     private Dictionary<int, ISolidColorBrush> _factionColorCache = new();
+    private Dictionary<int, (Bitmap? bitmap, double scaleFactor)> _terrainIconCache = new();
 
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
@@ -233,6 +236,7 @@ public class HexMapView : Control
         TerrainTypesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
         {
             view.RebuildTerrainColorCache();
+            view.RebuildTerrainIconCache();
             view.InvalidateVisual();
         });
         SelectedOverlayProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
@@ -276,6 +280,18 @@ public class HexMapView : Control
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
         PointerReleased += OnPointerReleased;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+
+        // Dispose cached bitmaps to prevent memory leaks
+        foreach (var entry in _terrainIconCache.Values)
+        {
+            entry.bitmap?.Dispose();
+        }
+        _terrainIconCache.Clear();
     }
 
     #region Input Handling
@@ -553,7 +569,15 @@ public class HexMapView : Control
             // 1. Draw terrain base layer (always)
             context.DrawGeometry(terrainFill, StrokePen, _cachedHexGeometry!);
 
-            // 2. Draw overlay on top (if not "None")
+            // 2. Draw terrain icon on top of base color (if available)
+            if (mapHex.TerrainTypeId.HasValue &&
+                _terrainIconCache.TryGetValue(mapHex.TerrainTypeId.Value, out var iconData) &&
+                iconData.bitmap != null)
+            {
+                DrawTerrainIcon(context, iconData.bitmap, iconData.scaleFactor);
+            }
+
+            // 3. Draw overlay on top (if not "None")
             if (overlayBrush != null)
             {
                 context.DrawGeometry(overlayBrush, null, _cachedHexGeometry!);
@@ -1059,6 +1083,54 @@ public class HexMapView : Control
                 _terrainColorCache[terrain.Id] = Brushes.Gray;
             }
         }
+    }
+
+    private void RebuildTerrainIconCache()
+    {
+        // Dispose old bitmaps to prevent memory leaks
+        foreach (var entry in _terrainIconCache.Values)
+        {
+            entry.bitmap?.Dispose();
+        }
+        _terrainIconCache.Clear();
+
+        var terrainTypes = TerrainTypes;
+        if (terrainTypes == null) return;
+
+        foreach (var terrain in terrainTypes)
+        {
+            if (terrain.IsUseIcon && !string.IsNullOrEmpty(terrain.IconPath))
+            {
+                var bitmap = LoadTerrainIcon(terrain.IconPath);
+                _terrainIconCache[terrain.Id] = (bitmap, terrain.ScaleFactor);
+            }
+        }
+    }
+
+    private static Bitmap? LoadTerrainIcon(string iconPath)
+    {
+        if (string.IsNullOrEmpty(iconPath)) return null;
+        try
+        {
+            var uri = new Uri(iconPath);
+            using var stream = AssetLoader.Open(uri);
+            return new Bitmap(stream);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void DrawTerrainIcon(DrawingContext context, Bitmap bitmap, double scaleFactor)
+    {
+        double hexHeight = Math.Sqrt(3) * HexRadius;
+        double maxIconSize = hexHeight * scaleFactor;
+        double scale = maxIconSize / Math.Max(bitmap.Size.Width, bitmap.Size.Height);
+        double drawWidth = bitmap.Size.Width * scale;
+        double drawHeight = bitmap.Size.Height * scale;
+        var destRect = new Rect(-drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        context.DrawImage(bitmap, destRect);
     }
 
     private ISolidColorBrush GetTerrainBrush(int? terrainTypeId)
