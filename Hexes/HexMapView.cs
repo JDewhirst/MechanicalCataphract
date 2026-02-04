@@ -219,6 +219,52 @@ public class HexMapView : Control
 
     #endregion
 
+    #region Click-Cycling State
+
+    private Dictionary<(int q, int r, Type entityType), int> _lastSelectedIndex = new();
+    private (int q, int r)? _lastClickedHex;
+    private Type? _lastClickedEntityType;
+
+    #endregion
+
+    #region Stacking and Positioning
+
+    private const double StackOffsetY = 3.0;
+    private const double StackOffsetX = 2.0;
+
+    private enum MarkerPosition { Center, TopRight, BottomRight }
+
+    private AvaloniaPoint GetMarkerOffset(MarkerPosition position)
+    {
+        double hexHeight = Math.Sqrt(3) * HexRadius;
+        return position switch
+        {
+            MarkerPosition.Center => new AvaloniaPoint(0, 0),
+            MarkerPosition.TopRight => new AvaloniaPoint(HexRadius * 0.4, -hexHeight * 0.35),
+            MarkerPosition.BottomRight => new AvaloniaPoint(HexRadius * 0.4, hexHeight * 0.35),
+            _ => new AvaloniaPoint(0, 0)
+        };
+    }
+
+    private Dictionary<(int q, int r), List<T>> GroupEntitiesByHex<T>(
+        IList<T>? entities, Func<T, (int? q, int? r)> getLocation)
+    {
+        var groups = new Dictionary<(int q, int r), List<T>>();
+        if (entities == null) return groups;
+
+        foreach (var entity in entities)
+        {
+            var loc = getLocation(entity);
+            if (!loc.q.HasValue || !loc.r.HasValue) continue;
+            var key = (loc.q.Value, loc.r.Value);
+            if (!groups.ContainsKey(key)) groups[key] = new List<T>();
+            groups[key].Add(entity);
+        }
+        return groups;
+    }
+
+    #endregion
+
     static HexMapView()
     {
         HexRadiusProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
@@ -345,35 +391,53 @@ public class HexMapView : Control
                     return;
             }
 
-            // Default: context-sensitive selection
-            // Check for army click first (armies are larger markers)
-            var clickedArmy = FindArmyAtPoint(point, layout);
+            // Default: context-sensitive selection with click-cycling support
+            // Check for army click first (armies are at center, larger markers)
+            bool isArmyCycleClick = _lastClickedHex?.q == hex.q
+                                 && _lastClickedHex?.r == hex.r
+                                 && _lastClickedEntityType == typeof(Army);
+            var clickedArmy = FindArmyAtPoint(point, layout, cycleSelection: isArmyCycleClick);
             if (clickedArmy != null)
             {
+                _lastClickedHex = (hex.q, hex.r);
+                _lastClickedEntityType = typeof(Army);
                 ArmyClicked?.Invoke(this, clickedArmy);
                 InvalidateVisual();
                 return;
             }
 
-            // Check for commander click
-            var clickedCommander = FindCommanderAtPoint(point, layout);
+            // Check for commander click (commanders are at top-right)
+            bool isCommanderCycleClick = _lastClickedHex?.q == hex.q
+                                       && _lastClickedHex?.r == hex.r
+                                       && _lastClickedEntityType == typeof(Commander);
+            var clickedCommander = FindCommanderAtPoint(point, layout, cycleSelection: isCommanderCycleClick);
             if (clickedCommander != null)
             {
+                _lastClickedHex = (hex.q, hex.r);
+                _lastClickedEntityType = typeof(Commander);
                 CommanderClicked?.Invoke(this, clickedCommander);
                 InvalidateVisual();
                 return;
             }
 
-            // Check for message click
-            var clickedMessage = FindMessageAtPoint(point, layout);
+            // Check for message click (messages are at bottom-right)
+            bool isMessageCycleClick = _lastClickedHex?.q == hex.q
+                                     && _lastClickedHex?.r == hex.r
+                                     && _lastClickedEntityType == typeof(Message);
+            var clickedMessage = FindMessageAtPoint(point, layout, cycleSelection: isMessageCycleClick);
             if (clickedMessage != null)
             {
+                _lastClickedHex = (hex.q, hex.r);
+                _lastClickedEntityType = typeof(Message);
                 MessageClicked?.Invoke(this, clickedMessage);
                 InvalidateVisual();
                 return;
             }
 
-            // Default to hex selection
+            // Default to hex selection - reset cycling state
+            _lastClickedHex = null;
+            _lastClickedEntityType = null;
+            _lastSelectedIndex.Clear();
             HexClicked?.Invoke(this, hex);
             InvalidateVisual();
         }
@@ -381,31 +445,57 @@ public class HexMapView : Control
 
     /// <summary>
     /// Finds an army at the given screen point, or null if none found.
+    /// Supports click-cycling through stacked armies at the same hex.
     /// </summary>
-    private Army? FindArmyAtPoint(AvaloniaPoint point, Layout layout)
+    private Army? FindArmyAtPoint(AvaloniaPoint point, Layout layout, bool cycleSelection = false)
     {
         var armies = Armies;
         if (armies == null || armies.Count == 0) return null;
 
+        var armyGroups = GroupEntitiesByHex(armies, a => (a.LocationQ, a.LocationR));
+        var baseOffset = GetMarkerOffset(MarkerPosition.Center);
         double hitRadius = Math.Max(10, HexRadius * 0.4);
 
-        foreach (var army in armies)
+        foreach (var group in armyGroups)
         {
-            // Skip armies without a location
-            if (army.LocationQ == null || army.LocationR == null)
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
+
+            // Check if point is within the expanded hit area for the stack
+            double stackWidth = baseOffset.X + (group.Value.Count * StackOffsetX) + hitRadius;
+            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
+
+            // Quick bounds check for the stack area
+            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
+                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
                 continue;
 
-            var hex = new Hex(army.LocationQ.Value, army.LocationR.Value, -army.LocationQ.Value - army.LocationR.Value);
-            var center = layout.HexToPixel(hex);
-            // Army markers are offset up-left
-            var markerCenter = new AvaloniaPoint(center.X - 5, center.Y - 5);
+            // Check each marker in the stack (reverse order so top marker has priority)
+            for (int i = group.Value.Count - 1; i >= 0; i--)
+            {
+                var army = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
+                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
 
-            double distance = Math.Sqrt(
-                Math.Pow(point.X - markerCenter.X, 2) +
-                Math.Pow(point.Y - markerCenter.Y, 2));
+                double distance = Math.Sqrt(
+                    Math.Pow(point.X - markerCenter.X, 2) +
+                    Math.Pow(point.Y - markerCenter.Y, 2));
 
-            if (distance <= hitRadius)
-                return army;
+                if (distance <= hitRadius)
+                {
+                    // If cycling and we have multiple armies, cycle through them
+                    if (cycleSelection && group.Value.Count > 1)
+                    {
+                        var key = (group.Key.q, group.Key.r, typeof(Army));
+                        int lastIndex = _lastSelectedIndex.GetValueOrDefault(key, -1);
+                        int nextIndex = (lastIndex + 1) % group.Value.Count;
+                        _lastSelectedIndex[key] = nextIndex;
+                        return group.Value[nextIndex];
+                    }
+                    return army;
+                }
+            }
         }
 
         return null;
@@ -413,60 +503,115 @@ public class HexMapView : Control
 
     /// <summary>
     /// Finds a commander at the given screen point, or null if none found.
+    /// Supports click-cycling through stacked commanders at the same hex.
     /// </summary>
-    private Commander? FindCommanderAtPoint(AvaloniaPoint point, Layout layout)
+    private Commander? FindCommanderAtPoint(AvaloniaPoint point, Layout layout, bool cycleSelection = false)
     {
         var commanders = Commanders;
         if (commanders == null || commanders.Count == 0) return null;
 
+        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.LocationQ, c.LocationR));
+        var baseOffset = GetMarkerOffset(MarkerPosition.TopRight);
         double hitRadius = Math.Max(8, HexRadius * 0.3);
 
-        foreach (var commander in commanders)
+        foreach (var group in commanderGroups)
         {
-            if (commander.LocationQ == null || commander.LocationR == null)
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
+
+            // Check if point is within the expanded hit area for the stack
+            double stackWidth = Math.Abs(baseOffset.X) + (group.Value.Count * StackOffsetX) + hitRadius;
+            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
+
+            // Quick bounds check for the stack area
+            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
+                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
                 continue;
 
-            var hex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
-                -commander.LocationQ.Value - commander.LocationR.Value);
-            var center = layout.HexToPixel(hex);
-            // Commander markers are offset down-right
-            var markerCenter = new AvaloniaPoint(center.X + 5, center.Y + 5);
+            // Check each marker in the stack (reverse order so top marker has priority)
+            for (int i = group.Value.Count - 1; i >= 0; i--)
+            {
+                var commander = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
+                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
 
-            double distance = Math.Sqrt(
-                Math.Pow(point.X - markerCenter.X, 2) +
-                Math.Pow(point.Y - markerCenter.Y, 2));
+                double distance = Math.Sqrt(
+                    Math.Pow(point.X - markerCenter.X, 2) +
+                    Math.Pow(point.Y - markerCenter.Y, 2));
 
-            if (distance <= hitRadius)
-                return commander;
+                if (distance <= hitRadius)
+                {
+                    // If cycling and we have multiple commanders, cycle through them
+                    if (cycleSelection && group.Value.Count > 1)
+                    {
+                        var key = (group.Key.q, group.Key.r, typeof(Commander));
+                        int lastIndex = _lastSelectedIndex.GetValueOrDefault(key, -1);
+                        int nextIndex = (lastIndex + 1) % group.Value.Count;
+                        _lastSelectedIndex[key] = nextIndex;
+                        return group.Value[nextIndex];
+                    }
+                    return commander;
+                }
+            }
         }
 
         return null;
     }
 
-    private Message? FindMessageAtPoint(AvaloniaPoint point, Layout layout)
+    /// <summary>
+    /// Finds a message at the given screen point, or null if none found.
+    /// Supports click-cycling through stacked messages at the same hex.
+    /// </summary>
+    private Message? FindMessageAtPoint(AvaloniaPoint point, Layout layout, bool cycleSelection = false)
     {
         var messages = Messages;
         if (messages == null || messages.Count == 0) return null;
 
-        double hitRadius = Math.Max(10, HexRadius * 0.4);
+        var messageGroups = GroupEntitiesByHex(messages, m => (m.LocationQ, m.LocationR));
+        var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
+        double hitRadius = Math.Max(6, HexRadius * 0.27);  // Matches smaller envelope size
 
-        foreach (var message in messages)
+        foreach (var group in messageGroups)
         {
-            // Skip messages without a location
-            if (message.LocationQ == null || message.LocationR == null)
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
+
+            // Check if point is within the expanded hit area for the stack
+            double stackWidth = Math.Abs(baseOffset.X) + (group.Value.Count * StackOffsetX) + hitRadius;
+            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
+
+            // Quick bounds check for the stack area
+            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
+                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
                 continue;
 
-            var hex = new Hex(message.LocationQ.Value, message.LocationR.Value, -message.LocationQ.Value - message.LocationR.Value);
-            var center = layout.HexToPixel(hex);
-            // Message markers are at hex center
-            var markerCenter = new AvaloniaPoint(center.X, center.Y);
+            // Check each marker in the stack (reverse order so top marker has priority)
+            for (int i = group.Value.Count - 1; i >= 0; i--)
+            {
+                var message = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
+                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
 
-            double distance = Math.Sqrt(
-                Math.Pow(point.X - markerCenter.X, 2) +
-                Math.Pow(point.Y - markerCenter.Y, 2));
+                double distance = Math.Sqrt(
+                    Math.Pow(point.X - markerCenter.X, 2) +
+                    Math.Pow(point.Y - markerCenter.Y, 2));
 
-            if (distance <= hitRadius)
-                return message;
+                if (distance <= hitRadius)
+                {
+                    // If cycling and we have multiple messages, cycle through them
+                    if (cycleSelection && group.Value.Count > 1)
+                    {
+                        var key = (group.Key.q, group.Key.r, typeof(Message));
+                        int lastIndex = _lastSelectedIndex.GetValueOrDefault(key, -1);
+                        int nextIndex = (lastIndex + 1) % group.Value.Count;
+                        _lastSelectedIndex[key] = nextIndex;
+                        return group.Value[nextIndex];
+                    }
+                    return message;
+                }
+            }
         }
 
         return null;
@@ -595,15 +740,18 @@ public class HexMapView : Control
                 context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
             }
 
-            // Draw coordinate label
+            // Draw coordinate label at bottom of hex, scaled with zoom
+            double hexHeight = Math.Sqrt(3) * HexRadius;
+            double fontSize = Math.Max(6.0, HexRadius * 0.4);
             var text = new FormattedText(
                 $"{rowcolcoord.col},{rowcolcoord.row}",
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 Typeface.Default,
-                8.0,
+                fontSize,
                 Brushes.Black);
-            context.DrawText(text, new AvaloniaPoint(-text.Width / 2, -text.Height / 2));
+            double textY = (hexHeight / 2) - text.Height - 2;  // 2px from bottom edge
+            context.DrawText(text, new AvaloniaPoint(-text.Width / 2, textY));
         }
 
         // Draw roads and rivers
@@ -646,278 +794,295 @@ public class HexMapView : Control
 
     /// <summary>
     /// Renders army markers as filled circles at their hex locations.
-    /// Armies are rendered as larger circles offset slightly to avoid overlap with commanders.
+    /// Armies are positioned at hex center with stacking for multiple armies.
     /// </summary>
     private void RenderArmyMarkers(DrawingContext context, Layout layout, Rect viewport)
     {
         var armies = Armies;
         if (armies == null || armies.Count == 0) return;
 
-        foreach (var army in armies)
-        {
-            // Skip armies without a location
-            if (army.LocationQ == null || army.LocationR == null)
-                continue;
+        var armyGroups = GroupEntitiesByHex(armies, a => (a.LocationQ, a.LocationR));
+        var baseOffset = GetMarkerOffset(MarkerPosition.Center);
 
-            var hex = new Hex(army.LocationQ.Value, army.LocationR.Value, -army.LocationQ.Value - army.LocationR.Value);
-            var center = layout.HexToPixel(hex);
+        foreach (var group in armyGroups)
+        {
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
 
             // Viewport culling
-            if (center.X < viewport.Left - 20 || center.X > viewport.Right + 20 ||
-                center.Y < viewport.Top - 20 || center.Y > viewport.Bottom + 20)
+            if (hexCenter.X < viewport.Left - 20 || hexCenter.X > viewport.Right + 20 ||
+                hexCenter.Y < viewport.Top - 20 || hexCenter.Y > viewport.Bottom + 20)
                 continue;
 
-            // Get faction color or default gray
-            var factionBrush = GetArmyMarkerBrush(army);
-
-            // Draw army marker: filled circle with black outline
-            // Offset slightly up-left from hex center
-            var markerCenter = new AvaloniaPoint(center.X - 5, center.Y - 5);
-            double markerRadius = Math.Max(6, HexRadius * 0.35);
-
-            // Check if this army is selected - draw selection highlight
-            bool isSelected = SelectedArmy != null && SelectedArmy.Id == army.Id;
-            if (isSelected)
+            for (int i = 0; i < group.Value.Count; i++)
             {
-                // Draw yellow selection ring behind the marker
-                context.DrawEllipse(null, SelectionOutlinePen, markerCenter, markerRadius + 3, markerRadius + 3);
-            }
+                var army = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
+                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
 
-            context.DrawEllipse(factionBrush, MarkerOutlinePen, markerCenter, markerRadius, markerRadius);
-
-            // Draw army initial letter in the marker
-            if (!string.IsNullOrEmpty(army.Name))
-            {
-                var initial = army.Name[0].ToString().ToUpperInvariant();
-                var text = new FormattedText(
-                    initial,
-                    CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
-                    Typeface.Default,
-                    Math.Max(8, markerRadius * 1.2),
-                    Brushes.White);
-                context.DrawText(text, new AvaloniaPoint(
-                    markerCenter.X - text.Width / 2,
-                    markerCenter.Y - text.Height / 2));
+                RenderSingleArmyMarker(context, army, markerCenter);
             }
+        }
+    }
+
+    private void RenderSingleArmyMarker(DrawingContext context, Army army, AvaloniaPoint markerCenter)
+    {
+        var factionBrush = GetArmyMarkerBrush(army);
+        double markerRadius = Math.Max(6, HexRadius * 0.35);
+
+        // Check if this army is selected - draw selection highlight
+        bool isSelected = SelectedArmy != null && SelectedArmy.Id == army.Id;
+        if (isSelected)
+        {
+            // Draw yellow selection ring behind the marker
+            context.DrawEllipse(null, SelectionOutlinePen, markerCenter, markerRadius + 3, markerRadius + 3);
+        }
+
+        context.DrawEllipse(factionBrush, MarkerOutlinePen, markerCenter, markerRadius, markerRadius);
+
+        // Draw army initial letter in the marker
+        if (!string.IsNullOrEmpty(army.Name))
+        {
+            var initial = army.Name[0].ToString().ToUpperInvariant();
+            var text = new FormattedText(
+                initial,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                Typeface.Default,
+                Math.Max(8, markerRadius * 1.2),
+                Brushes.White);
+            context.DrawText(text, new AvaloniaPoint(
+                markerCenter.X - text.Width / 2,
+                markerCenter.Y - text.Height / 2));
         }
     }
 
     /// <summary>
     /// Renders commander markers as smaller diamond shapes at their hex locations.
+    /// Commanders are positioned at top-right with stacking for multiple commanders.
     /// </summary>
     private void RenderCommanderMarkers(DrawingContext context, Layout layout, Rect viewport)
     {
         var commanders = Commanders;
         if (commanders == null || commanders.Count == 0) return;
 
-        foreach (var commander in commanders)
-        {
-            // Skip commanders without a location
-            if (commander.LocationQ == null || commander.LocationR == null)
-                continue;
+        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.LocationQ, c.LocationR));
+        var baseOffset = GetMarkerOffset(MarkerPosition.TopRight);
 
-            var hex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
-                -commander.LocationQ.Value - commander.LocationR.Value);
-            var center = layout.HexToPixel(hex);
+        foreach (var group in commanderGroups)
+        {
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
 
             // Viewport culling
-            if (center.X < viewport.Left - 20 || center.X > viewport.Right + 20 ||
-                center.Y < viewport.Top - 20 || center.Y > viewport.Bottom + 20)
+            if (hexCenter.X < viewport.Left - 20 || hexCenter.X > viewport.Right + 20 ||
+                hexCenter.Y < viewport.Top - 20 || hexCenter.Y > viewport.Bottom + 20)
                 continue;
 
-            // Get faction color or default gray
-            var factionBrush = GetCommanderMarkerBrush(commander);
-
-            // Draw commander marker: small diamond offset down-right from hex center
-            var markerCenter = new AvaloniaPoint(center.X + 5, center.Y + 5);
-            double markerSize = Math.Max(5, HexRadius * 0.25);
-
-            // Check if this commander is selected
-            bool isSelected = SelectedCommander != null && SelectedCommander.Id == commander.Id;
-
-            // Draw selection highlight first (larger diamond behind)
-            if (isSelected)
+            for (int i = 0; i < group.Value.Count; i++)
             {
-                double selectionSize = markerSize + 3;
-                var selectionGeom = new StreamGeometry();
-                using (var ctx = selectionGeom.Open())
-                {
-                    ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - selectionSize), true);
-                    ctx.LineTo(new AvaloniaPoint(markerCenter.X + selectionSize, markerCenter.Y));
-                    ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + selectionSize));
-                    ctx.LineTo(new AvaloniaPoint(markerCenter.X - selectionSize, markerCenter.Y));
-                    ctx.EndFigure(true);
-                }
-                context.DrawGeometry(null, SelectionOutlinePen, selectionGeom);
-            }
+                var commander = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
+                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
 
-            // Draw diamond shape
-            var diamondGeom = new StreamGeometry();
-            using (var ctx = diamondGeom.Open())
-            {
-                ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - markerSize), true);
-                ctx.LineTo(new AvaloniaPoint(markerCenter.X + markerSize, markerCenter.Y));
-                ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + markerSize));
-                ctx.LineTo(new AvaloniaPoint(markerCenter.X - markerSize, markerCenter.Y));
-                ctx.EndFigure(true);
+                RenderSingleCommanderMarker(context, commander, markerCenter);
             }
-
-            context.DrawGeometry(factionBrush, CommanderOutlinePen, diamondGeom);
         }
     }
 
+    private void RenderSingleCommanderMarker(DrawingContext context, Commander commander, AvaloniaPoint markerCenter)
+    {
+        var factionBrush = GetCommanderMarkerBrush(commander);
+        double markerSize = Math.Max(5, HexRadius * 0.25);
+
+        // Check if this commander is selected
+        bool isSelected = SelectedCommander != null && SelectedCommander.Id == commander.Id;
+
+        // Draw selection highlight first (larger diamond behind)
+        if (isSelected)
+        {
+            double selectionSize = markerSize + 3;
+            var selectionGeom = new StreamGeometry();
+            using (var ctx = selectionGeom.Open())
+            {
+                ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - selectionSize), true);
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X + selectionSize, markerCenter.Y));
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + selectionSize));
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X - selectionSize, markerCenter.Y));
+                ctx.EndFigure(true);
+            }
+            context.DrawGeometry(null, SelectionOutlinePen, selectionGeom);
+        }
+
+        // Draw diamond shape
+        var diamondGeom = new StreamGeometry();
+        using (var ctx = diamondGeom.Open())
+        {
+            ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - markerSize), true);
+            ctx.LineTo(new AvaloniaPoint(markerCenter.X + markerSize, markerCenter.Y));
+            ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + markerSize));
+            ctx.LineTo(new AvaloniaPoint(markerCenter.X - markerSize, markerCenter.Y));
+            ctx.EndFigure(true);
+        }
+
+        context.DrawGeometry(factionBrush, CommanderOutlinePen, diamondGeom);
+    }
+
+    /// <summary>
+    /// Renders message markers as diamond shapes at their hex locations.
+    /// Messages are positioned at bottom-right with stacking for multiple messages.
+    /// </summary>
     private void RenderMessageMarkers(DrawingContext context, Layout layout, Rect viewport)
     {
         var messages = Messages;
         if (messages == null || messages.Count == 0) return;
 
-        foreach (var message in messages)
-        {
-            // Skip messages without a location
-            if (message.LocationQ == null || message.LocationR == null)
-                continue;
+        var messageGroups = GroupEntitiesByHex(messages, m => (m.LocationQ, m.LocationR));
+        var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
 
-            var hex = new Hex(message.LocationQ.Value, message.LocationR.Value,
-                -message.LocationQ.Value - message.LocationR.Value);
-            var center = layout.HexToPixel(hex);
+        foreach (var group in messageGroups)
+        {
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
 
             // Viewport culling
-            if (center.X < viewport.Left - 20 || center.X > viewport.Right + 20 ||
-                center.Y < viewport.Top - 20 || center.Y > viewport.Bottom + 20)
+            if (hexCenter.X < viewport.Left - 20 || hexCenter.X > viewport.Right + 20 ||
+                hexCenter.Y < viewport.Top - 20 || hexCenter.Y > viewport.Bottom + 20)
                 continue;
 
-            // Draw message marker: small ??? offset up-right from hex center
-            var markerCenter = new AvaloniaPoint(center.X, center.Y);
-            double markerSize = Math.Max(5, HexRadius * 0.25);
-
-            // Check if this commander is selected
-            bool isSelected = SelectedMessage != null && SelectedMessage.Id == message.Id;
-
-            // Draw selection highlight first (larger diamond behind)
-            if (isSelected)
+            for (int i = 0; i < group.Value.Count; i++)
             {
-                double selectionSize = markerSize + 3;
-                var selectionGeom = new StreamGeometry();
-                using (var ctx = selectionGeom.Open())
-                {
-                    ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - selectionSize), true);
-                    ctx.LineTo(new AvaloniaPoint(markerCenter.X + selectionSize, markerCenter.Y));
-                    ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + selectionSize));
-                    ctx.LineTo(new AvaloniaPoint(markerCenter.X - selectionSize, markerCenter.Y));
-                    ctx.EndFigure(true);
-                }
-                context.DrawGeometry(null, SelectionOutlinePen, selectionGeom);
-            }
+                var message = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
+                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
 
-            // Draw diamond shape
-            var diamondGeom = new StreamGeometry();
-            using (var ctx = diamondGeom.Open())
-            {
-                ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - markerSize), true);
-                ctx.LineTo(new AvaloniaPoint(markerCenter.X + markerSize, markerCenter.Y));
-                ctx.LineTo(new AvaloniaPoint(markerCenter.X, markerCenter.Y + markerSize));
-                ctx.LineTo(new AvaloniaPoint(markerCenter.X - markerSize, markerCenter.Y));
-                ctx.EndFigure(true);
+                RenderSingleMessageMarker(context, message, markerCenter);
             }
-
-            context.DrawGeometry(DefaultMarkerBrush, CommanderOutlinePen, diamondGeom);
         }
     }
 
+    private void RenderSingleMessageMarker(DrawingContext context, Message message, AvaloniaPoint markerCenter)
+    {
+        double markerWidth = Math.Max(5, HexRadius * 0.27);   // Horizontal size (longer)
+        double markerHeight = Math.Max(3, HexRadius * 0.17); // Vertical size (shorter)
+
+        // Check if this message is selected
+        bool isSelected = SelectedMessage != null && SelectedMessage.Id == message.Id;
+
+        // Draw selection highlight first (larger rectangle behind)
+        if (isSelected)
+        {
+            double selectionWidth = markerWidth + 3;
+            double selectionHeight = markerHeight + 3;
+            var selectionRect = new Rect(
+                markerCenter.X - selectionWidth,
+                markerCenter.Y - selectionHeight,
+                selectionWidth * 2,
+                selectionHeight * 2);
+            context.DrawRectangle(null, SelectionOutlinePen, selectionRect);
+        }
+
+        // Draw envelope rectangle with white fill
+        var envelopeRect = new Rect(
+            markerCenter.X - markerWidth,
+            markerCenter.Y - markerHeight,
+            markerWidth * 2,
+            markerHeight * 2);
+        context.DrawRectangle(Brushes.White, MarkerOutlinePen, envelopeRect);
+
+        // Draw envelope flap lines (from top corners to bottom center)
+        var topLeft = new AvaloniaPoint(markerCenter.X - markerWidth, markerCenter.Y - markerHeight);
+        var topRight = new AvaloniaPoint(markerCenter.X + markerWidth, markerCenter.Y - markerHeight);
+        var bottomCenter = new AvaloniaPoint(markerCenter.X, markerCenter.Y + markerHeight);
+
+        context.DrawLine(MarkerOutlinePen, topLeft, bottomCenter);
+        context.DrawLine(MarkerOutlinePen, topRight, bottomCenter);
+    }
+
     /// <summary>
-    /// Renders the stored path for each message as orange lines from the message's
+    /// Renders the stored path for the currently selected message as orange lines from the message's
     /// current location through each waypoint in the path, with directional arrows.
     /// </summary>
     private void RenderMessagePaths(DrawingContext context, Layout layout, Rect viewport)
     {
-        var messages = Messages;
-        if (messages == null) return;
+        var message = SelectedMessage;
+        if (message == null) return;
+        if (message.Path == null || message.Path.Count == 0) return;
+        if (message.LocationQ == null || message.LocationR == null) return;
 
         var pathPen = new Pen(Brushes.Orange, 2, lineCap: PenLineCap.Round);
 
-        foreach (var message in messages)
+        // Start from message's current location
+        var startHex = new Hex(message.LocationQ.Value, message.LocationR.Value,
+                               -message.LocationQ.Value - message.LocationR.Value);
+        var currentPoint = layout.HexToPixel(startHex);
+
+        // Draw line and arrow to each waypoint
+        foreach (var waypoint in message.Path)
         {
-            if (message.Path == null || message.Path.Count == 0) continue;
-            if (message.LocationQ == null || message.LocationR == null) continue;
-
-            // Start from message's current location
-            var startHex = new Hex(message.LocationQ.Value, message.LocationR.Value,
-                                   -message.LocationQ.Value - message.LocationR.Value);
-            var currentPoint = layout.HexToPixel(startHex);
-
-            // Draw line and arrow to each waypoint
-            foreach (var waypoint in message.Path)
-            {
-                var nextPoint = layout.HexToPixel(waypoint);
-                context.DrawLine(pathPen, currentPoint, nextPoint);
-                DrawArrowhead(context, currentPoint, nextPoint, Brushes.Orange, 8);
-                currentPoint = nextPoint;
-            }
+            var nextPoint = layout.HexToPixel(waypoint);
+            context.DrawLine(pathPen, currentPoint, nextPoint);
+            DrawArrowhead(context, currentPoint, nextPoint, Brushes.Orange, 8);
+            currentPoint = nextPoint;
         }
     }
 
     /// <summary>
-    /// Renders the stored path for each army as green lines from the army's
+    /// Renders the stored path for the currently selected army as green lines from the army's
     /// current location through each waypoint in the path, with directional arrows.
     /// </summary>
     private void RenderArmyPaths(DrawingContext context, Layout layout, Rect viewport)
     {
-        var armies = Armies;
-        if (armies == null) return;
+        var army = SelectedArmy;
+        if (army == null) return;
+        if (army.Path == null || army.Path.Count == 0) return;
+        if (army.LocationQ == null || army.LocationR == null) return;
 
         var pathPen = new Pen(Brushes.Green, 2, lineCap: PenLineCap.Round);
 
-        foreach (var army in armies)
+        // Start from army's current location
+        var startHex = new Hex(army.LocationQ.Value, army.LocationR.Value,
+                               -army.LocationQ.Value - army.LocationR.Value);
+        var currentPoint = layout.HexToPixel(startHex);
+
+        // Draw line and arrow to each waypoint
+        foreach (var waypoint in army.Path)
         {
-            if (army.Path == null || army.Path.Count == 0) continue;
-            if (army.LocationQ == null || army.LocationR == null) continue;
-
-            // Start from army's current location
-            var startHex = new Hex(army.LocationQ.Value, army.LocationR.Value,
-                                   -army.LocationQ.Value - army.LocationR.Value);
-            var currentPoint = layout.HexToPixel(startHex);
-
-            // Draw line and arrow to each waypoint
-            foreach (var waypoint in army.Path)
-            {
-                var nextPoint = layout.HexToPixel(waypoint);
-                context.DrawLine(pathPen, currentPoint, nextPoint);
-                DrawArrowhead(context, currentPoint, nextPoint, Brushes.Green, 8);
-                currentPoint = nextPoint;
-            }
+            var nextPoint = layout.HexToPixel(waypoint);
+            context.DrawLine(pathPen, currentPoint, nextPoint);
+            DrawArrowhead(context, currentPoint, nextPoint, Brushes.Green, 8);
+            currentPoint = nextPoint;
         }
     }
 
     /// <summary>
-    /// Renders the stored path for each commander as purple lines from the commander's
+    /// Renders the stored path for the currently selected commander as purple lines from the commander's
     /// current location through each waypoint in the path, with directional arrows.
     /// </summary>
     private void RenderCommanderPaths(DrawingContext context, Layout layout, Rect viewport)
     {
-        var commanders = Commanders;
-        if (commanders == null) return;
+        var commander = SelectedCommander;
+        if (commander == null) return;
+        if (commander.Path == null || commander.Path.Count == 0) return;
+        if (commander.LocationQ == null || commander.LocationR == null) return;
 
         var pathPen = new Pen(Brushes.Purple, 2, lineCap: PenLineCap.Round);
 
-        foreach (var commander in commanders)
+        // Start from commander's current location
+        var startHex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
+                               -commander.LocationQ.Value - commander.LocationR.Value);
+        var currentPoint = layout.HexToPixel(startHex);
+
+        // Draw line and arrow to each waypoint
+        foreach (var waypoint in commander.Path)
         {
-            if (commander.Path == null || commander.Path.Count == 0) continue;
-            if (commander.LocationQ == null || commander.LocationR == null) continue;
-
-            // Start from commander's current location
-            var startHex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
-                                   -commander.LocationQ.Value - commander.LocationR.Value);
-            var currentPoint = layout.HexToPixel(startHex);
-
-            // Draw line and arrow to each waypoint
-            foreach (var waypoint in commander.Path)
-            {
-                var nextPoint = layout.HexToPixel(waypoint);
-                context.DrawLine(pathPen, currentPoint, nextPoint);
-                DrawArrowhead(context, currentPoint, nextPoint, Brushes.Purple, 8);
-                currentPoint = nextPoint;
-            }
+            var nextPoint = layout.HexToPixel(waypoint);
+            context.DrawLine(pathPen, currentPoint, nextPoint);
+            DrawArrowhead(context, currentPoint, nextPoint, Brushes.Purple, 8);
+            currentPoint = nextPoint;
         }
     }
 
