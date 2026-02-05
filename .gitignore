@@ -15,13 +15,9 @@ out/
 packages/
 *.nupkg
 
-# Benchmark outputs
-BenchmarkSuite1/
-BenchmarkSuite2/
-BenchmarkDotNet.Artifacts/
-
 # Design docs and planning files
 *.md
+!README.md #Except for README.md
 *.txt
 
 # Claude planning files

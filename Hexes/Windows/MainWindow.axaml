@@ -37,7 +37,7 @@
         </DataTemplate>
     </Window.DataTemplates>
 
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="200,Auto,*,Auto,250">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="400,Auto,*,Auto,400">
         <!-- Row 0: Top Bar spanning all columns -->
         <Border Grid.Row="0" Grid.ColumnSpan="5"
                 BorderBrush="Gray" BorderThickness="0,0,0,1"
@@ -276,7 +276,7 @@
                                   GridLinesVisibility="Horizontal"
                                   SelectionMode="Single">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Commander" Binding="{Binding Commander.Name}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Commander" Binding="{Binding CommanderName, FallbackValue='(Unknown)'}" Width="*" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt, StringFormat='{}{0:MM/dd}'}" Width="55" IsReadOnly="True"/>
                                 <DataGridCheckBoxColumn Header="Done" Binding="{Binding Processed}" Width="45"/>
                             </DataGrid.Columns>
@@ -304,8 +304,8 @@
                                   GridLinesVisibility="Horizontal"
                                   SelectionMode="Single">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="From" Binding="{Binding SenderCommander.Name}" Width="*" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="To" Binding="{Binding TargetCommander.Name}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="From" Binding="{Binding SenderCommander.Name, FallbackValue='?'}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="To" Binding="{Binding TargetCommander.Name, FallbackValue='?'}" Width="*" IsReadOnly="True"/>
                                 <DataGridCheckBoxColumn Header="Dlvd" Binding="{Binding Delivered}" Width="40"/>
                                 <DataGridTextColumn Header="Dlvd Date" Binding="{Binding DeliveredAt}"/>
                             </DataGrid.Columns>

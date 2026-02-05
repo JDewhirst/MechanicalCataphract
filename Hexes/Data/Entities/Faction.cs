@@ -14,5 +14,4 @@ public class Faction
     public ICollection<Army> Armies { get; set; } = new List<Army>();
     public ICollection<Commander> Commanders { get; set; } = new List<Commander>();
     public ICollection<MapHex> ControlledHexes { get; set; } = new List<MapHex>();
-    public ICollection<Order> Orders { get; set; } = new List<Order>();
 }

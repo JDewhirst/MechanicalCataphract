@@ -122,7 +122,7 @@ public partial class HexMapViewModel : ObservableObject
     private ObservableCollection<Commander> _commanders = new();
 
     [ObservableProperty]
-    private ObservableCollection<Order> _orders = new();
+    private ObservableCollection<OrderViewModel> _orders = new();
 
     [ObservableProperty]
     private ObservableCollection<Message> _messages = new();
@@ -147,7 +147,7 @@ public partial class HexMapViewModel : ObservableObject
     private Commander? _selectedCommander;
 
     [ObservableProperty]
-    private Order? _selectedOrder;
+    private OrderViewModel? _selectedOrder;
 
     [ObservableProperty]
     private Message? _selectedMessage;
@@ -223,7 +223,8 @@ public partial class HexMapViewModel : ObservableObject
         Commanders = new ObservableCollection<Commander>(commanders);
 
         var orders = await _orderService.GetAllAsync();
-        Orders = new ObservableCollection<Order>(orders);
+        Orders = new ObservableCollection<OrderViewModel>(
+            orders.Select(o => new OrderViewModel(o, _orderService)));
 
         var messages = await _messageService.GetAllAsync();
         Messages = new ObservableCollection<Message>(messages);
@@ -276,7 +277,8 @@ public partial class HexMapViewModel : ObservableObject
     public async Task RefreshOrdersAsync()
     {
         var orders = await _orderService.GetAllAsync();
-        Orders = new ObservableCollection<Order>(orders);
+        Orders = new ObservableCollection<OrderViewModel>(
+            orders.Select(o => new OrderViewModel(o, _orderService)));
     }
 
     public async Task RefreshMessagesAsync()
@@ -731,7 +733,7 @@ public partial class HexMapViewModel : ObservableObject
         }
     }
 
-    partial void OnSelectedOrderChanged(Order? value)
+    partial void OnSelectedOrderChanged(OrderViewModel? value)
     {
         if (value != null)
         {
@@ -741,8 +743,8 @@ public partial class HexMapViewModel : ObservableObject
             SelectedMessage = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            SelectedEntityViewModel = new OrderViewModel(value, _orderService);
-            StatusMessage = $"Selected order from {value.Commander?.Name ?? "?"}";
+            SelectedEntityViewModel = value;  // Already a ViewModel
+            StatusMessage = $"Selected order for {value.CommanderName ?? "?"}";
         }
     }
 
@@ -920,10 +922,10 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task DeleteOrderAsync(Order order)
+    private async Task DeleteOrderAsync(OrderViewModel? orderVm)
     {
-        if (order == null) return;
-        await _orderService.DeleteAsync(order.Id);
+        if (orderVm == null) return;
+        await _orderService.DeleteAsync(orderVm.Id);
         await RefreshOrdersAsync();
         StatusMessage = "Deleted order";
     }

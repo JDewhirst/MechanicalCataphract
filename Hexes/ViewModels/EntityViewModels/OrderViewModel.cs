@@ -25,6 +25,11 @@ public partial class OrderViewModel : ObservableObject, IEntityViewModel
 
     public Commander? Commander => _order.Commander;
 
+    /// <summary>
+    /// Gets the commander name directly, avoiding deep traversal of the entity graph.
+    /// </summary>
+    public string? CommanderName => _order.Commander?.Name;
+
     public string Contents
     {
         get => _order.Contents;
