@@ -62,8 +62,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             SenderCommanderId = sender.Id,
             TargetCommanderId = target.Id,
             Content = "Test",
-            LocationQ = startHex.Q,
-            LocationR = startHex.R,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
             Path = new List<Hex> { endHex.ToHex() }
         });
 
@@ -77,8 +77,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         Assert.That(result!.Success, Is.True);
         // At least one advance should have moved the message
         var reloaded = await _messageService.GetByIdAsync(msg.Id);
-        Assert.That(reloaded!.LocationQ, Is.EqualTo(endHex.Q));
-        Assert.That(reloaded.LocationR, Is.EqualTo(endHex.R));
+        Assert.That(reloaded!.CoordinateQ, Is.EqualTo(endHex.Q));
+        Assert.That(reloaded.CoordinateR, Is.EqualTo(endHex.R));
     }
 
     [Test]
@@ -97,8 +97,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         {
             Name = "Marching",
             FactionId = 1,
-            LocationQ = startHex.Q,
-            LocationR = startHex.R,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
             Path = new List<Hex> { endHex.ToHex() }
         });
 
@@ -109,8 +109,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         }
 
         var reloaded = await _armyService.GetByIdAsync(army.Id);
-        Assert.That(reloaded!.LocationQ, Is.EqualTo(endHex.Q));
-        Assert.That(reloaded.LocationR, Is.EqualTo(endHex.R));
+        Assert.That(reloaded!.CoordinateQ, Is.EqualTo(endHex.Q));
+        Assert.That(reloaded.CoordinateR, Is.EqualTo(endHex.R));
     }
 
     [Test]
@@ -128,8 +128,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         {
             Name = "Traveler",
             FactionId = 1,
-            LocationQ = startHex.Q,
-            LocationR = startHex.R,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
             Path = new List<Hex> { endHex.ToHex() }
         });
 
@@ -140,8 +140,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         }
 
         var reloaded = await _commanderService.GetByIdAsync(commander.Id);
-        Assert.That(reloaded!.LocationQ, Is.EqualTo(endHex.Q));
-        Assert.That(reloaded.LocationR, Is.EqualTo(endHex.R));
+        Assert.That(reloaded!.CoordinateQ, Is.EqualTo(endHex.Q));
+        Assert.That(reloaded.CoordinateR, Is.EqualTo(endHex.R));
     }
 
     [Test]
@@ -154,8 +154,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         {
             Name = "Hungry",
             FactionId = 1,
-            LocationQ = hex.Q,
-            LocationR = hex.R,
+            CoordinateQ = hex.Q,
+            CoordinateR = hex.R,
             CarriedSupply = 10000
         });
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "Inf", 100, UnitType.Infantry);

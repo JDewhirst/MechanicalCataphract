@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
 using System.Collections.Generic;
@@ -24,21 +25,47 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
     public int Q => _mapHex.Q;
     public int R => _mapHex.R;
 
+    public int Col => OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(_mapHex.Q, _mapHex.R, -_mapHex.Q - _mapHex.R)).col;
+    public int Row => OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(_mapHex.Q, _mapHex.R, -_mapHex.Q - _mapHex.R)).row;
+
     public TerrainType? TerrainType => _mapHex.TerrainType;
     public Faction? ControllingFaction
     {
         get => _mapHex.ControllingFaction;
         set { if (_mapHex.ControllingFaction != value) { _mapHex.ControllingFaction = value; OnPropertyChanged(); _ = SaveAsync(); } }
     }
-    public LocationType? LocationType => _mapHex.LocationType;
+
+    public LocationType? LocationType
+    {
+        get => _mapHex.LocationType;
+        set
+        {
+            if (_mapHex.LocationType != value)
+            {
+                _mapHex.LocationType = value;
+                _mapHex.LocationTypeId = value?.Id;
+                OnPropertyChanged();
+                _ = SaveAsync();
+            }
+        }
+    }
 
     private readonly IEnumerable<Faction> _availableFactions;
     public IEnumerable<Faction> AvailableFactions => _availableFactions;
+
+    private readonly IEnumerable<LocationType> _availableLocationTypes;
+    public IEnumerable<LocationType> AvailableLocationTypes => _availableLocationTypes;
 
     public string? LocationName
     {
         get => _mapHex.LocationName;
         set { if (_mapHex.LocationName != value) { _mapHex.LocationName = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
+    public int? LocationSupply
+    {
+        get => _mapHex.LocationSupply;
+        set { if (_mapHex.LocationSupply != value) { _mapHex.LocationSupply = value; OnPropertyChanged(); _ = SaveAsync(); } }
     }
 
     public int PopulationDensity
@@ -58,10 +85,11 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
         await _service.UpdateHexAsync(_mapHex);
     }
 
-    public MapHexViewModel(MapHex mapHex, IMapService service, IEnumerable<Faction> availableFactions)
+    public MapHexViewModel(MapHex mapHex, IMapService service, IEnumerable<Faction> availableFactions, IEnumerable<LocationType> availableLocationTypes)
     {
         _mapHex = mapHex;
         _service = service;
         _availableFactions = availableFactions;
+        _availableLocationTypes = availableLocationTypes;
     }
 }

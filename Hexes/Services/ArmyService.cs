@@ -23,7 +23,7 @@ public class ArmyService : IArmyService
         return await _context.Armies
             .Include(a => a.Faction)
             .Include(a => a.Commander)
-            .Include(a => a.Location)
+            .Include(a => a.MapHex)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
@@ -63,7 +63,7 @@ public class ArmyService : IArmyService
         return await _context.Armies
             .Include(a => a.Faction)
             .Include(a => a.Commander)
-            .Where(a => a.LocationQ == hex.q && a.LocationR == hex.r)
+            .Where(a => a.CoordinateQ == hex.q && a.CoordinateR == hex.r)
             .ToListAsync();
     }
 
@@ -103,8 +103,8 @@ public class ArmyService : IArmyService
         var army = await _context.Armies.FindAsync(armyId);
         if (army != null)
         {
-            army.LocationQ = destination.q;
-            army.LocationR = destination.r;
+            army.CoordinateQ = destination.q;
+            army.CoordinateR = destination.r;
             await _context.SaveChangesAsync();
         }
     }

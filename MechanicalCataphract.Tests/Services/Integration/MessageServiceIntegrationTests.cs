@@ -30,8 +30,8 @@ public class MessageServiceIntegrationTests : IntegrationTestBase
             SenderCommanderId = _sender.Id,
             TargetCommanderId = _target.Id,
             Content = "Hello",
-            LocationQ = _sender.LocationQ,
-            LocationR = _sender.LocationR
+            CoordinateQ = _sender.CoordinateQ,
+            CoordinateR = _sender.CoordinateR
         });
 
         Assert.That(msg.CreatedAt, Is.GreaterThanOrEqualTo(before));
@@ -45,8 +45,8 @@ public class MessageServiceIntegrationTests : IntegrationTestBase
             SenderCommanderId = _sender.Id,
             TargetCommanderId = _target.Id,
             Content = "Orders",
-            LocationQ = _sender.LocationQ,
-            LocationR = _sender.LocationR
+            CoordinateQ = _sender.CoordinateQ,
+            CoordinateR = _sender.CoordinateR
         });
 
         var loaded = await _service.GetByIdAsync(msg.Id);
@@ -60,9 +60,9 @@ public class MessageServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task GetMessagesBySenderAsync_Filters()
     {
-        await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "A", LocationQ = _sender.LocationQ, LocationR = _sender.LocationR });
-        await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "B", LocationQ = _sender.LocationQ, LocationR = _sender.LocationR });
-        await _service.CreateAsync(new Message { SenderCommanderId = _target.Id, TargetCommanderId = _sender.Id, Content = "C", LocationQ = _target.LocationQ, LocationR = _target.LocationR });
+        await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "A", CoordinateQ = _sender.CoordinateQ, CoordinateR = _sender.CoordinateR });
+        await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "B", CoordinateQ = _sender.CoordinateQ, CoordinateR = _sender.CoordinateR });
+        await _service.CreateAsync(new Message { SenderCommanderId = _target.Id, TargetCommanderId = _sender.Id, Content = "C", CoordinateQ = _target.CoordinateQ, CoordinateR = _target.CoordinateR });
 
         var messages = await _service.GetMessagesBySenderAsync(_sender.Id);
 
@@ -73,8 +73,8 @@ public class MessageServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task GetUndeliveredMessagesAsync_FiltersAndOrders()
     {
-        var m1 = await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "First", LocationQ = _sender.LocationQ, LocationR = _sender.LocationR });
-        var m2 = await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "Second", LocationQ = _sender.LocationQ, LocationR = _sender.LocationR });
+        var m1 = await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "First", CoordinateQ = _sender.CoordinateQ, CoordinateR = _sender.CoordinateR });
+        var m2 = await _service.CreateAsync(new Message { SenderCommanderId = _sender.Id, TargetCommanderId = _target.Id, Content = "Second", CoordinateQ = _sender.CoordinateQ, CoordinateR = _sender.CoordinateR });
         await _service.MarkAsDeliveredAsync(m1.Id);
 
         var undelivered = await _service.GetUndeliveredMessagesAsync();
@@ -91,8 +91,8 @@ public class MessageServiceIntegrationTests : IntegrationTestBase
             SenderCommanderId = _sender.Id,
             TargetCommanderId = _target.Id,
             Content = "Urgent",
-            LocationQ = _sender.LocationQ,
-            LocationR = _sender.LocationR
+            CoordinateQ = _sender.CoordinateQ,
+            CoordinateR = _sender.CoordinateR
         });
 
         await _service.MarkAsDeliveredAsync(msg.Id);
@@ -110,8 +110,8 @@ public class MessageServiceIntegrationTests : IntegrationTestBase
             SenderCommanderId = _sender.Id,
             TargetCommanderId = _target.Id,
             Content = "Delete me",
-            LocationQ = _sender.LocationQ,
-            LocationR = _sender.LocationR
+            CoordinateQ = _sender.CoordinateQ,
+            CoordinateR = _sender.CoordinateR
         });
 
         await _service.DeleteAsync(msg.Id);

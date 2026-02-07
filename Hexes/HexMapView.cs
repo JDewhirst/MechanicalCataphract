@@ -452,7 +452,7 @@ public class HexMapView : Control
         var armies = Armies;
         if (armies == null || armies.Count == 0) return null;
 
-        var armyGroups = GroupEntitiesByHex(armies, a => (a.LocationQ, a.LocationR));
+        var armyGroups = GroupEntitiesByHex(armies, a => (a.CoordinateQ, a.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.Center);
         double hitRadius = Math.Max(10, HexRadius * 0.4);
 
@@ -510,7 +510,7 @@ public class HexMapView : Control
         var commanders = Commanders;
         if (commanders == null || commanders.Count == 0) return null;
 
-        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.LocationQ, c.LocationR));
+        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.CoordinateQ, c.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.TopRight);
         double hitRadius = Math.Max(8, HexRadius * 0.3);
 
@@ -568,7 +568,7 @@ public class HexMapView : Control
         var messages = Messages;
         if (messages == null || messages.Count == 0) return null;
 
-        var messageGroups = GroupEntitiesByHex(messages, m => (m.LocationQ, m.LocationR));
+        var messageGroups = GroupEntitiesByHex(messages, m => (m.CoordinateQ, m.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
         double hitRadius = Math.Max(6, HexRadius * 0.27);  // Matches smaller envelope size
 
@@ -801,7 +801,7 @@ public class HexMapView : Control
         var armies = Armies;
         if (armies == null || armies.Count == 0) return;
 
-        var armyGroups = GroupEntitiesByHex(armies, a => (a.LocationQ, a.LocationR));
+        var armyGroups = GroupEntitiesByHex(armies, a => (a.CoordinateQ, a.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.Center);
 
         foreach (var group in armyGroups)
@@ -867,7 +867,7 @@ public class HexMapView : Control
         var commanders = Commanders;
         if (commanders == null || commanders.Count == 0) return;
 
-        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.LocationQ, c.LocationR));
+        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.CoordinateQ, c.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.TopRight);
 
         foreach (var group in commanderGroups)
@@ -939,7 +939,7 @@ public class HexMapView : Control
         var messages = Messages;
         if (messages == null || messages.Count == 0) return;
 
-        var messageGroups = GroupEntitiesByHex(messages, m => (m.LocationQ, m.LocationR));
+        var messageGroups = GroupEntitiesByHex(messages, m => (m.CoordinateQ, m.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
 
         foreach (var group in messageGroups)
@@ -1011,13 +1011,13 @@ public class HexMapView : Control
         var message = SelectedMessage;
         if (message == null) return;
         if (message.Path == null || message.Path.Count == 0) return;
-        if (message.LocationQ == null || message.LocationR == null) return;
+        if (message.CoordinateQ == null || message.CoordinateR == null) return;
 
         var pathPen = new Pen(Brushes.Orange, 2, lineCap: PenLineCap.Round);
 
         // Start from message's current location
-        var startHex = new Hex(message.LocationQ.Value, message.LocationR.Value,
-                               -message.LocationQ.Value - message.LocationR.Value);
+        var startHex = new Hex(message.CoordinateQ.Value, message.CoordinateR.Value,
+                               -message.CoordinateQ.Value - message.CoordinateR.Value);
         var currentPoint = layout.HexToPixel(startHex);
 
         // Draw line and arrow to each waypoint
@@ -1039,13 +1039,13 @@ public class HexMapView : Control
         var army = SelectedArmy;
         if (army == null) return;
         if (army.Path == null || army.Path.Count == 0) return;
-        if (army.LocationQ == null || army.LocationR == null) return;
+        if (army.CoordinateQ == null || army.CoordinateR == null) return;
 
         var pathPen = new Pen(Brushes.Green, 2, lineCap: PenLineCap.Round);
 
         // Start from army's current location
-        var startHex = new Hex(army.LocationQ.Value, army.LocationR.Value,
-                               -army.LocationQ.Value - army.LocationR.Value);
+        var startHex = new Hex(army.CoordinateQ.Value, army.CoordinateR.Value,
+                               -army.CoordinateQ.Value - army.CoordinateR.Value);
         var currentPoint = layout.HexToPixel(startHex);
 
         // Draw line and arrow to each waypoint
@@ -1067,13 +1067,13 @@ public class HexMapView : Control
         var commander = SelectedCommander;
         if (commander == null) return;
         if (commander.Path == null || commander.Path.Count == 0) return;
-        if (commander.LocationQ == null || commander.LocationR == null) return;
+        if (commander.CoordinateQ == null || commander.CoordinateR == null) return;
 
         var pathPen = new Pen(Brushes.Purple, 2, lineCap: PenLineCap.Round);
 
         // Start from commander's current location
-        var startHex = new Hex(commander.LocationQ.Value, commander.LocationR.Value,
-                               -commander.LocationQ.Value - commander.LocationR.Value);
+        var startHex = new Hex(commander.CoordinateQ.Value, commander.CoordinateR.Value,
+                               -commander.CoordinateQ.Value - commander.CoordinateR.Value);
         var currentPoint = layout.HexToPixel(startHex);
 
         // Draw line and arrow to each waypoint

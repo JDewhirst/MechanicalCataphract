@@ -776,7 +776,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedCommander = null;
             SelectedOrder = null;
             SelectedMessage = null;
-            SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions); 
+            SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions, LocationTypes);
             StatusMessage = $"Selected Hex: {value.LocationName}";
             _ = LoadHexWithDetailsAsync(value.Q, value.R);
         }
@@ -787,7 +787,7 @@ public partial class HexMapViewModel : ObservableObject
         var hexWithDetails = await _mapService.GetHexAsync(Q,R);
         if (hexWithDetails != null)
         {
-            var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions);
+            var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions, LocationTypes);
 
             SelectedEntityViewModel = hexVm;
             StatusMessage = $"Selected hex: {hexWithDetails.Q}, {hexWithDetails.R}";
@@ -827,8 +827,8 @@ public partial class HexMapViewModel : ObservableObject
         var army = new Army
         {
             Name = "New Army",
-            LocationQ = 0,
-            LocationR = 0,
+            CoordinateQ = 0,
+            CoordinateR = 0,
             FactionId = defaultFaction?.Id ?? 1,
             Morale = 10,
             Wagons = 0,
@@ -943,11 +943,11 @@ public partial class HexMapViewModel : ObservableObject
         var message = new Message
         {
             SenderCommanderId = commanders[0].Id,
-            SenderLocationQ = commanders[0].LocationQ ?? 0,
-            SenderLocationR = commanders[0].LocationR ?? 0,
+            SenderCoordinateQ = commanders[0].CoordinateQ ?? 0,
+            SenderCoordinateR = commanders[0].CoordinateR ?? 0,
             TargetCommanderId = commanders[1].Id,
-            TargetLocationQ = commanders[1].LocationQ ?? 0,
-            TargetLocationR = commanders[1].LocationR ?? 0,
+            TargetCoordinateQ = commanders[1].CoordinateQ ?? 0,
+            TargetCoordinateR = commanders[1].CoordinateR ?? 0,
             Content = "New message",
             Delivered = false,
             CreatedAt = System.DateTime.UtcNow
@@ -1051,7 +1051,7 @@ public partial class HexMapViewModel : ObservableObject
 
     private void StartPathSelectionModeForEntity(IPathMovable entity, string entityName)
     {
-        if (entity.LocationQ == null || entity.LocationR == null)
+        if (entity.CoordinateQ == null || entity.CoordinateR == null)
         {
             StatusMessage = $"{entityName} must have a location before selecting a path";
             return;
@@ -1090,9 +1090,9 @@ public partial class HexMapViewModel : ObservableObject
         if (PathSelectionHexes.Count == 0)
         {
             lastHex = new Hex(
-                PathSelectionTarget.LocationQ!.Value,
-                PathSelectionTarget.LocationR!.Value,
-                -PathSelectionTarget.LocationQ!.Value - PathSelectionTarget.LocationR!.Value);
+                PathSelectionTarget.CoordinateQ!.Value,
+                PathSelectionTarget.CoordinateR!.Value,
+                -PathSelectionTarget.CoordinateQ!.Value - PathSelectionTarget.CoordinateR!.Value);
         }
         else
         {

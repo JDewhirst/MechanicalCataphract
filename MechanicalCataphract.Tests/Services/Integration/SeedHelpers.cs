@@ -39,14 +39,14 @@ public static class SeedHelpers
     }
 
     public static async Task<Commander> SeedCommanderAsync(
-        WargameDbContext ctx, string name, int factionId, int? locationQ = null, int? locationR = null)
+        WargameDbContext ctx, string name, int factionId, int? coordinateQ = null, int? coordinateR = null)
     {
         var commander = new Commander
         {
             Name = name,
             FactionId = factionId,
-            LocationQ = locationQ,
-            LocationR = locationR
+            CoordinateQ = coordinateQ,
+            CoordinateR = coordinateR
         };
         ctx.Commanders.Add(commander);
         await ctx.SaveChangesAsync();
@@ -54,14 +54,14 @@ public static class SeedHelpers
     }
 
     public static async Task<Army> SeedArmyAsync(
-        WargameDbContext ctx, string name, int factionId, int? locationQ, int? locationR, int? commanderId = null)
+        WargameDbContext ctx, string name, int factionId, int? coordinateQ, int? coordinateR, int? commanderId = null)
     {
         var army = new Army
         {
             Name = name,
             FactionId = factionId,
-            LocationQ = locationQ,
-            LocationR = locationR,
+            CoordinateQ = coordinateQ,
+            CoordinateR = coordinateR,
             CommanderId = commanderId
         };
         ctx.Armies.Add(army);

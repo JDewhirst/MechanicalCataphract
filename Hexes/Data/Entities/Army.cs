@@ -8,14 +8,14 @@ public class Army : IPathMovable
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 
-    // Location (composite FK to MapHex)
-    public int? LocationQ { get; set; }
-    public int? LocationR { get; set; }
-    public MapHex? Location { get; set; }
+    // Coordinate (composite FK to MapHex)
+    public int? CoordinateQ { get; set; }
+    public int? CoordinateR { get; set; }
+    public MapHex? MapHex { get; set; }
 
-    // Target location for pathfinding
-    public int? TargetLocationQ { get; set; }
-    public int? TargetLocationR { get; set; }
+    // Target coordinate for pathfinding
+    public int? TargetCoordinateQ { get; set; }
+    public int? TargetCoordinateR { get; set; }
 
     // Movement
     public List<Hex>? Path { get; set; }

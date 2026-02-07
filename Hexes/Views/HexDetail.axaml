@@ -13,10 +13,10 @@
         <StackPanel Orientation="Horizontal" Spacing="10">
             <TextBlock Text="Coordinates:" FontWeight="Bold" FontSize="12"/>
             <TextBlock FontSize="12">
-                <Run Text="Q: "/>
-                <Run Text="{Binding Q}"/>
-                <Run Text="  R: "/>
-                <Run Text="{Binding R}"/>
+                <Run Text="Col: "/>
+                <Run Text="{Binding Col}"/>
+                <Run Text="  Row: "/>
+                <Run Text="{Binding Row}"/>
             </TextBlock>
         </StackPanel>
 
@@ -33,10 +33,25 @@
                      Watermark="(unnamed)"/>
         </StackPanel>
 
-        <!-- Location Type (read-only) -->
-        <StackPanel Orientation="Horizontal" Spacing="5">
-            <TextBlock Text="Location Type:" FontWeight="SemiBold" FontSize="11"/>
-            <TextBlock Text="{Binding LocationType.Name, FallbackValue='(None)'}" FontSize="11"/>
+        <!-- Location Type -->
+        <StackPanel Margin="0,5,0,0">
+            <TextBlock Text="Location Type" FontWeight="SemiBold" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding AvailableLocationTypes}"
+                      SelectedItem="{Binding LocationType, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="entities:LocationType">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
+        <!-- Location Supply -->
+        <StackPanel>
+            <TextBlock Text="Location Supply" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding LocationSupply, Mode=TwoWay}"
+                     Watermark="(none)"/>
         </StackPanel>
 
         <!-- Two-column grid for stats -->

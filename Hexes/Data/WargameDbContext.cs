@@ -53,11 +53,11 @@ public class WargameDbContext : DbContext
             .HasForeignKey(h => h.WeatherId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Army -> MapHex (location)
+        // Army -> MapHex (coordinate)
         modelBuilder.Entity<Army>()
-            .HasOne(a => a.Location)
+            .HasOne(a => a.MapHex)
             .WithMany(h => h.Armies)
-            .HasForeignKey(a => new { a.LocationQ, a.LocationR })
+            .HasForeignKey(a => new { a.CoordinateQ, a.CoordinateR })
             .OnDelete(DeleteBehavior.Restrict);
 
         // Army -> Faction
@@ -88,11 +88,11 @@ public class WargameDbContext : DbContext
             .HasForeignKey(c => c.FactionId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Commander -> MapHex (location)
+        // Commander -> MapHex (coordinate)
         modelBuilder.Entity<Commander>()
-            .HasOne(c => c.Location)
+            .HasOne(c => c.MapHex)
             .WithMany(h => h.Commanders)
-            .HasForeignKey(c => new { c.LocationQ, c.LocationR })
+            .HasForeignKey(c => new { c.CoordinateQ, c.CoordinateR })
             .OnDelete(DeleteBehavior.SetNull);
 
         // MapHex -> LocationFaction (for embedded location)
@@ -116,11 +116,11 @@ public class WargameDbContext : DbContext
             .HasForeignKey(o => o.CommanderId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Message -> MapHex (location)
+        // Message -> MapHex (coordinate)
         modelBuilder.Entity<Message>()
-            .HasOne(a => a.Location)
+            .HasOne(a => a.MapHex)
             .WithMany(h => h.Messages)
-            .HasForeignKey(a => new { a.LocationQ, a.LocationR })
+            .HasForeignKey(a => new { a.CoordinateQ, a.CoordinateR })
             .OnDelete(DeleteBehavior.Restrict);
 
         // Message.Path -> JSON serialization for List<Hex>
@@ -176,10 +176,10 @@ public class WargameDbContext : DbContext
 
         // Seed default location types
         modelBuilder.Entity<LocationType>().HasData(
-            new LocationType { Id = 1, Name = "City", ColorHex = "#8B0000" },
-            new LocationType { Id = 2, Name = "Town", ColorHex = "#CD5C5C" },
-            new LocationType { Id = 3, Name = "Fort", ColorHex = "#4B0082" },
-            new LocationType { Id = 4, Name = "Village", ColorHex = "#DAA520" }
+            new LocationType { Id = 1, Name = "Fortress", ColorHex = "#8B0000" },
+            new LocationType { Id = 2, Name = "City", ColorHex = "#CD5C5C" },
+            new LocationType { Id = 3, Name = "Fortified Town", ColorHex = "#4B0082" },
+            new LocationType { Id = 4, Name = "Town", ColorHex = "#DAA520" }
         );
     }
 }

@@ -8,17 +8,17 @@ namespace MechanicalCataphract.Data.Entities;
 /// </summary>
 public interface IPathMovable
 {
-    /// <summary>Current location Q coordinate.</summary>
-    int? LocationQ { get; set; }
+    /// <summary>Current coordinate Q (cube coordinate FK to MapHex).</summary>
+    int? CoordinateQ { get; set; }
 
-    /// <summary>Current location R coordinate.</summary>
-    int? LocationR { get; set; }
+    /// <summary>Current coordinate R (cube coordinate FK to MapHex).</summary>
+    int? CoordinateR { get; set; }
 
-    /// <summary>Target location Q coordinate for pathfinding.</summary>
-    int? TargetLocationQ { get; set; }
+    /// <summary>Target coordinate Q for pathfinding.</summary>
+    int? TargetCoordinateQ { get; set; }
 
-    /// <summary>Target location R coordinate for pathfinding.</summary>
-    int? TargetLocationR { get; set; }
+    /// <summary>Target coordinate R for pathfinding.</summary>
+    int? TargetCoordinateR { get; set; }
 
     /// <summary>
     /// The planned path as a FIFO queue. Path[0] is the next waypoint.

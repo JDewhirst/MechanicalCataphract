@@ -79,7 +79,7 @@ public class CommanderServiceIntegrationTests : IntegrationTestBase
     {
         await SeedHelpers.SeedMapAsync(Context, 3, 3);
         var hex = Context.MapHexes.First();
-        var commander = await _service.CreateAsync(new Commander { Name = "General", FactionId = 1, LocationQ = hex.Q, LocationR = hex.R });
+        var commander = await _service.CreateAsync(new Commander { Name = "General", FactionId = 1, CoordinateQ = hex.Q, CoordinateR = hex.R });
         var army = await SeedHelpers.SeedArmyAsync(Context, "Army1", 1, hex.Q, hex.R, commander.Id);
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "1st Infantry", 500);
 

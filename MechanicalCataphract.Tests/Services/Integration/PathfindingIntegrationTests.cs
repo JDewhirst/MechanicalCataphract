@@ -93,8 +93,8 @@ public class PathfindingIntegrationTests : IntegrationTestBase
         {
             Name = "PathArmy",
             FactionId = 1,
-            LocationQ = startHex.Q,
-            LocationR = startHex.R,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
             Path = new List<Hex> { endHex.ToHex() }
         });
 
@@ -107,8 +107,8 @@ public class PathfindingIntegrationTests : IntegrationTestBase
 
         // Reload from DB to verify persistence
         var reloaded = await _armyService.GetByIdAsync(army.Id);
-        Assert.That(reloaded!.LocationQ, Is.EqualTo(endHex.Q));
-        Assert.That(reloaded.LocationR, Is.EqualTo(endHex.R));
+        Assert.That(reloaded!.CoordinateQ, Is.EqualTo(endHex.Q));
+        Assert.That(reloaded.CoordinateR, Is.EqualTo(endHex.R));
         Assert.That(totalMoved, Is.EqualTo(1));
     }
 }

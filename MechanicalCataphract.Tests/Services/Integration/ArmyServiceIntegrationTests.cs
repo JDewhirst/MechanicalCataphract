@@ -24,7 +24,7 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task CreateAndGetById_IncludesFaction()
     {
-        var army = await _service.CreateAsync(new Army { Name = "1st Army", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        var army = await _service.CreateAsync(new Army { Name = "1st Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         var loaded = await _service.GetByIdAsync(army.Id);
 
@@ -35,8 +35,8 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task GetAllAsync_ReturnsAll()
     {
-        await _service.CreateAsync(new Army { Name = "A", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
-        await _service.CreateAsync(new Army { Name = "B", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        await _service.CreateAsync(new Army { Name = "A", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        await _service.CreateAsync(new Army { Name = "B", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         var all = await _service.GetAllAsync();
         Assert.That(all.Count, Is.EqualTo(2));
@@ -45,7 +45,7 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task UpdateAsync_PersistsChanges()
     {
-        var army = await _service.CreateAsync(new Army { Name = "Old", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        var army = await _service.CreateAsync(new Army { Name = "Old", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         army.Name = "New";
         await _service.UpdateAsync(army);
 
@@ -56,7 +56,7 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task DeleteAsync_CascadesDeleteBrigades()
     {
-        var army = await _service.CreateAsync(new Army { Name = "Doomed", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        var army = await _service.CreateAsync(new Army { Name = "Doomed", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "1st", 100);
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "2nd", 200);
 
@@ -71,8 +71,8 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     {
         var allHexes = Context.MapHexes.ToList();
         var hex2 = allHexes.First(h => h.Q != _hexQ || h.R != _hexR);
-        await _service.CreateAsync(new Army { Name = "Here", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
-        await _service.CreateAsync(new Army { Name = "There", FactionId = 1, LocationQ = hex2.Q, LocationR = hex2.R });
+        await _service.CreateAsync(new Army { Name = "Here", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        await _service.CreateAsync(new Army { Name = "There", FactionId = 1, CoordinateQ = hex2.Q, CoordinateR = hex2.R });
 
         var atHex1 = await _service.GetArmiesAtHexAsync(new Hex(_hexQ, _hexR, -_hexQ - _hexR));
         Assert.That(atHex1.Count, Is.EqualTo(1));
@@ -83,8 +83,8 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     public async Task GetArmiesByFactionAsync_FiltersByFaction()
     {
         var faction2 = await SeedHelpers.SeedFactionAsync(Context, "France");
-        await _service.CreateAsync(new Army { Name = "A1", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
-        await _service.CreateAsync(new Army { Name = "A2", FactionId = faction2.Id, LocationQ = _hexQ, LocationR = _hexR });
+        await _service.CreateAsync(new Army { Name = "A1", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        await _service.CreateAsync(new Army { Name = "A2", FactionId = faction2.Id, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         var result = await _service.GetArmiesByFactionAsync(1);
         Assert.That(result.Count, Is.EqualTo(1));
@@ -94,7 +94,7 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task GetArmyWithBrigadesAsync_IncludesBrigades()
     {
-        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "1st", 100);
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "2nd", 200);
 
@@ -107,8 +107,8 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     public async Task TransferBrigadeAsync_MovesBrigade()
     {
         var faction2 = await SeedHelpers.SeedFactionAsync(Context, "France");
-        var army1 = await _service.CreateAsync(new Army { Name = "Army1", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
-        var army2 = await _service.CreateAsync(new Army { Name = "Army2", FactionId = faction2.Id, LocationQ = _hexQ, LocationR = _hexR });
+        var army1 = await _service.CreateAsync(new Army { Name = "Army1", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var army2 = await _service.CreateAsync(new Army { Name = "Army2", FactionId = faction2.Id, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var brigade = await SeedHelpers.SeedBrigadeAsync(Context, army1.Id, "Transfer", 100);
 
         await _service.TransferBrigadeAsync(brigade.Id, army2.Id);
@@ -121,21 +121,21 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task MoveArmyAsync_UpdatesLocation()
     {
-        var army = await _service.CreateAsync(new Army { Name = "Moving", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        var army = await _service.CreateAsync(new Army { Name = "Moving", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var allHexes = Context.MapHexes.ToList();
         var dest = allHexes.First(h => h.Q != _hexQ || h.R != _hexR);
 
         await _service.MoveArmyAsync(army.Id, new Hex(dest.Q, dest.R, -dest.Q - dest.R));
 
         var loaded = await _service.GetByIdAsync(army.Id);
-        Assert.That(loaded!.LocationQ, Is.EqualTo(dest.Q));
-        Assert.That(loaded.LocationR, Is.EqualTo(dest.R));
+        Assert.That(loaded!.CoordinateQ, Is.EqualTo(dest.Q));
+        Assert.That(loaded.CoordinateR, Is.EqualTo(dest.R));
     }
 
     [Test]
     public async Task CalculateTotalTroopsAsync_Sums()
     {
-        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "1st", 100);
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "2nd", 200);
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "3rd", 300);
@@ -147,7 +147,7 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task GetMaxScoutingRangeAsync_ReturnsMax()
     {
-        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, LocationQ = _hexQ, LocationR = _hexR });
+        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "1st", 100, scoutingRange: 1);
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "2nd", 100, scoutingRange: 3);
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "3rd", 100, scoutingRange: 2);
@@ -163,8 +163,8 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
         {
             Name = "Army",
             FactionId = 1,
-            LocationQ = _hexQ,
-            LocationR = _hexR,
+            CoordinateQ = _hexQ,
+            CoordinateR = _hexR,
             NonCombatants = 50,
             Wagons = 5
         });

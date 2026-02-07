@@ -172,16 +172,16 @@ public class PathfindingService : IPathfindingService
     public async Task<int> MoveMessage(Message message, int hours)
     {
         // 1. Get current location as Hex
-        if (message.LocationQ == null || message.LocationR == null)
+        if (message.CoordinateQ == null || message.CoordinateR == null)
             return 0; // No location
 
         if (message.Path == null || message.Path.Count == 0)
             return 0; // No path to follow
 
         var currentHex = new Hex(
-            message.LocationQ.Value,
-            message.LocationR.Value,
-            -message.LocationQ.Value - message.LocationR.Value);
+            message.CoordinateQ.Value,
+            message.CoordinateR.Value,
+            -message.CoordinateQ.Value - message.CoordinateR.Value);
 
         // 2. Next waypoint is Path[0]
         var nextHex = message.Path[0];
@@ -196,8 +196,8 @@ public class PathfindingService : IPathfindingService
         message.TimeInTransit += hours;
         if (message.TimeInTransit >= (movementCost / message.MovementRate))
         {
-            message.LocationQ = nextHex.q;
-            message.LocationR = nextHex.r;
+            message.CoordinateQ = nextHex.q;
+            message.CoordinateR = nextHex.r;
             message.Path.Remove(nextHex);
             message.TimeInTransit = message.TimeInTransit - movementCost / message.MovementRate;
             await _messageService.UpdateAsync(message);
@@ -210,16 +210,16 @@ public class PathfindingService : IPathfindingService
 
     public async Task<int> MoveArmy(Army army, int hours)
     {
-        if (army.LocationQ == null || army.LocationR == null)
+        if (army.CoordinateQ == null || army.CoordinateR == null)
             return 0;
 
         if (army.Path == null || army.Path.Count == 0)
             return 0;
 
         var currentHex = new Hex(
-            army.LocationQ.Value,
-            army.LocationR.Value,
-            -army.LocationQ.Value - army.LocationR.Value);
+            army.CoordinateQ.Value,
+            army.CoordinateR.Value,
+            -army.CoordinateQ.Value - army.CoordinateR.Value);
 
         var nextHex = army.Path[0];
 
@@ -230,8 +230,8 @@ public class PathfindingService : IPathfindingService
         army.TimeInTransit += hours;
         if (army.TimeInTransit >= (movementCost / army.MovementRate))
         {
-            army.LocationQ = nextHex.q;
-            army.LocationR = nextHex.r;
+            army.CoordinateQ = nextHex.q;
+            army.CoordinateR = nextHex.r;
             army.Path.Remove(nextHex);
             army.TimeInTransit = army.TimeInTransit - movementCost / army.MovementRate;
             await _armyService.UpdateAsync(army);
@@ -244,16 +244,16 @@ public class PathfindingService : IPathfindingService
 
     public async Task<int> MoveCommander(Commander commander, int hours)
     {
-        if (commander.LocationQ == null || commander.LocationR == null)
+        if (commander.CoordinateQ == null || commander.CoordinateR == null)
             return 0;
 
         if (commander.Path == null || commander.Path.Count == 0)
             return 0;
 
         var currentHex = new Hex(
-            commander.LocationQ.Value,
-            commander.LocationR.Value,
-            -commander.LocationQ.Value - commander.LocationR.Value);
+            commander.CoordinateQ.Value,
+            commander.CoordinateR.Value,
+            -commander.CoordinateQ.Value - commander.CoordinateR.Value);
 
         var nextHex = commander.Path[0];
 
@@ -264,8 +264,8 @@ public class PathfindingService : IPathfindingService
         commander.TimeInTransit += hours;
         if (commander.TimeInTransit >= (movementCost / commander.MovementRate))
         {
-            commander.LocationQ = nextHex.q;
-            commander.LocationR = nextHex.r;
+            commander.CoordinateQ = nextHex.q;
+            commander.CoordinateR = nextHex.r;
             commander.Path.Remove(nextHex);
             commander.TimeInTransit = commander.TimeInTransit - movementCost / commander.MovementRate;
             await _commanderService.UpdateAsync(commander);

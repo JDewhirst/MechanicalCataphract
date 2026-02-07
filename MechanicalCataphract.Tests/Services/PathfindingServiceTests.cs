@@ -263,7 +263,7 @@ public class PathfindingServiceTests
         var builder = new TestMapBuilder();
         var service = CreateService(builder.BuildMockMapService());
 
-        var message = new Message { LocationQ = null, LocationR = null };
+        var message = new Message { CoordinateQ = null, CoordinateR = null };
         var result = await service.MoveMessage(message, 1);
         Assert.That(result, Is.EqualTo(0));
     }
@@ -276,7 +276,7 @@ public class PathfindingServiceTests
 
         var message = new Message
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex>()
         };
         var result = await service.MoveMessage(message, 1);
@@ -297,7 +297,7 @@ public class PathfindingServiceTests
 
         var message = new Message
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { new Hex(1, 0, -1) },
             TimeInTransit = 0
         };
@@ -322,7 +322,7 @@ public class PathfindingServiceTests
         var nextHex = new Hex(1, 0, -1);
         var message = new Message
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
@@ -331,8 +331,8 @@ public class PathfindingServiceTests
         var result = await service.MoveMessage(message, 6);
 
         Assert.That(result, Is.EqualTo(1));
-        Assert.That(message.LocationQ, Is.EqualTo(1));
-        Assert.That(message.LocationR, Is.EqualTo(0));
+        Assert.That(message.CoordinateQ, Is.EqualTo(1));
+        Assert.That(message.CoordinateR, Is.EqualTo(0));
         Assert.That(message.Path, Is.Empty);
     }
 
@@ -349,7 +349,7 @@ public class PathfindingServiceTests
         var nextHex = new Hex(1, 0, -1);
         var message = new Message
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
@@ -358,7 +358,7 @@ public class PathfindingServiceTests
         var result = await service.MoveMessage(message, 3);
 
         Assert.That(result, Is.EqualTo(1));
-        Assert.That(message.LocationQ, Is.EqualTo(1));
+        Assert.That(message.CoordinateQ, Is.EqualTo(1));
     }
 
     #endregion
@@ -371,7 +371,7 @@ public class PathfindingServiceTests
         var builder = new TestMapBuilder();
         var service = CreateService(builder.BuildMockMapService());
 
-        var army = new Army { LocationQ = null, LocationR = null };
+        var army = new Army { CoordinateQ = null, CoordinateR = null };
         var result = await service.MoveArmy(army, 1);
         Assert.That(result, Is.EqualTo(0));
     }
@@ -384,7 +384,7 @@ public class PathfindingServiceTests
 
         var army = new Army
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex>()
         };
         var result = await service.MoveArmy(army, 1);
@@ -409,7 +409,7 @@ public class PathfindingServiceTests
         // Army with 12 hours should NOT move (needs 24)
         var army = new Army
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
@@ -419,7 +419,7 @@ public class PathfindingServiceTests
         // Message with 12 hours SHOULD move (needs 6)
         var message = new Message
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
@@ -441,7 +441,7 @@ public class PathfindingServiceTests
         var nextHex = new Hex(1, 0, -1);
         var army = new Army
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
@@ -450,8 +450,8 @@ public class PathfindingServiceTests
         var result = await service.MoveArmy(army, 24);
 
         Assert.That(result, Is.EqualTo(1));
-        Assert.That(army.LocationQ, Is.EqualTo(1));
-        Assert.That(army.LocationR, Is.EqualTo(0));
+        Assert.That(army.CoordinateQ, Is.EqualTo(1));
+        Assert.That(army.CoordinateR, Is.EqualTo(0));
         Assert.That(army.Path, Is.Empty);
     }
 
@@ -465,7 +465,7 @@ public class PathfindingServiceTests
         var builder = new TestMapBuilder();
         var service = CreateService(builder.BuildMockMapService());
 
-        var commander = new Commander { LocationQ = null, LocationR = null };
+        var commander = new Commander { CoordinateQ = null, CoordinateR = null };
         var result = await service.MoveCommander(commander, 1);
         Assert.That(result, Is.EqualTo(0));
     }
@@ -484,7 +484,7 @@ public class PathfindingServiceTests
         var nextHex = new Hex(1, 0, -1);
         var commander = new Commander
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
@@ -493,8 +493,8 @@ public class PathfindingServiceTests
         var result = await service.MoveCommander(commander, 6);
 
         Assert.That(result, Is.EqualTo(1));
-        Assert.That(commander.LocationQ, Is.EqualTo(1));
-        Assert.That(commander.LocationR, Is.EqualTo(0));
+        Assert.That(commander.CoordinateQ, Is.EqualTo(1));
+        Assert.That(commander.CoordinateR, Is.EqualTo(0));
         Assert.That(commander.Path, Is.Empty);
     }
 
@@ -511,7 +511,7 @@ public class PathfindingServiceTests
         var nextHex = new Hex(1, 0, -1);
         var commander = new Commander
         {
-            LocationQ = 0, LocationR = 0,
+            CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
@@ -520,7 +520,7 @@ public class PathfindingServiceTests
         var result = await service.MoveCommander(commander, 3);
 
         Assert.That(result, Is.EqualTo(1));
-        Assert.That(commander.LocationQ, Is.EqualTo(1));
+        Assert.That(commander.CoordinateQ, Is.EqualTo(1));
     }
 
     #endregion

@@ -61,29 +61,90 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         }
     }
 
-    public int? SenderLocationQ => _message.SenderLocationQ;
-    public int? SenderLocationR => _message.SenderLocationR;
+    public int? SenderCoordinateQ => _message.SenderCoordinateQ;
+    public int? SenderCoordinateR => _message.SenderCoordinateR;
 
-    public int? TargetLocationQ
+    public int? SenderCol => SenderCoordinateQ == null || SenderCoordinateR == null ? null
+        : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(SenderCoordinateQ.Value, SenderCoordinateR.Value, -SenderCoordinateQ.Value - SenderCoordinateR.Value)).col;
+    public int? SenderRow => SenderCoordinateQ == null || SenderCoordinateR == null ? null
+        : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(SenderCoordinateQ.Value, SenderCoordinateR.Value, -SenderCoordinateQ.Value - SenderCoordinateR.Value)).row;
+
+    public int? TargetCoordinateQ
     {
-        get => _message.TargetLocationQ;
-        set { if (_message.TargetLocationQ != value) { _message.TargetLocationQ = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => _message.TargetCoordinateQ;
+        set { if (_message.TargetCoordinateQ != value) { _message.TargetCoordinateQ = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetCol)); _ = SaveAsync(); } }
     }
-    public int? TargetLocationR
+    public int? TargetCoordinateR
     {
-        get => _message.TargetLocationR;
-        set { if (_message.TargetLocationR != value) { _message.TargetLocationR = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => _message.TargetCoordinateR;
+        set { if (_message.TargetCoordinateR != value) { _message.TargetCoordinateR = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetRow)); _ = SaveAsync(); } }
     }
 
-    public int? LocationQ
+    public int? TargetCol
     {
-        get => _message.LocationQ;
-        set { if (_message.LocationQ != value) { _message.LocationQ = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).col;
+        set
+        {
+            if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
+            int row = TargetRow ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
+            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            OnPropertyChanged();
+        }
     }
-    public int? LocationR
+
+    public int? TargetRow
     {
-        get => _message.LocationR;
-        set { if (_message.LocationR != value) { _message.LocationR = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).row;
+        set
+        {
+            if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
+            int col = TargetCol ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
+            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            OnPropertyChanged();
+        }
+    }
+
+    public int? CoordinateQ
+    {
+        get => _message.CoordinateQ;
+        set { if (_message.CoordinateQ != value) { _message.CoordinateQ = value; OnPropertyChanged(); OnPropertyChanged(nameof(Col)); _ = SaveAsync(); } }
+    }
+    public int? CoordinateR
+    {
+        get => _message.CoordinateR;
+        set { if (_message.CoordinateR != value) { _message.CoordinateR = value; OnPropertyChanged(); OnPropertyChanged(nameof(Row)); _ = SaveAsync(); } }
+    }
+
+    public int? Col
+    {
+        get => CoordinateQ == null || CoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).col;
+        set
+        {
+            if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
+            int row = Row ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
+            CoordinateQ = hex.q; CoordinateR = hex.r;
+            OnPropertyChanged();
+        }
+    }
+
+    public int? Row
+    {
+        get => CoordinateQ == null || CoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).row;
+        set
+        {
+            if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
+            int col = Col ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
+            CoordinateQ = hex.q; CoordinateR = hex.r;
+            OnPropertyChanged();
+        }
     }
 
     public string Content
@@ -172,13 +233,13 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
             return;
         }
 
-        if (LocationQ == null || LocationR == null)
+        if (CoordinateQ == null || CoordinateR == null)
         {
             PathComputeStatus = "Current location not set";
             return;
         }
 
-        if (TargetLocationQ == null || TargetLocationR == null)
+        if (TargetCoordinateQ == null || TargetCoordinateR == null)
         {
             PathComputeStatus = "Target location not set";
             return;
@@ -186,8 +247,8 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 
         PathComputeStatus = "Computing...";
 
-        var start = new Hex(LocationQ.Value, LocationR.Value, -LocationQ.Value - LocationR.Value);
-        var end = new Hex(TargetLocationQ.Value, TargetLocationR.Value, -TargetLocationQ.Value - TargetLocationR.Value);
+        var start = new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value);
+        var end = new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value);
 
         var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Message);
 

@@ -36,6 +36,7 @@ public class MapHex
     public string? LocationName { get; set; }
     public int? LocationTypeId { get; set; }
     public LocationType? LocationType { get; set; }
+    public int? LocationSupply { get; set; }
     public int? LocationFactionId { get; set; }
     public Faction? LocationFaction { get; set; }
 

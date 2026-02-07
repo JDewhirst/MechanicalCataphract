@@ -11,22 +11,22 @@ public class Message : IPathMovable
     // Sender - can be commander or location
     public int? SenderCommanderId { get; set; }
     public Commander? SenderCommander { get; set; }
-    public int? SenderLocationQ { get; set; }
-    public int? SenderLocationR { get; set; }
+    public int? SenderCoordinateQ { get; set; }
+    public int? SenderCoordinateR { get; set; }
 
     // Target - can be commander or location
     public int? TargetCommanderId { get; set; }
     public Commander? TargetCommander { get; set; }
-    public int? TargetLocationQ { get; set; }
-    public int? TargetLocationR { get; set; }
+    public int? TargetCoordinateQ { get; set; }
+    public int? TargetCoordinateR { get; set; }
 
     // Content
     public string Content { get; set; } = string.Empty;
 
-    // Location (composite FK to MapHex)
-    public int? LocationQ { get; set; }
-    public int? LocationR { get; set; }
-    public MapHex? Location { get; set; }
+    // Coordinate (composite FK to MapHex)
+    public int? CoordinateQ { get; set; }
+    public int? CoordinateR { get; set; }
+    public MapHex? MapHex { get; set; }
 
     // Movement (implements IPathMovable)
     public List<Hex>? Path { get; set; }

@@ -41,27 +41,83 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         set { if (_army.Name != value) { _army.Name = value; OnPropertyChanged(); _ = SaveAsync(); } }
     }
 
-    public int? LocationQ
+    public int? CoordinateQ
     {
-       get => _army.LocationQ;
-       set { if (_army.LocationQ != value) { _army.LocationQ = value; OnPropertyChanged(); _ = SaveAsync(); }  }
+       get => _army.CoordinateQ;
+       set { if (_army.CoordinateQ != value) { _army.CoordinateQ = value; OnPropertyChanged(); OnPropertyChanged(nameof(Col)); _ = SaveAsync(); }  }
     }
-    public int? LocationR
+    public int? CoordinateR
     {
-        get => _army.LocationR;
-        set { if (_army.LocationR != value) { _army.LocationR = value; OnPropertyChanged(); _ = SaveAsync(); } }
-    }
-
-    public int? TargetLocationQ
-    {
-        get => _army.TargetLocationQ;
-        set { if (_army.TargetLocationQ != value) { _army.TargetLocationQ = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => _army.CoordinateR;
+        set { if (_army.CoordinateR != value) { _army.CoordinateR = value; OnPropertyChanged(); OnPropertyChanged(nameof(Row)); _ = SaveAsync(); } }
     }
 
-    public int? TargetLocationR
+    public int? Col
     {
-        get => _army.TargetLocationR;
-        set { if (_army.TargetLocationR != value) { _army.TargetLocationR = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => CoordinateQ == null || CoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).col;
+        set
+        {
+            if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
+            int row = Row ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
+            CoordinateQ = hex.q; CoordinateR = hex.r;
+            OnPropertyChanged();
+        }
+    }
+
+    public int? Row
+    {
+        get => CoordinateQ == null || CoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).row;
+        set
+        {
+            if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
+            int col = Col ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
+            CoordinateQ = hex.q; CoordinateR = hex.r;
+            OnPropertyChanged();
+        }
+    }
+
+    public int? TargetCoordinateQ
+    {
+        get => _army.TargetCoordinateQ;
+        set { if (_army.TargetCoordinateQ != value) { _army.TargetCoordinateQ = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetCol)); _ = SaveAsync(); } }
+    }
+
+    public int? TargetCoordinateR
+    {
+        get => _army.TargetCoordinateR;
+        set { if (_army.TargetCoordinateR != value) { _army.TargetCoordinateR = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetRow)); _ = SaveAsync(); } }
+    }
+
+    public int? TargetCol
+    {
+        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).col;
+        set
+        {
+            if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
+            int row = TargetRow ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
+            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            OnPropertyChanged();
+        }
+    }
+
+    public int? TargetRow
+    {
+        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
+             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).row;
+        set
+        {
+            if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
+            int col = TargetCol ?? 0;
+            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
+            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            OnPropertyChanged();
+        }
     }
 
     public List<Hex>? Path
@@ -126,13 +182,13 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
             return;
         }
 
-        if (LocationQ == null || LocationR == null)
+        if (CoordinateQ == null || CoordinateR == null)
         {
             PathComputeStatus = "Current location not set";
             return;
         }
 
-        if (TargetLocationQ == null || TargetLocationR == null)
+        if (TargetCoordinateQ == null || TargetCoordinateR == null)
         {
             PathComputeStatus = "Target location not set";
             return;
@@ -140,8 +196,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
 
         PathComputeStatus = "Computing...";
 
-        var start = new Hex(LocationQ.Value, LocationR.Value, -LocationQ.Value - LocationR.Value);
-        var end = new Hex(TargetLocationQ.Value, TargetLocationR.Value, -TargetLocationQ.Value - TargetLocationR.Value);
+        var start = new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value);
+        var end = new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value);
 
         var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Army);
 
