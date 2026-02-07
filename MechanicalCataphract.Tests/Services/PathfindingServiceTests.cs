@@ -72,7 +72,7 @@ public class PathfindingServiceTests
             new Hex(5, 5, -10));
 
         Assert.That(result.Success, Is.False);
-        Assert.That(result.FailureReason, Does.Contain("Target"));
+        Assert.That(result.FailureReason, Does.Contain("Target hex does not exist"));
     }
 
     [Test]
@@ -213,24 +213,6 @@ public class PathfindingServiceTests
         Assert.That(result.Success, Is.True);
         // Army cost = OffRoadCost(12) × 1.5 = 18
         Assert.That(result.TotalCost, Is.EqualTo(18));
-    }
-
-    [Test]
-    public async Task SupplyEntityType_DoubleCost()
-    {
-        var builder = new TestMapBuilder()
-            .AddHex(0, 0)
-            .AddHex(1, 0);
-        var service = CreateService(builder.BuildMockMapService());
-
-        var result = await service.FindPathAsync(
-            new Hex(0, 0, 0),
-            new Hex(1, 0, -1),
-            TravelEntityType.Supply);
-
-        Assert.That(result.Success, Is.True);
-        // Supply cost = OffRoadCost(12) × 2 = 24
-        Assert.That(result.TotalCost, Is.EqualTo(24));
     }
 
     [Test]

@@ -136,7 +136,6 @@ public class PathfindingService : IPathfindingService
         {
             TravelEntityType.Message => baseCost,           // Messengers move at base speed
             TravelEntityType.Army => (int)(baseCost * 1.5), // Armies are 50% slower
-            TravelEntityType.Supply => baseCost * 2,        // Supply convoys are twice as slow
             _ => baseCost
         };
     }
