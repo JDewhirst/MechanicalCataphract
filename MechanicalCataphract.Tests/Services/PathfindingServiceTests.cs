@@ -471,6 +471,60 @@ public class PathfindingServiceTests
     }
 
     [Test]
+    public async Task MoveCommander_FollowingArmy_ReturnsZero()
+    {
+        var builder = new TestMapBuilder()
+            .AddHex(0, 0)
+            .AddHex(1, 0);
+        var mockMap = builder.BuildMockMapService();
+        mockMap.Setup(m => m.HasRoadBetweenAsync(It.IsAny<Hex>(), It.IsAny<Hex>()))
+            .ReturnsAsync(false);
+        var service = CreateService(mockMap);
+
+        var commander = new Commander
+        {
+            CoordinateQ = 0, CoordinateR = 0,
+            Path = new List<Hex> { new Hex(1, 0, -1) },
+            TimeInTransit = 0,
+            FollowingArmyId = 42
+        };
+
+        // Even with enough time to move, should return 0 because following an army
+        var result = await service.MoveCommander(commander, 6);
+
+        Assert.That(result, Is.EqualTo(0));
+        // Coordinates unchanged
+        Assert.That(commander.CoordinateQ, Is.EqualTo(0));
+        Assert.That(commander.CoordinateR, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task MoveCommander_NotFollowingArmy_MovesNormally()
+    {
+        var builder = new TestMapBuilder()
+            .AddHex(0, 0)
+            .AddHex(1, 0);
+        var mockMap = builder.BuildMockMapService();
+        mockMap.Setup(m => m.HasRoadBetweenAsync(It.IsAny<Hex>(), It.IsAny<Hex>()))
+            .ReturnsAsync(false);
+        var service = CreateService(mockMap);
+
+        var commander = new Commander
+        {
+            CoordinateQ = 0, CoordinateR = 0,
+            Path = new List<Hex> { new Hex(1, 0, -1) },
+            TimeInTransit = 0,
+            FollowingArmyId = null
+        };
+
+        // Off-road cost=12, rate=2 → threshold=6
+        var result = await service.MoveCommander(commander, 6);
+
+        Assert.That(result, Is.EqualTo(1));
+        Assert.That(commander.CoordinateQ, Is.EqualTo(1));
+    }
+
+    [Test]
     public async Task MoveCommander_SufficientTime_MovesToNextHex()
     {
         var builder = new TestMapBuilder()

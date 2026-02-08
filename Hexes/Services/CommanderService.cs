@@ -20,6 +20,7 @@ public class CommanderService : ICommanderService
     {
         return await _context.Commanders
             .Include(c => c.Faction)
+            .Include(c => c.FollowingArmy)
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
@@ -27,6 +28,7 @@ public class CommanderService : ICommanderService
     {
         return await _context.Commanders
             .Include(c => c.Faction)
+            .Include(c => c.FollowingArmy)
             .ToListAsync();
     }
 
@@ -73,6 +75,14 @@ public class CommanderService : ICommanderService
             .Include(c => c.CommandedArmies)
             .ThenInclude(a => a.Brigades)
             .Include(c => c.Faction)
+            .Include(c => c.FollowingArmy)
             .FirstOrDefaultAsync(c => c.Id == commanderId);
+    }
+
+    public async Task<IList<Commander>> GetCommandersFollowingArmyAsync(int armyId)
+    {
+        return await _context.Commanders
+            .Where(c => c.FollowingArmyId == armyId)
+            .ToListAsync();
     }
 }

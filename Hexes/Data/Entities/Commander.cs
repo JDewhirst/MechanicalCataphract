@@ -32,6 +32,10 @@ public class Commander : IPathMovable
     public float TimeInTransit { get; set; }
     public float MovementRate => 2f;
 
+    // Following Army (physical location coupling, distinct from commanding)
+    public int? FollowingArmyId { get; set; }
+    public Army? FollowingArmy { get; set; }
+
     // Navigation
     public ICollection<Army> CommandedArmies { get; set; } = new List<Army>();
 }

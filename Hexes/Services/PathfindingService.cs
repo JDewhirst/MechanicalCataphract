@@ -247,6 +247,9 @@ public class PathfindingService : IPathfindingService
         if (commander.CoordinateQ == null || commander.CoordinateR == null)
             return 0;
 
+        if (commander.FollowingArmyId != null)
+            return 0;
+
         if (commander.Path == null || commander.Path.Count == 0)
             return 0;
 

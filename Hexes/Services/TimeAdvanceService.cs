@@ -129,7 +129,22 @@ namespace MechanicalCataphract.Services
             var commanders = await _commanderService.GetAllAsync();
             foreach (Commander commander in commanders)
             {
-                commandersMoved += await _pathfindingService.MoveCommander(commander, 1);
+                if (commander.FollowingArmyId != null && commander.FollowingArmy != null)
+                {
+                    // Snap to followed army's (post-move) position
+                    if (commander.CoordinateQ != commander.FollowingArmy.CoordinateQ
+                        || commander.CoordinateR != commander.FollowingArmy.CoordinateR)
+                    {
+                        commander.CoordinateQ = commander.FollowingArmy.CoordinateQ;
+                        commander.CoordinateR = commander.FollowingArmy.CoordinateR;
+                        await _commanderService.UpdateAsync(commander);
+                        commandersMoved++;
+                    }
+                }
+                else
+                {
+                    commandersMoved += await _pathfindingService.MoveCommander(commander, 1);
+                }
             }
             return commandersMoved;
         }

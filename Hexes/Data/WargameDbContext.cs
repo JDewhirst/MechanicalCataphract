@@ -88,6 +88,13 @@ public class WargameDbContext : DbContext
             .HasForeignKey(c => c.FactionId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Commander -> FollowingArmy (physical location coupling)
+        modelBuilder.Entity<Commander>()
+            .HasOne(c => c.FollowingArmy)
+            .WithMany()
+            .HasForeignKey(c => c.FollowingArmyId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Commander -> MapHex (coordinate)
         modelBuilder.Entity<Commander>()
             .HasOne(c => c.MapHex)

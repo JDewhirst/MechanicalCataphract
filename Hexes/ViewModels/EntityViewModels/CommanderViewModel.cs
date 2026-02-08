@@ -21,6 +21,8 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
 
     public string EntityTypeName => "Commander";
 
+    public IEnumerable<Army> AvailableArmies { get; }
+
     /// <summary>
     /// The underlying entity (for bindings that need direct access).
     /// </summary>
@@ -128,7 +130,25 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     public List<Hex>? Path
     {
         get => _commander.Path;
-        set { if (_commander.Path != value) { _commander.Path = value; OnPropertyChanged(); OnPropertyChanged(nameof(PathLength)); _ = SaveAsync(); } }
+        set
+        {
+            if (_commander.Path != value)
+            {
+                _commander.Path = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(PathLength));
+
+                // Mutual exclusivity: assigning a path clears following army
+                if (value != null && value.Count > 0 && _commander.FollowingArmyId != null)
+                {
+                    _commander.FollowingArmy = null;
+                    _commander.FollowingArmyId = null;
+                    OnPropertyChanged(nameof(FollowingArmy));
+                }
+
+                _ = SaveAsync();
+            }
+        }
     }
 
     public int PathLength => _commander.Path?.Count ?? 0;
@@ -219,15 +239,47 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
 
     public Faction? Faction => _commander.Faction;
 
+    public Army? FollowingArmy
+    {
+        get => _commander.FollowingArmy;
+        set
+        {
+            if (_commander.FollowingArmy != value)
+            {
+                _commander.FollowingArmy = value;
+                _commander.FollowingArmyId = value?.Id;
+                OnPropertyChanged();
+
+                // Mutual exclusivity: following an army clears independent path
+                if (value != null)
+                {
+                    _commander.Path = null;
+                    _commander.TargetCoordinateQ = null;
+                    _commander.TargetCoordinateR = null;
+                    _commander.TimeInTransit = 0;
+                    OnPropertyChanged(nameof(Path));
+                    OnPropertyChanged(nameof(PathLength));
+                    OnPropertyChanged(nameof(TargetCoordinateQ));
+                    OnPropertyChanged(nameof(TargetCoordinateR));
+                    OnPropertyChanged(nameof(TargetCol));
+                    OnPropertyChanged(nameof(TargetRow));
+                }
+
+                _ = SaveAsync();
+            }
+        }
+    }
+
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_commander);
     }
 
-    public CommanderViewModel(Commander commander, ICommanderService service, IPathfindingService? pathfindingService = null)
+    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IPathfindingService? pathfindingService = null)
     {
         _commander = commander;
         _service = service;
+        AvailableArmies = availableArmies;
         _pathfindingService = pathfindingService;
     }
 }

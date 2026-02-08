@@ -173,6 +173,98 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task AdvanceTime_FollowingCommander_MovesWithArmy()
+    {
+        var hexes = Context.MapHexes.ToList();
+        var startHex = hexes[0];
+        var endHex = hexes[1];
+
+        // Road between them
+        var dir = MapService.GetNeighborDirection(startHex.ToHex(), endHex.ToHex());
+        if (dir != null)
+            await _mapService.SetRoadAsync(startHex.ToHex(), dir.Value, true);
+
+        // Create army with a path
+        var army = await _armyService.CreateAsync(new Army
+        {
+            Name = "Marching",
+            FactionId = 1,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
+            Path = new List<Hex> { endHex.ToHex() }
+        });
+
+        // Create commander following that army (no independent path)
+        var commander = await _commanderService.CreateAsync(new Commander
+        {
+            Name = "Follower",
+            FactionId = 1,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
+            FollowingArmyId = army.Id
+        });
+
+        // Army movement rate is 0.5, road cost is 6, so need 6/0.5 = 12 hours
+        for (int i = 0; i < 12; i++)
+        {
+            await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+        }
+
+        var reloadedArmy = await _armyService.GetByIdAsync(army.Id);
+        var reloadedCommander = await _commanderService.GetByIdAsync(commander.Id);
+
+        // Army should have moved
+        Assert.That(reloadedArmy!.CoordinateQ, Is.EqualTo(endHex.Q));
+        Assert.That(reloadedArmy.CoordinateR, Is.EqualTo(endHex.R));
+
+        // Commander should have snapped to army's new position
+        Assert.That(reloadedCommander!.CoordinateQ, Is.EqualTo(endHex.Q));
+        Assert.That(reloadedCommander.CoordinateR, Is.EqualTo(endHex.R));
+    }
+
+    [Test]
+    public async Task AdvanceTime_FollowingCommander_DoesNotUseOwnPath()
+    {
+        var hexes = Context.MapHexes.ToList();
+        var startHex = hexes[0];
+        var endHex = hexes[1];
+        // Pick a third hex for the commander's (ignored) path
+        var otherHex = hexes.Count > 2 ? hexes[2] : hexes[1];
+
+        // Create a stationary army (no path)
+        var army = await _armyService.CreateAsync(new Army
+        {
+            Name = "Stationary",
+            FactionId = 1,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R
+        });
+
+        // Commander follows army but also has a path set (shouldn't be used)
+        var commander = await _commanderService.CreateAsync(new Commander
+        {
+            Name = "FollowerWithPath",
+            FactionId = 1,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
+            FollowingArmyId = army.Id,
+            Path = new List<Hex> { otherHex.ToHex() }
+        });
+
+        // Advance time — commander should NOT move along own path
+        for (int i = 0; i < 6; i++)
+        {
+            await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+        }
+
+        var reloadedCommander = await _commanderService.GetByIdAsync(commander.Id);
+
+        // Commander should still be at army's position (start hex)
+        Assert.That(reloadedCommander!.CoordinateQ, Is.EqualTo(startHex.Q));
+        Assert.That(reloadedCommander.CoordinateR, Is.EqualTo(startHex.R));
+    }
+
+    [Test]
     public async Task AdvanceTime_TransactionRollsBackOnError()
     {
         // Verify basic success case works - the transaction mechanism itself
