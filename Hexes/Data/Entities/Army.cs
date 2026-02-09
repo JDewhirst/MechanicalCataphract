@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Hexes;
 
 namespace MechanicalCataphract.Data.Entities;
@@ -43,4 +44,10 @@ public class Army : IPathMovable
 
     // Navigation
     public ICollection<Brigade> Brigades { get; set; } = new List<Brigade>();
+
+    // Computed properties for DataGrid display
+    public int CombatStrength => Brigades?.Sum(b => b.Number * (b.UnitType == UnitType.Cavalry ? 2 : 1)) ?? 0;
+    public int DailySupplyConsumption => (Brigades?.Sum(b => b.Number * (b.UnitType == UnitType.Cavalry ? 10 : 1)) ?? 0)
+        + NonCombatants + (Wagons * 10);
+    public double DaysOfSupply => DailySupplyConsumption > 0 ? (double)CarriedSupply / DailySupplyConsumption : 0;
 }

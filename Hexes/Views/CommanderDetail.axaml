@@ -90,10 +90,17 @@
             </Border>
         </StackPanel>
 
-        <!-- Faction (read-only) -->
+        <!-- Faction -->
         <StackPanel Orientation="Horizontal" Spacing="5">
             <TextBlock Text="Faction:" FontWeight="SemiBold" FontSize="11"/>
-            <TextBlock Text="{Binding Faction.Name, FallbackValue='(None)'}" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding AvailableFactions}"
+                      SelectedItem="{Binding Faction, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Faction">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
         </StackPanel>
 
         <!-- Following Army -->

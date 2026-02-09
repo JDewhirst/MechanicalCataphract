@@ -29,6 +29,7 @@ public class CommanderService : ICommanderService
         return await _context.Commanders
             .Include(c => c.Faction)
             .Include(c => c.FollowingArmy)
+            .Include(c => c.CommandedArmies)
             .ToListAsync();
     }
 

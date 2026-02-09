@@ -724,7 +724,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedMessage = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            var cmdVm = new CommanderViewModel(value, _commanderService, Armies, _pathfindingService);
+            var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _pathfindingService);
             cmdVm.PathSelectionRequested += StartPathSelectionMode;
             cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
@@ -1170,7 +1170,7 @@ public partial class HexMapViewModel : ObservableObject
             // Recreate the CommanderViewModel to reflect the updated Path
             if (SelectedCommander != null)
             {
-                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, Armies, _pathfindingService);
+                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, Armies, Factions, _pathfindingService);
                 refreshedCmdVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedCmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedCmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;

@@ -22,6 +22,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     public string EntityTypeName => "Commander";
 
     public IEnumerable<Army> AvailableArmies { get; }
+    public IEnumerable<Faction> AvailableFactions { get; }
 
     /// <summary>
     /// The underlying entity (for bindings that need direct access).
@@ -237,7 +238,20 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         }
     }
 
-    public Faction? Faction => _commander.Faction;
+    public Faction? Faction
+    {
+        get => _commander.Faction;
+        set
+        {
+            if (_commander.Faction != value)
+            {
+                _commander.Faction = value;
+                _commander.FactionId = value?.Id ?? 1;
+                OnPropertyChanged();
+                _ = SaveAsync();
+            }
+        }
+    }
 
     public Army? FollowingArmy
     {
@@ -275,11 +289,12 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         await _service.UpdateAsync(_commander);
     }
 
-    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IPathfindingService? pathfindingService = null)
+    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, IPathfindingService? pathfindingService = null)
     {
         _commander = commander;
         _service = service;
         AvailableArmies = availableArmies;
+        AvailableFactions = availableFactions;
         _pathfindingService = pathfindingService;
     }
 }

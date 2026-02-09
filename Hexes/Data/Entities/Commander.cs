@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Hexes;
 
 namespace MechanicalCataphract.Data.Entities;
@@ -38,4 +39,7 @@ public class Commander : IPathMovable
 
     // Navigation
     public ICollection<Army> CommandedArmies { get; set; } = new List<Army>();
+
+    // Computed property for DataGrid display
+    public string? CommandingArmyName => CommandedArmies?.FirstOrDefault()?.Name;
 }

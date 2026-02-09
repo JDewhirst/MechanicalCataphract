@@ -32,6 +32,7 @@ public class ArmyService : IArmyService
         return await _context.Armies
             .Include(a => a.Faction)
             .Include(a => a.Commander)
+            .Include(a => a.Brigades)
             .ToListAsync();
     }
 

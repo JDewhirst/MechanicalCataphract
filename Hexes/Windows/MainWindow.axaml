@@ -222,7 +222,8 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay}" Width="*"/>
                                 <DataGridTextColumn Header="Faction" Binding="{Binding Faction.Name}" Width="70" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="45"/>
+                                <DataGridTextColumn Header="Commands" Binding="{Binding CommandingArmyName, FallbackValue=''}" Width="70" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Following" Binding="{Binding FollowingArmy.Name, FallbackValue=''}" Width="70" IsReadOnly="True"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -251,6 +252,8 @@
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
                                 <DataGridTextColumn Header="Faction" Binding="{Binding Faction.Name}" Width="70" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Morale" Binding="{Binding Morale}" Width="50"/>
+                                <DataGridTextColumn Header="Combat" Binding="{Binding CombatStrength}" Width="55" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Supply" Binding="{Binding DaysOfSupply, StringFormat='{}{0:F1}d'}" Width="55" IsReadOnly="True"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
