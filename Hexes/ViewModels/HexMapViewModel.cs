@@ -728,6 +728,7 @@ public partial class HexMapViewModel : ObservableObject
             cmdVm.PathSelectionRequested += StartPathSelectionMode;
             cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+            cmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
             SelectedEntityViewModel = cmdVm;
             StatusMessage = $"Selected commander: {value.Name}";
         }
@@ -1122,20 +1123,35 @@ public partial class HexMapViewModel : ObservableObject
     [RelayCommand]
     private async Task ConfirmPathSelectionAsync()
     {
-        if (PathSelectionTarget == null || PathSelectionHexes.Count == 0)
+        if (PathSelectionTarget == null)
         {
-            StatusMessage = "No path selected";
             CancelPathSelectionMode();
             return;
         }
 
-        PathSelectionTarget.Path = PathSelectionHexes.ToList();
+        // Empty confirm = clear existing path
+        if (PathSelectionHexes.Count == 0)
+        {
+            PathSelectionTarget.Path = null;
+
+            if (PathSelectionTarget is Message clearMsg)
+                await _messageService.UpdateAsync(clearMsg);
+            else if (PathSelectionTarget is Army clearArmy)
+                await _armyService.UpdateAsync(clearArmy);
+            else if (PathSelectionTarget is Commander clearCmdr)
+                await _commanderService.UpdateAsync(clearCmdr);
+        }
+        else
+        {
+            PathSelectionTarget.Path = PathSelectionHexes.ToList();
+        }
+
         var pathLength = PathSelectionHexes.Count;
 
         // Save based on entity type and refresh ViewModel
         if (PathSelectionTarget is Message msg)
         {
-            await _messageService.UpdateAsync(msg);
+            if (pathLength > 0) await _messageService.UpdateAsync(msg);
             await RefreshMessagesAsync();
 
             // Recreate the MessageViewModel to reflect the updated Path
@@ -1150,7 +1166,7 @@ public partial class HexMapViewModel : ObservableObject
         }
         else if (PathSelectionTarget is Army army)
         {
-            await _armyService.UpdateAsync(army);
+            if (pathLength > 0) await _armyService.UpdateAsync(army);
 
             // Recreate the ArmyViewModel to reflect the updated Path
             if (SelectedArmy != null)
@@ -1165,7 +1181,7 @@ public partial class HexMapViewModel : ObservableObject
         }
         else if (PathSelectionTarget is Commander commander)
         {
-            await _commanderService.UpdateAsync(commander);
+            if (pathLength > 0) await _commanderService.UpdateAsync(commander);
 
             // Recreate the CommanderViewModel to reflect the updated Path
             if (SelectedCommander != null)
@@ -1174,12 +1190,13 @@ public partial class HexMapViewModel : ObservableObject
                 refreshedCmdVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedCmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedCmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+                refreshedCmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
                 SelectedEntityViewModel = refreshedCmdVm;
             }
         }
 
         CancelPathSelectionMode();
-        StatusMessage = $"Path set: {pathLength} hex(es)";
+        StatusMessage = pathLength > 0 ? $"Path set: {pathLength} hex(es)" : "Path cleared";
     }
 
     [RelayCommand]

@@ -32,7 +32,7 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
     public Faction? ControllingFaction
     {
         get => _mapHex.ControllingFaction;
-        set { if (_mapHex.ControllingFaction != value) { _mapHex.ControllingFaction = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        set { if (_mapHex.ControllingFaction != value) { _mapHex.ControllingFaction = value; _mapHex.ControllingFactionId = value?.Id; OnPropertyChanged(); _ = SaveAsync(); } }
     }
 
     public LocationType? LocationType

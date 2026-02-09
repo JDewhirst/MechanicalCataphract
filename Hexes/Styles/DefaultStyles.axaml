@@ -7,5 +7,8 @@
     </Border>
   </Design.PreviewWith>
 
-  <!-- Add Styles Here -->
+  <!-- DataGrid column headers: prevent text clipping at right border -->
+  <Style Selector="DataGridColumnHeader">
+    <Setter Property="Padding" Value="8,4"/>
+  </Style>
 </Styles>

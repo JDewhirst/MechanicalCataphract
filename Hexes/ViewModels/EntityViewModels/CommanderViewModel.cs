@@ -253,6 +253,12 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         }
     }
 
+    /// <summary>
+    /// Event raised when map-relevant data changes (e.g. path cleared).
+    /// HexMapViewModel subscribes to trigger a visual refresh.
+    /// </summary>
+    public event Action? MapRefreshRequested;
+
     public Army? FollowingArmy
     {
         get => _commander.FollowingArmy;
@@ -280,8 +286,15 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
                 }
 
                 _ = SaveAsync();
+                MapRefreshRequested?.Invoke();
             }
         }
+    }
+
+    [RelayCommand]
+    private void ClearFollowingArmy()
+    {
+        FollowingArmy = null;
     }
 
     private async Task SaveAsync()

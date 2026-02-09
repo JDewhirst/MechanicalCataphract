@@ -215,7 +215,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     public Faction? Faction
     {
         get => _army.Faction;
-        set { if (_army.Faction != value) { _army.Faction = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        set { if (_army.Faction != value) { _army.Faction = value; _army.FactionId = value?.Id ?? 1; OnPropertyChanged(); _ = SaveAsync(); } }
     }
     public Commander? Commander
     {

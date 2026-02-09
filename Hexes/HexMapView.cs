@@ -229,8 +229,8 @@ public class HexMapView : Control
 
     #region Stacking and Positioning
 
-    private const double StackOffsetY = 3.0;
-    private const double StackOffsetX = 2.0;
+    private const double StackOffsetY = 6.0;
+    private const double StackOffsetX = 4.0;
 
     private enum MarkerPosition { Center, TopRight, BottomRight }
 
@@ -286,8 +286,16 @@ public class HexMapView : Control
             view.InvalidateVisual();
         });
         SelectedOverlayProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
-        ArmiesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
-        CommandersProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        ArmiesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
+        {
+            view._factionColorCache.Clear();
+            view.InvalidateVisual();
+        });
+        CommandersProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
+        {
+            view._factionColorCache.Clear();
+            view.InvalidateVisual();
+        });
         MessagesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         SelectedArmyProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         SelectedCommanderProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());

@@ -106,15 +106,22 @@
         <!-- Following Army -->
         <StackPanel Margin="0,5,0,0">
             <TextBlock Text="Following Army" FontWeight="SemiBold" FontSize="11"/>
-            <ComboBox ItemsSource="{Binding AvailableArmies}"
-                      SelectedItem="{Binding FollowingArmy, Mode=TwoWay}"
-                      HorizontalAlignment="Stretch">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="entities:Army">
-                        <TextBlock Text="{Binding Name}"/>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
+            <Grid ColumnDefinitions="*,Auto">
+                <ComboBox Grid.Column="0"
+                          ItemsSource="{Binding AvailableArmies}"
+                          SelectedItem="{Binding FollowingArmy, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="entities:Army">
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Grid.Column="1" Content="&#x2715;" FontSize="10" Padding="4,2"
+                        Command="{Binding ClearFollowingArmyCommand}"
+                        ToolTip.Tip="Stop following army"
+                        Margin="4,0,0,0"/>
+            </Grid>
         </StackPanel>
 
         <!-- Stats (read-only) -->
