@@ -315,6 +315,40 @@
                         </DataGrid>
                     </Grid>
                 </TabItem>
+                <TabItem Header="Discord">
+                    <ScrollViewer>
+                        <StackPanel Orientation="Vertical" Spacing="8" Margin="8">
+                            <TextBlock Text="Discord Bot Configuration" FontWeight="Bold" FontSize="13"/>
+
+                            <TextBlock Text="Bot Token" FontSize="11" Foreground="Gray"/>
+                            <TextBox Text="{Binding HexMapViewModel.DiscordBotToken}"
+                                     Watermark="Enter bot token..."
+                                     PasswordChar="*"
+                                     FontSize="11"/>
+
+                            <TextBlock Text="Guild (Server) ID" FontSize="11" Foreground="Gray"/>
+                            <TextBox Text="{Binding HexMapViewModel.DiscordGuildId}"
+                                     Watermark="e.g. 123456789012345678"
+                                     FontSize="11"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+                                <Button Content="Connect"
+                                        Command="{Binding HexMapViewModel.ConnectDiscordCommand}"
+                                        IsVisible="{Binding !HexMapViewModel.IsDiscordConnected}"
+                                        FontSize="11" Padding="12,4"/>
+                                <Button Content="Disconnect"
+                                        Command="{Binding HexMapViewModel.DisconnectDiscordCommand}"
+                                        IsVisible="{Binding HexMapViewModel.IsDiscordConnected}"
+                                        FontSize="11" Padding="12,4"/>
+                            </StackPanel>
+
+                            <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,5,0,0" Margin="0,5,0,0">
+                                <TextBlock Text="{Binding HexMapViewModel.DiscordStatusMessage}"
+                                           FontSize="11" Foreground="Gray"/>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
             </TabControl>
         </Border>
     </Grid>

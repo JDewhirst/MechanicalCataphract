@@ -74,9 +74,13 @@ public partial class App : Application
             var botService = Services.GetRequiredService<DiscordBotService>();
             _ = botService.StartAsync(CancellationToken.None);
 
-            desktop.ShutdownRequested += async (_, _) =>
+            desktop.ShutdownRequested += (_, e) =>
             {
-                await botService.StopAsync(CancellationToken.None);
+                // Block shutdown until the gateway connection is cleanly closed.
+                // Without this, the process exits before CloseAsync completes and
+                // the bot stays "online" in Discord until the heartbeat times out.
+                botService.StopBotAsync().GetAwaiter().GetResult();
+                botService.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             };
         }
 

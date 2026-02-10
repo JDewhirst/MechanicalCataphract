@@ -10,6 +10,9 @@ using GUI.ViewModels.EntityViewModels;
 using GUI.Windows;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
+using Microsoft.Extensions.DependencyInjection;
+using MechanicalCataphract.Data;
+using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
 
 namespace GUI.ViewModels;
@@ -25,10 +28,24 @@ public partial class HexMapViewModel : ObservableObject
     private readonly IGameStateService _gameStateService;
     private readonly ITimeAdvanceService _timeAdvanceService;
     private readonly IPathfindingService _pathfindingService;
+    private readonly IDiscordBotService _discordBotService;
 
     // Database-backed gamestate data
     [ObservableProperty]
     private DateTime _gameTime = new();
+
+    // Discord bot config
+    [ObservableProperty]
+    private string _discordBotToken = string.Empty;
+
+    [ObservableProperty]
+    private string _discordGuildId = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDiscordConnected;
+
+    [ObservableProperty]
+    private string _discordStatusMessage = "Not configured";
 
     // Database-backed hex data
     [ObservableProperty]
@@ -161,7 +178,8 @@ public partial class HexMapViewModel : ObservableObject
         IMessageService messageService,
         IGameStateService gameStateService,
         ITimeAdvanceService timeAdvanceService,
-        IPathfindingService pathfindingService)
+        IPathfindingService pathfindingService,
+        IDiscordBotService discordBotService)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -172,6 +190,7 @@ public partial class HexMapViewModel : ObservableObject
         _gameStateService = gameStateService;
         _timeAdvanceService = timeAdvanceService;
         _pathfindingService = pathfindingService;
+        _discordBotService = discordBotService;
     }
 
     [RelayCommand]
@@ -209,6 +228,9 @@ public partial class HexMapViewModel : ObservableObject
         await LoadAllEntitiesAsync();
 
         StatusMessage = $"Loaded {VisibleHexes.Count} hexes, {Factions.Count} factions, {Armies.Count} armies";
+
+        // Load Discord bot config
+        await LoadDiscordConfigAsync();
     }
 
     private async Task LoadAllEntitiesAsync()
@@ -231,6 +253,83 @@ public partial class HexMapViewModel : ObservableObject
 
         var gameState = await _gameStateService.GetGameStateAsync();
         GameTime = gameState.CurrentGameTime;
+    }
+
+    private async Task LoadDiscordConfigAsync()
+    {
+        try
+        {
+            using var scope = App.Services!.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<MechanicalCataphract.Data.WargameDbContext>();
+            var config = await db.DiscordConfigs.FindAsync(1);
+            if (config is not null)
+            {
+                DiscordBotToken = config.BotToken ?? string.Empty;
+                DiscordGuildId = config.GuildId?.ToString() ?? string.Empty;
+            }
+            IsDiscordConnected = _discordBotService.IsConnected;
+            DiscordStatusMessage = _discordBotService.StatusMessage;
+        }
+        catch (Exception ex)
+        {
+            DiscordStatusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ConnectDiscordAsync()
+    {
+        try
+        {
+            DiscordStatusMessage = "Connecting...";
+
+            // Parse guild ID
+            if (!ulong.TryParse(DiscordGuildId, out var guildId))
+            {
+                DiscordStatusMessage = "Invalid Guild ID";
+                return;
+            }
+
+            // Save config to DB
+            using (var scope = App.Services!.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<MechanicalCataphract.Data.WargameDbContext>();
+                var config = await db.DiscordConfigs.FindAsync(1);
+                if (config is null)
+                {
+                    config = new MechanicalCataphract.Data.Entities.DiscordConfig { Id = 1 };
+                    db.DiscordConfigs.Add(config);
+                }
+                config.BotToken = DiscordBotToken;
+                config.GuildId = guildId;
+                await db.SaveChangesAsync();
+            }
+
+            // Start the bot — this now awaits the gateway Ready event
+            await _discordBotService.StartBotAsync();
+            IsDiscordConnected = _discordBotService.IsConnected;
+            DiscordStatusMessage = _discordBotService.StatusMessage;
+        }
+        catch (Exception ex)
+        {
+            DiscordStatusMessage = $"Error: {ex.Message}";
+            IsDiscordConnected = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DisconnectDiscordAsync()
+    {
+        try
+        {
+            await _discordBotService.StopBotAsync();
+            IsDiscordConnected = false;
+            DiscordStatusMessage = "Disconnected";
+        }
+        catch (Exception ex)
+        {
+            DiscordStatusMessage = $"Error: {ex.Message}";
+        }
     }
 
     /// <summary>
