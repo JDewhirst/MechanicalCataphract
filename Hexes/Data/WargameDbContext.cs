@@ -22,6 +22,8 @@ public class WargameDbContext : DbContext
     public DbSet<Message> Messages { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<GameState> GameStates { get; set; }
+    public DbSet<DiscordConfig> DiscordConfigs { get; set; }
+    public DbSet<WeatherUpdateRecord> WeatherUpdateRecords { get; set; }
 
     public WargameDbContext(DbContextOptions<WargameDbContext> options)
         : base(options) { }

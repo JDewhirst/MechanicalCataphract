@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Discord;
 using GUI.ViewModels;
 
 namespace GUI;
@@ -67,6 +69,15 @@ public partial class App : Application
             var mainWindow = new MainWindow(mainWindowViewModel);
             MainWindow = mainWindow;
             desktop.MainWindow = mainWindow;
+
+            // Start Discord bot (BackgroundService doesn't auto-start without a host)
+            var botService = Services.GetRequiredService<DiscordBotService>();
+            _ = botService.StartAsync(CancellationToken.None);
+
+            desktop.ShutdownRequested += async (_, _) =>
+            {
+                await botService.StopAsync(CancellationToken.None);
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -88,6 +99,10 @@ public partial class App : Application
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<ITimeAdvanceService, TimeAdvanceService>();
         services.AddScoped<IPathfindingService, PathfindingService>();
+
+        // Discord bot (singleton — long-lived gateway connection)
+        services.AddSingleton<DiscordBotService>();
+        services.AddSingleton<IDiscordBotService>(sp => sp.GetRequiredService<DiscordBotService>());
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

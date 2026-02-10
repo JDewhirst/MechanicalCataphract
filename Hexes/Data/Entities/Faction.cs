@@ -10,6 +10,11 @@ public class Faction
     public string? Rules { get; set; }
     public bool IsPlayerFaction { get; set; }
 
+    // Discord integration
+    public ulong? DiscordRoleId { get; set; }
+    public ulong? DiscordCategoryId { get; set; }
+    public ulong? DiscordChannelId { get; set; }
+
     // Navigation
     public ICollection<Army> Armies { get; set; } = new List<Army>();
     public ICollection<Commander> Commanders { get; set; } = new List<Commander>();

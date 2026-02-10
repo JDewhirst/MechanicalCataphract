@@ -11,6 +11,7 @@ public class Commander : IPathMovable
     public int? Age { get; set; }
     public string? DiscordHandle { get; set; }
     public ulong? DiscordUserId { get; set; }
+    public ulong? DiscordChannelId { get; set; }
 
     // Traits stored as comma-separated trait IDs
     public string? TraitIds { get; set; }
