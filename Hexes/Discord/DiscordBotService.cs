@@ -2,9 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Reflection;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using NetCord;
 using NetCord.Gateway;
 using NetCord.Rest;
@@ -14,7 +12,7 @@ using MechanicalCataphract.Data;
 
 namespace MechanicalCataphract.Discord;
 
-public class DiscordBotService : BackgroundService, IDiscordBotService
+public class DiscordBotService : IDiscordBotService
 {
     private readonly IServiceProvider _serviceProvider;
     private GatewayClient? _client;
@@ -34,31 +32,11 @@ public class DiscordBotService : BackgroundService, IDiscordBotService
         _serviceProvider = serviceProvider;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        // The bot doesn't auto-start — it waits for StartBotAsync to be called
-        // (triggered by UI or on startup if a token is already configured).
-        // We just keep the BackgroundService alive until cancellation.
-        await TryAutoStartAsync();
-
-        try
-        {
-            await Task.Delay(Timeout.Infinite, stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected on shutdown
-        }
-        finally
-        {
-            await StopBotAsync();
-        }
-    }
-
     /// <summary>
     /// Attempts to start the bot if a token is already configured in the database.
+    /// Called once from App.axaml.cs on startup.
     /// </summary>
-    private async Task TryAutoStartAsync()
+    public async Task TryAutoStartAsync()
     {
         try
         {
@@ -81,8 +59,6 @@ public class DiscordBotService : BackgroundService, IDiscordBotService
     public async Task StartBotAsync()
     {
         // Cancel any in-flight connection attempt before acquiring the lock.
-        // This prevents queued Connect clicks from waiting behind a stale
-        // 15-second Ready timeout — the old attempt aborts immediately.
         _connectCts?.Cancel();
 
         await _lock.WaitAsync();

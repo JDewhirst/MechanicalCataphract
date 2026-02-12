@@ -26,8 +26,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.1" />
-    <PackageReference Include="NetCord" Version="1.0.0-alpha.332" />
+<PackageReference Include="NetCord" Version="1.0.0-alpha.332" />
     <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.332" />
     <PackageReference Include="SkiaSharp" Version="3.116.1" />
   </ItemGroup>

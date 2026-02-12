@@ -1,9 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
 using System;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace GUI.ViewModels.EntityViewModels;
@@ -15,6 +17,12 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
 {
     private readonly Faction _faction;
     private readonly IFactionService _service;
+    private readonly IDiscordChannelManager? _discordChannelManager;
+
+    // Debounce Discord API calls — channel rename has a 2-per-10min rate limit
+    private CancellationTokenSource? _discordDebounceCts;
+    private string? _pendingOldName;
+    private string? _pendingOldColor;
 
     public string EntityTypeName => "Faction";
 
@@ -32,9 +40,12 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
         {
             if (_faction.Name != value)
             {
+                // Capture the original name only on the first keystroke of this burst
+                _pendingOldName ??= _faction.Name;
                 _faction.Name = value;
                 OnPropertyChanged();
                 _ = SaveAsync();
+                ScheduleDiscordUpdate();
             }
         }
     }
@@ -46,9 +57,11 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
         {
             if (_faction.ColorHex != value)
             {
+                _pendingOldColor ??= _faction.ColorHex;
                 _faction.ColorHex = value;
                 OnPropertyChanged();
                 _ = SaveAsync();
+                ScheduleDiscordUpdate();
             }
         }
     }
@@ -105,11 +118,49 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
         await _service.UpdateAsync(_faction);
     }
 
-    // Update constructor to initialize collections
-    public FactionViewModel(Faction faction, IFactionService service)
+    /// <summary>
+    /// Debounces Discord API calls. Each call cancels the previous pending update
+    /// and starts a new 1.5-second timer. Only the final update fires.
+    /// This avoids hitting Discord's 2-per-10min channel rename rate limit.
+    /// </summary>
+    private void ScheduleDiscordUpdate()
+    {
+        if (_discordChannelManager == null) return;
+
+        _discordDebounceCts?.Cancel();
+        _discordDebounceCts = new CancellationTokenSource();
+        var ct = _discordDebounceCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1500, ct);
+
+                var oldName = Interlocked.Exchange(ref _pendingOldName, null);
+                var oldColor = Interlocked.Exchange(ref _pendingOldColor, null);
+
+                if (oldName != null || oldColor != null)
+                {
+                    await _discordChannelManager.OnFactionUpdatedAsync(_faction, oldName, oldColor);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Another keystroke arrived — this attempt was superseded
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FactionViewModel] Discord update failed: {ex.Message}");
+            }
+        });
+    }
+
+    public FactionViewModel(Faction faction, IFactionService service, IDiscordChannelManager? discordChannelManager = null)
     {
         _faction = faction;
         _service = service;
+        _discordChannelManager = discordChannelManager;
         Armies = new ObservableCollection<Army>(_faction.Armies);
         Commanders = new ObservableCollection<Commander>(_faction.Commanders);
     }

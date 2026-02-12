@@ -29,6 +29,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly ITimeAdvanceService _timeAdvanceService;
     private readonly IPathfindingService _pathfindingService;
     private readonly IDiscordBotService _discordBotService;
+    private readonly IDiscordChannelManager _discordChannelManager;
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -179,7 +180,8 @@ public partial class HexMapViewModel : ObservableObject
         IGameStateService gameStateService,
         ITimeAdvanceService timeAdvanceService,
         IPathfindingService pathfindingService,
-        IDiscordBotService discordBotService)
+        IDiscordBotService discordBotService,
+        IDiscordChannelManager discordChannelManager)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -191,6 +193,7 @@ public partial class HexMapViewModel : ObservableObject
         _timeAdvanceService = timeAdvanceService;
         _pathfindingService = pathfindingService;
         _discordBotService = discordBotService;
+        _discordChannelManager = discordChannelManager;
     }
 
     [RelayCommand]
@@ -731,7 +734,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedMessage = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            SelectedEntityViewModel = new FactionViewModel(value, _factionService);
+            SelectedEntityViewModel = new FactionViewModel(value, _factionService, _discordChannelManager);
             StatusMessage = $"Selected faction: {value.Name}";
             _ = LoadFactionWithDetailsAsync(value.Id);
         }
@@ -761,7 +764,7 @@ public partial class HexMapViewModel : ObservableObject
     _factionService.GetFactionWithArmiesAndCommandersAsync(factionId);
         if (factionWithDetails != null)
         {
-            var factionVm = new FactionViewModel(factionWithDetails, _factionService);
+            var factionVm = new FactionViewModel(factionWithDetails, _factionService, _discordChannelManager);
 
             // Wire up navigation events
             factionVm.ArmySelected += army => SelectedArmy = army;
@@ -823,7 +826,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedMessage = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _pathfindingService);
+            var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _pathfindingService, _discordChannelManager);
             cmdVm.PathSelectionRequested += StartPathSelectionMode;
             cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
@@ -906,6 +909,7 @@ public partial class HexMapViewModel : ObservableObject
             IsPlayerFaction = true
         };
         await _factionService.CreateAsync(faction);
+        await _discordChannelManager.OnFactionCreatedAsync(faction);
         await RefreshFactionsAsync();
         StatusMessage = $"Created faction: {faction.Name}";
     }
@@ -914,8 +918,23 @@ public partial class HexMapViewModel : ObservableObject
     private async Task DeleteFactionAsync(Faction faction)
     {
         if (faction == null) return;
+
+        // 1. Discord cleanup — removes roles from commanders, moves their channels out
+        await _discordChannelManager.OnFactionDeletedAsync(faction);
+
+        // 2. Reassign all commanders of this faction to "No Faction" (Id=1)
+        //    Must happen before faction delete due to FK restrict constraint.
+        var commanders = await _commanderService.GetAllAsync();
+        foreach (var cmd in commanders.Where(c => c.FactionId == faction.Id))
+        {
+            cmd.FactionId = 1;
+            await _commanderService.UpdateAsync(cmd);
+        }
+
+        // 3. Delete the faction itself
         await _factionService.DeleteAsync(faction.Id);
         await RefreshFactionsAsync();
+        await RefreshCommandersAsync();
         StatusMessage = $"Deleted faction: {faction.Name}";
     }
 
@@ -959,6 +978,9 @@ public partial class HexMapViewModel : ObservableObject
             Age = 30
         };
         await _commanderService.CreateAsync(commander);
+        var cmdFaction = Factions.FirstOrDefault(f => f.Id == commander.FactionId);
+        if (cmdFaction != null)
+            await _discordChannelManager.OnCommanderCreatedAsync(commander, cmdFaction);
         await RefreshCommandersAsync();
         StatusMessage = $"Created commander: {commander.Name}";
     }
@@ -967,6 +989,7 @@ public partial class HexMapViewModel : ObservableObject
     private async Task DeleteCommanderAsync(Commander commander)
     {
         if (commander == null) return;
+        await _discordChannelManager.OnCommanderDeletedAsync(commander);
         await _commanderService.DeleteAsync(commander.Id);
         await RefreshCommandersAsync();
         StatusMessage = $"Deleted commander: {commander.Name}";
@@ -1285,7 +1308,7 @@ public partial class HexMapViewModel : ObservableObject
             // Recreate the CommanderViewModel to reflect the updated Path
             if (SelectedCommander != null)
             {
-                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, Armies, Factions, _pathfindingService);
+                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, Armies, Factions, _pathfindingService, _discordChannelManager);
                 refreshedCmdVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedCmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedCmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;

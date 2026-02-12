@@ -10,6 +10,11 @@ public interface IDiscordBotService
     string StatusMessage { get; }
 
     /// <summary>
+    /// Starts the bot if a config exists in the database. No-op if not configured.
+    /// </summary>
+    Task TryAutoStartAsync();
+
+    /// <summary>
     /// Starts (or restarts) the bot with the current DiscordConfig from the database.
     /// </summary>
     Task StartBotAsync();

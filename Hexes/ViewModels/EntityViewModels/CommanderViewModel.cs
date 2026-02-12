@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
 
 namespace GUI.ViewModels.EntityViewModels;
@@ -18,6 +19,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     private readonly Commander _commander;
     private readonly ICommanderService _service;
     private readonly IPathfindingService? _pathfindingService;
+    private readonly IDiscordChannelManager? _discordChannelManager;
 
     public string EntityTypeName => "Commander";
 
@@ -245,11 +247,21 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         {
             if (_commander.Faction != value)
             {
+                var oldFaction = _commander.Faction;
                 _commander.Faction = value;
                 _commander.FactionId = value?.Id ?? 1;
                 OnPropertyChanged();
-                _ = SaveAsync();
+                _ = SaveAndNotifyFactionChangeAsync(oldFaction, value);
             }
+        }
+    }
+
+    private async Task SaveAndNotifyFactionChangeAsync(Faction? oldFaction, Faction? newFaction)
+    {
+        await SaveAsync();
+        if (_discordChannelManager != null && oldFaction != null && newFaction != null && oldFaction.Id != newFaction.Id)
+        {
+            await _discordChannelManager.OnCommanderFactionChangedAsync(_commander, oldFaction, newFaction);
         }
     }
 
@@ -302,12 +314,13 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         await _service.UpdateAsync(_commander);
     }
 
-    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, IPathfindingService? pathfindingService = null)
+    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
     {
         _commander = commander;
         _service = service;
         AvailableArmies = availableArmies;
         AvailableFactions = availableFactions;
         _pathfindingService = pathfindingService;
+        _discordChannelManager = discordChannelManager;
     }
 }

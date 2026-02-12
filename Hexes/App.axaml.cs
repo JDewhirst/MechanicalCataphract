@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Threading;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -70,17 +69,14 @@ public partial class App : Application
             MainWindow = mainWindow;
             desktop.MainWindow = mainWindow;
 
-            // Start Discord bot (BackgroundService doesn't auto-start without a host)
-            var botService = Services.GetRequiredService<DiscordBotService>();
-            _ = botService.StartAsync(CancellationToken.None);
+            // Auto-start Discord bot if previously configured (fire-and-forget)
+            var botService = Services.GetRequiredService<IDiscordBotService>();
+            _ = botService.TryAutoStartAsync();
 
             desktop.ShutdownRequested += (_, e) =>
             {
                 // Block shutdown until the gateway connection is cleanly closed.
-                // Without this, the process exits before CloseAsync completes and
-                // the bot stays "online" in Discord until the heartbeat times out.
                 botService.StopBotAsync().GetAwaiter().GetResult();
-                botService.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             };
         }
 
@@ -104,9 +100,9 @@ public partial class App : Application
         services.AddScoped<ITimeAdvanceService, TimeAdvanceService>();
         services.AddScoped<IPathfindingService, PathfindingService>();
 
-        // Discord bot (singleton — long-lived gateway connection)
-        services.AddSingleton<DiscordBotService>();
-        services.AddSingleton<IDiscordBotService>(sp => sp.GetRequiredService<DiscordBotService>());
+        // Discord (singletons — long-lived gateway connection)
+        services.AddSingleton<IDiscordBotService, DiscordBotService>();
+        services.AddSingleton<IDiscordChannelManager, DiscordChannelManager>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
