@@ -588,6 +588,24 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
     }
 
+    public async Task SendMessageToCommanderChannelAsync(Commander target, string content)
+    {
+        if (!_botService.IsConnected) return;
+        if (!target.DiscordChannelId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            await rest.SendMessageAsync(target.DiscordChannelId.Value,
+                new NetCord.Rest.MessageProperties { Content = content });
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Message sent to '{target.Name}' channel.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendMessageToCommanderChannel failed: {ex.Message}");
+        }
+    }
+
     private async Task<ulong?> GetCoLocationCategoryIdAsync()
     {
         using var scope = _serviceProvider.CreateScope();

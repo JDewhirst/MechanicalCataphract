@@ -218,7 +218,8 @@ public class CoLocationChannelViewModelTests
             pathfindingService.Object,
             _coLocService.Object,
             botService.Object,
-            _channelMgr.Object);
+            _channelMgr.Object,
+            new Mock<IDiscordMessageHandler>().Object);
     }
 
     [Test]

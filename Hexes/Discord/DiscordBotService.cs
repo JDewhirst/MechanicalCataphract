@@ -116,6 +116,21 @@ public class DiscordBotService : IDiscordBotService
                 }
             };
 
+            // Subscribe to incoming guild messages for :envelope: / :scroll: parsing
+            _client.MessageCreate += async message =>
+            {
+                try
+                {
+                    var handler = _serviceProvider.GetService<IDiscordMessageHandler>();
+                    if (handler != null)
+                        await handler.HandleMessageAsync(message);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DiscordBot] MessageCreate handler error: {ex.Message}");
+                }
+            };
+
             _client.Log += message =>
             {
                 System.Diagnostics.Debug.WriteLine($"[DiscordBot] {message}");

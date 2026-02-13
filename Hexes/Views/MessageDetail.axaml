@@ -105,6 +105,18 @@
             </Border>
         </StackPanel>
 
+        <!-- Send to Discord -->
+        <StackPanel Spacing="4">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+                <Button Content="Send to Discord"
+                        Command="{Binding SendToDiscordCommand}"
+                        ToolTip.Tip="Send message content to target commander's Discord channel"/>
+                <TextBlock Text="{Binding SendStatus}"
+                           FontSize="10" VerticalAlignment="Center" Foreground="Orange"
+                           IsVisible="{Binding SendStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+        </StackPanel>
+
         <!-- Status -->
         <StackPanel Orientation="Horizontal" Spacing="10">
             <CheckBox Content="Delivered"

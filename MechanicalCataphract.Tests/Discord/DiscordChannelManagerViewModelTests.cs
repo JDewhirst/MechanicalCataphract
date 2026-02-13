@@ -335,7 +335,8 @@ public class DiscordChannelManagerViewModelTests
             pathfindingService.Object,
             _coLocService.Object,
             botService.Object,
-            _channelMgr.Object);
+            _channelMgr.Object,
+            new Mock<IDiscordMessageHandler>().Object);
     }
 
     [Test]
@@ -433,6 +434,86 @@ public class DiscordChannelManagerViewModelTests
             m => m.OnCommanderDeletedAsync(commander),
             Times.Once,
             "Deleting a commander should trigger OnCommanderDeletedAsync");
+    }
+
+    #endregion
+
+    #region MessageViewModel — Send to Discord
+
+    [Test]
+    public async Task MessageViewModel_SendToDiscord_CallsSendMessageToCommanderChannel()
+    {
+        var sender = new Commander { Id = 1, Name = "Sender" };
+        var target = new Commander { Id = 2, Name = "Target", DiscordChannelId = 999UL };
+        var message = new Message
+        {
+            Id = 1,
+            SenderCommanderId = 1,
+            SenderCommander = sender,
+            TargetCommanderId = 2,
+            TargetCommander = target,
+            Content = "Advance immediately!",
+        };
+        var mockMsgService = new Mock<IMessageService>();
+        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
+            pathfindingService: null, discordChannelManager: _channelMgr.Object);
+
+        await vm.SendToDiscordCommand.ExecuteAsync(null);
+
+        _channelMgr.Verify(
+            m => m.SendMessageToCommanderChannelAsync(target, It.Is<string>(s => s.Contains("Advance immediately!"))),
+            Times.Once,
+            "Send should call SendMessageToCommanderChannelAsync with the message content");
+
+        Assert.That(message.Delivered, Is.True, "Message should be marked as delivered after send");
+    }
+
+    [Test]
+    public async Task MessageViewModel_SendToDiscord_NoTarget_DoesNotSend()
+    {
+        var message = new Message { Id = 1, Content = "Hello", TargetCommander = null };
+        var mockMsgService = new Mock<IMessageService>();
+        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
+            pathfindingService: null, discordChannelManager: _channelMgr.Object);
+
+        await vm.SendToDiscordCommand.ExecuteAsync(null);
+
+        _channelMgr.Verify(
+            m => m.SendMessageToCommanderChannelAsync(It.IsAny<Commander>(), It.IsAny<string>()),
+            Times.Never,
+            "Should not attempt to send when no target commander set");
+    }
+
+    [Test]
+    public async Task MessageViewModel_SendToDiscord_NoDiscordChannel_DoesNotSend()
+    {
+        var target = new Commander { Id = 2, Name = "Target", DiscordChannelId = null };
+        var message = new Message { Id = 1, Content = "Hello", TargetCommander = target };
+        var mockMsgService = new Mock<IMessageService>();
+        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
+            pathfindingService: null, discordChannelManager: _channelMgr.Object);
+
+        await vm.SendToDiscordCommand.ExecuteAsync(null);
+
+        _channelMgr.Verify(
+            m => m.SendMessageToCommanderChannelAsync(It.IsAny<Commander>(), It.IsAny<string>()),
+            Times.Never,
+            "Should not attempt to send when target has no Discord channel");
+    }
+
+    [Test]
+    public async Task MessageViewModel_SendToDiscord_NoDiscordManager_ShowsStatus()
+    {
+        var target = new Commander { Id = 2, Name = "Target", DiscordChannelId = 999UL };
+        var message = new Message { Id = 1, Content = "Hello", TargetCommander = target };
+        var mockMsgService = new Mock<IMessageService>();
+        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
+            pathfindingService: null, discordChannelManager: null);
+
+        await vm.SendToDiscordCommand.ExecuteAsync(null);
+
+        Assert.That(vm.SendStatus, Is.EqualTo("Discord not available"));
+        Assert.That(message.Delivered, Is.False);
     }
 
     #endregion

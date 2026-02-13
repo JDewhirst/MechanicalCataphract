@@ -26,4 +26,10 @@ public interface IDiscordChannelManager
     Task OnCoLocationChannelUpdatedAsync(CoLocationChannel channel);
     Task OnCommanderAddedToCoLocationAsync(CoLocationChannel channel, Commander commander);
     Task OnCommanderRemovedFromCoLocationAsync(CoLocationChannel channel, Commander commander);
+
+    // Message delivery
+    /// <summary>
+    /// Sends a game message to a commander's private Discord channel.
+    /// </summary>
+    Task SendMessageToCommanderChannelAsync(Commander target, string content);
 }

@@ -17,7 +17,7 @@ packages/
 
 # Design docs and planning files
 *.md
-!README.md #Except for README.md
+!README.md
 *.txt
 
 # Claude planning files

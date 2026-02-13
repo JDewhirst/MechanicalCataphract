@@ -114,6 +114,7 @@ public partial class App : Application
         // Discord (singletons — long-lived gateway connection)
         services.AddSingleton<IDiscordBotService, DiscordBotService>();
         services.AddSingleton<IDiscordChannelManager, DiscordChannelManager>();
+        services.AddSingleton<IDiscordMessageHandler, DiscordMessageHandler>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

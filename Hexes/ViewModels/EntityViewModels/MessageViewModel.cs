@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,7 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
     private readonly Message _message;
     private readonly IMessageService _service;
     private readonly IPathfindingService? _pathfindingService;
+    private readonly IDiscordChannelManager? _discordChannelManager;
 
     public string EntityTypeName => "Message";
 
@@ -264,16 +266,70 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         }
     }
 
+    [ObservableProperty]
+    private string? _sendStatus;
+
+    /// <summary>
+    /// Sends this message's content to the target commander's Discord channel.
+    /// Marks the message as delivered on success.
+    /// </summary>
+    [RelayCommand]
+    private async Task SendToDiscord()
+    {
+        if (_discordChannelManager == null)
+        {
+            SendStatus = "Discord not available";
+            return;
+        }
+
+        if (_message.TargetCommander == null)
+        {
+            SendStatus = "No target commander set";
+            return;
+        }
+
+        if (!_message.TargetCommander.DiscordChannelId.HasValue)
+        {
+            SendStatus = "Target has no Discord channel";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_message.Content))
+        {
+            SendStatus = "Message has no content";
+            return;
+        }
+
+        SendStatus = "Sending...";
+
+        try
+        {
+            var senderName = _message.SenderCommander?.Name ?? "Unknown";
+            var formatted = $"**Message from {senderName}:**\n{_message.Content}";
+            await _discordChannelManager.SendMessageToCommanderChannelAsync(_message.TargetCommander, formatted);
+
+            Delivered = true;
+            SendStatus = "Sent";
+        }
+        catch (Exception ex)
+        {
+            SendStatus = $"Failed: {ex.Message}";
+        }
+    }
+
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_message);
     }
 
-    public MessageViewModel(Message message, IMessageService service, IEnumerable<Commander> availableCommanders, IPathfindingService? pathfindingService = null)
+    public MessageViewModel(
+        Message message, IMessageService service, IEnumerable<Commander> availableCommanders,
+        IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
     {
         _message = message;
         _service = service;
         _availableCommanders = availableCommanders;
         _pathfindingService = pathfindingService;
+        _discordChannelManager = discordChannelManager;
     }
 }

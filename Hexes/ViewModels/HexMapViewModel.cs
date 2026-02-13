@@ -31,6 +31,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly ICoLocationChannelService _coLocationChannelService;
     private readonly IDiscordBotService _discordBotService;
     private readonly IDiscordChannelManager _discordChannelManager;
+    private readonly IDiscordMessageHandler _discordMessageHandler;
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -189,7 +190,8 @@ public partial class HexMapViewModel : ObservableObject
         IPathfindingService pathfindingService,
         ICoLocationChannelService coLocationChannelService,
         IDiscordBotService discordBotService,
-        IDiscordChannelManager discordChannelManager)
+        IDiscordChannelManager discordChannelManager,
+        IDiscordMessageHandler discordMessageHandler)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -203,6 +205,25 @@ public partial class HexMapViewModel : ObservableObject
         _coLocationChannelService = coLocationChannelService;
         _discordBotService = discordBotService;
         _discordChannelManager = discordChannelManager;
+        _discordMessageHandler = discordMessageHandler;
+
+        _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
+    }
+
+    private async void OnDiscordEntitiesChanged()
+    {
+        try
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await RefreshMessagesAsync();
+                await RefreshOrdersAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[HexMapVM] Discord entity refresh failed: {ex.Message}");
+        }
     }
 
     [RelayCommand]
@@ -888,7 +909,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedOrder = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            var messageVm = new MessageViewModel(value, _messageService, Commanders, _pathfindingService);
+            var messageVm = new MessageViewModel(value, _messageService, Commanders, _pathfindingService, _discordChannelManager);
             messageVm.PathSelectionRequested += StartPathSelectionMode;
             messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
@@ -1355,7 +1376,7 @@ public partial class HexMapViewModel : ObservableObject
             // Recreate the MessageViewModel to reflect the updated Path
             if (SelectedMessage != null)
             {
-                var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _pathfindingService);
+                var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _pathfindingService, _discordChannelManager);
                 refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;
