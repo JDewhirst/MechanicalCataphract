@@ -204,12 +204,13 @@ public class WargameDbContext : DbContext
             new Weather { Id = 5, Name = "Fog", MovementModifier = 0.75, CombatModifier = 0.8 }
         );
 
-        // Seed default location types
+        // Seed default location types (Id=1 is the "No Location" sentinel)
         modelBuilder.Entity<LocationType>().HasData(
-            new LocationType { Id = 1, Name = "Fortress", ColorHex = "#8B0000" },
-            new LocationType { Id = 2, Name = "City", ColorHex = "#CD5C5C" },
-            new LocationType { Id = 3, Name = "Fortified Town", ColorHex = "#4B0082" },
-            new LocationType { Id = 4, Name = "Town", ColorHex = "#DAA520" }
+            new LocationType { Id = 1, Name = "No Location", ColorHex = "#808080" },
+            new LocationType { Id = 2, Name = "Fortress", ColorHex = "#8B0000", IconPath = "avares://MechanicalCataphract/Assets/location-icons/castle.png", ScaleFactor = 0.64 },
+            new LocationType { Id = 3, Name = "City", ColorHex = "#CD5C5C", IconPath = "avares://MechanicalCataphract/Assets/location-icons/city.png", ScaleFactor = 0.64 },
+            new LocationType { Id = 4, Name = "Fortified Town", ColorHex = "#4B0082", IconPath = "avares://MechanicalCataphract/Assets/location-icons/fort.png", ScaleFactor = 0.64 },
+            new LocationType { Id = 5, Name = "Town", ColorHex = "#DAA520", IconPath = "avares://MechanicalCataphract/Assets/location-icons/house.png", ScaleFactor = 0.64 }
         );
     }
 }

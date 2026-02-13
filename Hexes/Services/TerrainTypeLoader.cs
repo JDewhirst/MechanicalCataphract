@@ -77,6 +77,56 @@ public static class TerrainTypeLoader
     }
 
     /// <summary>
+    /// Parses an icon.properties file for location types.
+    /// Returns (name, iconFilename, scaleFactor) tuples.
+    /// </summary>
+    public static List<(string name, string iconFilename, double scaleFactor)> LoadLocationIconsFromPropertiesFile(string filePath)
+    {
+        var results = new Dictionary<string, (string? iconFilename, double scaleFactor)>();
+        var lines = File.ReadAllLines(filePath);
+
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("symbolnames="))
+                continue;
+
+            var eqIndex = line.IndexOf('=');
+            if (eqIndex <= 0) continue;
+
+            var key = line.Substring(0, eqIndex);
+            var value = line.Substring(eqIndex + 1);
+
+            var dotIndex = key.IndexOf('.');
+            if (dotIndex <= 0) continue;
+
+            var locationKey = key.Substring(0, dotIndex);
+            var property = key.Substring(dotIndex + 1).ToLowerInvariant();
+            var name = locationKey.Replace('_', ' ');
+
+            if (!results.TryGetValue(name, out var entry))
+                entry = (null, 0.64);
+
+            switch (property)
+            {
+                case "iconfilename":
+                    entry.iconFilename = value;
+                    break;
+                case "scalefactor":
+                    if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale))
+                        entry.scaleFactor = scale;
+                    break;
+            }
+
+            results[name] = entry;
+        }
+
+        return results
+            .Where(kvp => !string.IsNullOrEmpty(kvp.Value.iconFilename))
+            .Select(kvp => (kvp.Key, kvp.Value.iconFilename!, kvp.Value.scaleFactor))
+            .ToList();
+    }
+
+    /// <summary>
     /// Converts Java's signed integer color format to HTML hex color.
     /// Java stores colors as signed 32-bit integers where the RGB is in the lower 24 bits.
     /// </summary>

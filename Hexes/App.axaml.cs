@@ -61,6 +61,29 @@ public partial class App : Application
                     dbContext.SaveChanges();
                 }
             }
+
+            // Update location type icons from properties file (runs every startup)
+            var iconPropertiesPath = System.IO.Path.Combine(
+                AppContext.BaseDirectory, "Assets", "location-icons", "icon.properties");
+
+            if (System.IO.File.Exists(iconPropertiesPath))
+            {
+                var locationIcons = TerrainTypeLoader.LoadLocationIconsFromPropertiesFile(iconPropertiesPath);
+                var existingLocationTypes = dbContext.LocationTypes.ToList();
+
+                foreach (var (name, iconFilename, scaleFactor) in locationIcons)
+                {
+                    var locType = existingLocationTypes.FirstOrDefault(
+                        lt => lt.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                    if (locType != null)
+                    {
+                        locType.IconPath = $"avares://MechanicalCataphract/Assets/location-icons/{iconFilename}";
+                        locType.ScaleFactor = scaleFactor;
+                    }
+                }
+
+                dbContext.SaveChanges();
+            }
         }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

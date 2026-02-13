@@ -42,9 +42,21 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
         {
             if (_mapHex.LocationType != value)
             {
-                _mapHex.LocationType = value;
-                _mapHex.LocationTypeId = value?.Id;
+                // Sentinel "No Location" (Id=1) clears the location
+                if (value != null && value.Id == 1)
+                {
+                    _mapHex.LocationType = null;
+                    _mapHex.LocationTypeId = null;
+                    _mapHex.LocationName = null;
+                    _mapHex.LocationFactionId = null;
+                }
+                else
+                {
+                    _mapHex.LocationType = value;
+                    _mapHex.LocationTypeId = value?.Id;
+                }
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(LocationName));
                 _ = SaveAsync();
             }
         }

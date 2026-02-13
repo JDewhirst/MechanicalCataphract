@@ -740,6 +740,15 @@ public partial class HexMapViewModel : ObservableObject
             return;
         }
 
+        // Sentinel "No Location" (Id=1) clears the location
+        if (SelectedLocationType.Id == 1)
+        {
+            await _mapService.ClearLocationAsync(args.hex);
+            await RefreshHexInCollection(args.hex);
+            StatusMessage = $"Cleared location at ({args.hex.q}, {args.hex.r})";
+            return;
+        }
+
         await _mapService.SetLocationAsync(args.hex, SelectedLocationType.Id, args.locationName);
         await RefreshHexInCollection(args.hex);
 

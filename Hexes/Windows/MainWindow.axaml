@@ -149,6 +149,7 @@
         <local:HexMapView x:Name="HexMapView" Grid.Row="1" Grid.Column="2"
                           VisibleHexes="{Binding HexMapViewModel.VisibleHexes}"
                           TerrainTypes="{Binding HexMapViewModel.TerrainTypes}"
+                          LocationTypes="{Binding HexMapViewModel.LocationTypes}"
                           SelectedTerrainType="{Binding HexMapViewModel.SelectedTerrainType}"
                           HexRadius="{Binding HexMapViewModel.HexRadius}"
                           PanOffset="{Binding HexMapViewModel.PanOffset}"

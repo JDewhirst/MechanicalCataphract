@@ -37,6 +37,9 @@ public class HexMapView : Control
     public static readonly StyledProperty<IList<TerrainType>?> TerrainTypesProperty =
         AvaloniaProperty.Register<HexMapView, IList<TerrainType>?>(nameof(TerrainTypes));
 
+    public static readonly StyledProperty<IList<LocationType>?> LocationTypesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<LocationType>?>(nameof(LocationTypes));
+
     public static readonly StyledProperty<TerrainType?> SelectedTerrainTypeProperty =
         AvaloniaProperty.Register<HexMapView, TerrainType?>(nameof(SelectedTerrainType));
 
@@ -95,6 +98,12 @@ public class HexMapView : Control
     {
         get => GetValue(TerrainTypesProperty);
         set => SetValue(TerrainTypesProperty, value);
+    }
+
+    public IList<LocationType>? LocationTypes
+    {
+        get => GetValue(LocationTypesProperty);
+        set => SetValue(LocationTypesProperty, value);
     }
 
     public TerrainType? SelectedTerrainType
@@ -195,6 +204,7 @@ public class HexMapView : Control
     private Dictionary<int, ISolidColorBrush> _terrainColorCache = new();
     private Dictionary<int, ISolidColorBrush> _factionColorCache = new();
     private Dictionary<int, (Bitmap? bitmap, double scaleFactor)> _terrainIconCache = new();
+    private Dictionary<int, (Bitmap? bitmap, double scaleFactor)> _locationIconCache = new();
 
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
@@ -285,6 +295,11 @@ public class HexMapView : Control
             view.RebuildTerrainIconCache();
             view.InvalidateVisual();
         });
+        LocationTypesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
+        {
+            view.RebuildLocationIconCache();
+            view.InvalidateVisual();
+        });
         SelectedOverlayProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         ArmiesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
         {
@@ -346,6 +361,12 @@ public class HexMapView : Control
             entry.bitmap?.Dispose();
         }
         _terrainIconCache.Clear();
+
+        foreach (var entry in _locationIconCache.Values)
+        {
+            entry.bitmap?.Dispose();
+        }
+        _locationIconCache.Clear();
     }
 
     #region Input Handling
@@ -728,6 +749,14 @@ public class HexMapView : Control
                 iconData.bitmap != null)
             {
                 DrawTerrainIcon(context, iconData.bitmap, iconData.scaleFactor);
+            }
+
+            // 2b. Draw location icon centered on hex (if location set)
+            if (mapHex.LocationTypeId.HasValue &&
+                _locationIconCache.TryGetValue(mapHex.LocationTypeId.Value, out var locIconData) &&
+                locIconData.bitmap != null)
+            {
+                DrawTerrainIcon(context, locIconData.bitmap, locIconData.scaleFactor);
             }
 
             // 3. Draw overlay on top (if not "None")
@@ -1276,6 +1305,27 @@ public class HexMapView : Control
             {
                 var bitmap = LoadTerrainIcon(terrain.IconPath);
                 _terrainIconCache[terrain.Id] = (bitmap, terrain.ScaleFactor);
+            }
+        }
+    }
+
+    private void RebuildLocationIconCache()
+    {
+        foreach (var entry in _locationIconCache.Values)
+        {
+            entry.bitmap?.Dispose();
+        }
+        _locationIconCache.Clear();
+
+        var locationTypes = LocationTypes;
+        if (locationTypes == null) return;
+
+        foreach (var locType in locationTypes)
+        {
+            if (!string.IsNullOrEmpty(locType.IconPath))
+            {
+                var bitmap = LoadTerrainIcon(locType.IconPath);
+                _locationIconCache[locType.Id] = (bitmap, locType.ScaleFactor);
             }
         }
     }

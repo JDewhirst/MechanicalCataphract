@@ -250,6 +250,6 @@ public class MapServiceIntegrationTests : IntegrationTestBase
 
         Assert.That(terrains.Count, Is.EqualTo(1)); // only manually seeded Grass
         Assert.That(weathers.Count, Is.EqualTo(5)); // EF-seeded
-        Assert.That(locations.Count, Is.EqualTo(4)); // EF-seeded
+        Assert.That(locations.Count, Is.EqualTo(5)); // EF-seeded (includes "No Location" sentinel)
     }
 }
