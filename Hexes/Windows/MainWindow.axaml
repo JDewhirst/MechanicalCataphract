@@ -35,6 +35,9 @@
         <DataTemplate DataType="entityVm:MapHexViewModel">
             <views:HexDetail/>
         </DataTemplate>
+        <DataTemplate DataType="entityVm:CoLocationChannelViewModel">
+            <views:CoLocationChannelDetail/>
+        </DataTemplate>
     </Window.DataTemplates>
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="400,Auto,*,Auto,400">
@@ -315,6 +318,34 @@
                         </DataGrid>
                     </Grid>
                 </TabItem>
+                <!-- Co-Location Channels Tab -->
+                <TabItem Header="CoLoc">
+                    <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AddCoLocationChannelCommand}"/>
+                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.DeleteCoLocationChannelCommand}"
+                                    CommandParameter="{Binding HexMapViewModel.SelectedCoLocationChannel}"/>
+                        </StackPanel>
+                        <DataGrid Grid.Row="1" x:Name="CoLocationChannelsGrid"
+                                  ItemsSource="{Binding HexMapViewModel.CoLocationChannels}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedCoLocationChannel}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Army" Binding="{Binding FollowingArmy.Name, FallbackValue=''}" Width="70"/>
+                                <DataGridTextColumn Header="Cmdrs" Binding="{Binding Commanders.Count}" Width="45"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
+
                 <TabItem Header="Discord">
                     <ScrollViewer>
                         <StackPanel Orientation="Vertical" Spacing="8" Margin="8">

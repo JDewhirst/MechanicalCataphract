@@ -21,6 +21,29 @@ public class DiscordChannelManager : IDiscordChannelManager
         _serviceProvider = serviceProvider;
     }
 
+    public async Task EnsureSentinelFactionResourcesAsync()
+    {
+        if (!_botService.IsConnected) return;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var sentinel = await db.Factions.FindAsync(1);
+            if (sentinel == null) return;
+
+            // Already has Discord resources — nothing to do
+            if (sentinel.DiscordCategoryId.HasValue) return;
+
+            System.Diagnostics.Debug.WriteLine("[DiscordChannelManager] Creating Discord resources for 'No Faction' sentinel...");
+            await OnFactionCreatedAsync(sentinel);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] EnsureSentinelFactionResources failed: {ex.Message}");
+        }
+    }
+
     public async Task OnFactionCreatedAsync(Faction faction)
     {
         if (!_botService.IsConnected) return;
@@ -51,7 +74,9 @@ public class DiscordChannelManager : IDiscordChannelManager
                 // Deny @everyone from seeing the channel
                 new(guildId.Value, PermissionOverwriteType.Role)
                 {
-                    Denied = Permissions.ViewChannel,
+                    Denied = Permissions.ViewChannel
+                          | Permissions.CreatePublicThreads
+                          | Permissions.CreatePrivateThreads,
                 },
                 // Allow faction role to view but not send
                 new(role.Id, PermissionOverwriteType.Role)
@@ -151,9 +176,43 @@ public class DiscordChannelManager : IDiscordChannelManager
 
     public async Task OnCommanderCreatedAsync(Commander commander, Faction faction)
     {
+        await SetupCommanderDiscordAsync(commander, faction);
+    }
+
+    public async Task OnCommanderDiscordLinkedAsync(Commander commander, Faction faction)
+    {
+        // Skip if the commander already has a private channel
+        if (commander.DiscordChannelId.HasValue) return;
+
+        await SetupCommanderDiscordAsync(commander, faction);
+    }
+
+    /// <summary>
+    /// Shared logic for creating a commander's private Discord channel and assigning faction role.
+    /// Called by both OnCommanderCreatedAsync and OnCommanderDiscordLinkedAsync.
+    /// </summary>
+    private async Task SetupCommanderDiscordAsync(Commander commander, Faction faction)
+    {
         if (!_botService.IsConnected) return;
         if (commander.DiscordUserId == null) return; // No Discord user linked
-        if (faction.DiscordCategoryId == null) return; // Faction has no Discord category
+
+        // The faction object may come from a ViewModel whose DbContext cached
+        // the entity before Discord IDs were set (e.g. EnsureSentinelFactionResourcesAsync
+        // ran in a different scope). Reload from a fresh scope if stale.
+        if (faction.DiscordCategoryId == null)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var freshFaction = await db.Factions.FindAsync(faction.Id);
+            if (freshFaction?.DiscordCategoryId != null)
+            {
+                faction.DiscordCategoryId = freshFaction.DiscordCategoryId;
+                faction.DiscordRoleId = freshFaction.DiscordRoleId;
+                faction.DiscordChannelId = freshFaction.DiscordChannelId;
+            }
+        }
+
+        if (faction.DiscordCategoryId == null) return; // Faction genuinely has no Discord category
 
         try
         {
@@ -167,7 +226,9 @@ public class DiscordChannelManager : IDiscordChannelManager
                 // Deny @everyone
                 new(guildId.Value, PermissionOverwriteType.Role)
                 {
-                    Denied = Permissions.ViewChannel,
+                    Denied = Permissions.ViewChannel
+                          | Permissions.CreatePublicThreads
+                          | Permissions.CreatePrivateThreads,
                 },
                 // Allow the commander's Discord user read+write
                 new(commander.DiscordUserId.Value, PermissionOverwriteType.User)
@@ -212,7 +273,7 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderCreated failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SetupCommanderDiscord failed: {ex.Message}");
         }
     }
 
@@ -276,6 +337,26 @@ public class DiscordChannelManager : IDiscordChannelManager
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderFactionChanged failed: {ex.Message}");
+        }
+    }
+
+    public async Task OnCommanderUpdatedAsync(Commander commander)
+    {
+        if (!_botService.IsConnected) return;
+        if (!commander.DiscordChannelId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            await rest.ModifyGuildChannelAsync(commander.DiscordChannelId.Value, o =>
+            {
+                o.Name = $"cmd-{commander.Name.ToLowerInvariant().Replace(' ', '-')}";
+            });
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Commander channel renamed to 'cmd-{commander.Name}'.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderUpdated failed: {ex.Message}");
         }
     }
 
@@ -343,6 +424,185 @@ public class DiscordChannelManager : IDiscordChannelManager
                 System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Channel update failed: {ex.Message}");
             }
         }
+    }
+
+    public async Task EnsureCoLocationCategoryAsync()
+    {
+        if (!_botService.IsConnected) return;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var config = await db.DiscordConfigs.FindAsync(1);
+            if (config == null) return;
+
+            // Already has a co-location category
+            if (config.CoLocationCategoryId.HasValue) return;
+
+            var rest = _botService.Client!.Rest;
+            var guildId = config.GuildId;
+            if (guildId == null) return;
+
+            var category = await rest.CreateGuildChannelAsync(guildId.Value,
+                new GuildChannelProperties("Co-Location", ChannelType.CategoryChannel));
+            config.CoLocationCategoryId = category.Id;
+            await db.SaveChangesAsync();
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Co-Location category created: {category.Id}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] EnsureCoLocationCategory failed: {ex.Message}");
+        }
+    }
+
+    public async Task OnCoLocationChannelCreatedAsync(CoLocationChannel channel)
+    {
+        if (!_botService.IsConnected) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            var guildId = await GetGuildIdAsync();
+            if (guildId == null) return;
+
+            var categoryId = await GetCoLocationCategoryIdAsync();
+            if (categoryId == null) return;
+
+            var channelOverwrites = new List<PermissionOverwriteProperties>
+            {
+                new(guildId.Value, PermissionOverwriteType.Role)
+                {
+                    Denied = Permissions.ViewChannel
+                          | Permissions.CreatePublicThreads
+                          | Permissions.CreatePrivateThreads,
+                },
+            };
+
+            AddBotOverwrite(channelOverwrites);
+
+            var adminRoleId = await GetAdminRoleIdAsync();
+            if (adminRoleId != null)
+            {
+                channelOverwrites.Add(new(adminRoleId.Value, PermissionOverwriteType.Role)
+                {
+                    Allowed = Permissions.ViewChannel | Permissions.SendMessages
+                            | Permissions.ReadMessageHistory | Permissions.ManageChannels,
+                });
+            }
+
+            var discordChannel = await rest.CreateGuildChannelAsync(guildId.Value,
+                new GuildChannelProperties($"coloc-{channel.Name.ToLowerInvariant().Replace(' ', '-')}", ChannelType.TextGuildChannel)
+                {
+                    ParentId = categoryId,
+                    PermissionOverwrites = channelOverwrites,
+                });
+            channel.DiscordChannelId = discordChannel.Id;
+
+            await SaveCoLocationChannelAsync(channel);
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Co-location channel '{channel.Name}' created: {discordChannel.Id}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCoLocationChannelCreated failed: {ex.Message}");
+        }
+    }
+
+    public async Task OnCoLocationChannelDeletedAsync(CoLocationChannel channel)
+    {
+        if (!_botService.IsConnected) return;
+        if (!channel.DiscordChannelId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            await rest.DeleteChannelAsync(channel.DiscordChannelId.Value);
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Co-location channel '{channel.Name}' deleted.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCoLocationChannelDeleted failed: {ex.Message}");
+        }
+    }
+
+    public async Task OnCoLocationChannelUpdatedAsync(CoLocationChannel channel)
+    {
+        if (!_botService.IsConnected) return;
+        if (!channel.DiscordChannelId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            await rest.ModifyGuildChannelAsync(channel.DiscordChannelId.Value, o =>
+            {
+                o.Name = $"coloc-{channel.Name.ToLowerInvariant().Replace(' ', '-')}";
+            });
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Co-location channel renamed to 'coloc-{channel.Name}'.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCoLocationChannelUpdated failed: {ex.Message}");
+        }
+    }
+
+    public async Task OnCommanderAddedToCoLocationAsync(CoLocationChannel channel, Commander commander)
+    {
+        if (!_botService.IsConnected) return;
+        if (!channel.DiscordChannelId.HasValue) return;
+        if (!commander.DiscordUserId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            await rest.ModifyGuildChannelPermissionsAsync(channel.DiscordChannelId.Value,
+                new PermissionOverwriteProperties(commander.DiscordUserId.Value, PermissionOverwriteType.User)
+                {
+                    Allowed = Permissions.ViewChannel | Permissions.SendMessages
+                            | Permissions.ReadMessageHistory,
+                });
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Commander '{commander.Name}' added to co-location '{channel.Name}'.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderAddedToCoLocation failed: {ex.Message}");
+        }
+    }
+
+    public async Task OnCommanderRemovedFromCoLocationAsync(CoLocationChannel channel, Commander commander)
+    {
+        if (!_botService.IsConnected) return;
+        if (!channel.DiscordChannelId.HasValue) return;
+        if (!commander.DiscordUserId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            await rest.DeleteGuildChannelPermissionAsync(channel.DiscordChannelId.Value, commander.DiscordUserId.Value);
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Commander '{commander.Name}' removed from co-location '{channel.Name}'.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderRemovedFromCoLocation failed: {ex.Message}");
+        }
+    }
+
+    private async Task<ulong?> GetCoLocationCategoryIdAsync()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+        var config = await db.DiscordConfigs.FindAsync(1);
+        return config?.CoLocationCategoryId;
+    }
+
+    private async Task SaveCoLocationChannelAsync(CoLocationChannel channel)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+        db.CoLocationChannels.Attach(channel);
+        db.Entry(channel).Property(c => c.DiscordChannelId).IsModified = true;
+        await db.SaveChangesAsync();
     }
 
     /// <summary>

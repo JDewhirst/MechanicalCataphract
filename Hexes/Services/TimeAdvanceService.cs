@@ -1,5 +1,6 @@
 ﻿using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Discord;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,6 +18,8 @@ namespace MechanicalCataphract.Services
         private readonly IMapService _mapService;
         private readonly IPathfindingService _pathfindingService;
         private readonly ICommanderService _commanderService;
+        private readonly ICoLocationChannelService _coLocationChannelService;
+        private readonly IDiscordChannelManager _discordChannelManager;
 
         public TimeAdvanceService(
             WargameDbContext context,
@@ -25,7 +28,9 @@ namespace MechanicalCataphract.Services
             IMessageService messageService,
             IMapService mapService,
             IPathfindingService pathfindingService,
-            ICommanderService commanderService)
+            ICommanderService commanderService,
+            ICoLocationChannelService coLocationChannelService,
+            IDiscordChannelManager discordChannelManager)
         {
             _context = context;
             _gameStateService = gameStateService;
@@ -34,6 +39,8 @@ namespace MechanicalCataphract.Services
             _mapService = mapService;
             _pathfindingService = pathfindingService;
             _commanderService = commanderService;
+            _coLocationChannelService = coLocationChannelService;
+            _discordChannelManager = discordChannelManager;
         }
 
         public async Task<TimeAdvanceResult> AdvanceTimeAsync(TimeSpan amount)
@@ -55,6 +62,9 @@ namespace MechanicalCataphract.Services
                 // 4. Process commander movement
                 var commandersMoved = await ProcessCommanderMovementAsync();
 
+                // 4b. Enforce co-location proximity (remove commanders who moved away)
+                var coLocationRemovals = await EnforceCoLocationProximityAsync();
+
                 // 5. Process supply consumption
                 int armiesSupplied = 0;
                 if (newTime.Hour == gameState.SupplyUsageTime.Hours + 1)
@@ -74,7 +84,8 @@ namespace MechanicalCataphract.Services
                     MessagesDelivered = messagesMoved,
                     ArmiesMoved = armiesMoved,
                     CommandersMoved = commandersMoved,
-                    ArmiesSupplied = armiesSupplied
+                    ArmiesSupplied = armiesSupplied,
+                    CoLocationRemovals = coLocationRemovals
                 };
             }
             catch (Exception ex)
@@ -147,6 +158,22 @@ namespace MechanicalCataphract.Services
                 }
             }
             return commandersMoved;
+        }
+
+        private async Task<int> EnforceCoLocationProximityAsync()
+        {
+            int totalRemovals = 0;
+            var commanders = await _commanderService.GetAllAsync();
+            foreach (var commander in commanders)
+            {
+                var removed = await _coLocationChannelService.EnforceProximityAsync(commander);
+                foreach (var channel in removed)
+                {
+                    await _discordChannelManager.OnCommanderRemovedFromCoLocationAsync(channel, commander);
+                    totalRemovals++;
+                }
+            }
+            return totalRemovals;
         }
 
     }

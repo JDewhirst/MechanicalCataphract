@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,6 +22,9 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     private readonly IPathfindingService? _pathfindingService;
     private readonly IDiscordChannelManager? _discordChannelManager;
 
+    // Debounce Discord channel rename — 2-per-10min rate limit on channel renames
+    private CancellationTokenSource? _discordDebounceCts;
+
     public string EntityTypeName => "Commander";
 
     public IEnumerable<Army> AvailableArmies { get; }
@@ -36,7 +40,16 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     public string Name
     {
         get => _commander.Name;
-        set { if (_commander.Name != value) { _commander.Name = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        set
+        {
+            if (_commander.Name != value)
+            {
+                _commander.Name = value;
+                OnPropertyChanged();
+                _ = SaveAsync();
+                ScheduleDiscordChannelRename();
+            }
+        }
     }
 
     public int? Age
@@ -49,6 +62,45 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     {
         get => _commander.DiscordHandle;
         set { if (_commander.DiscordHandle != value) { _commander.DiscordHandle = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
+    /// <summary>
+    /// Discord User ID exposed as a string for UI binding. Parsed to ulong on set.
+    /// When a valid ID is assigned (transitioning from null), triggers private channel creation.
+    /// </summary>
+    public string? DiscordUserId
+    {
+        get => _commander.DiscordUserId?.ToString();
+        set
+        {
+            ulong? parsed = string.IsNullOrWhiteSpace(value) ? null
+                          : ulong.TryParse(value, out var id) ? id : _commander.DiscordUserId;
+
+            if (_commander.DiscordUserId != parsed)
+            {
+                bool wasNull = _commander.DiscordUserId == null;
+                _commander.DiscordUserId = parsed;
+                OnPropertyChanged();
+                _ = SaveAndLinkDiscordAsync(wasNull && parsed != null);
+            }
+        }
+    }
+
+    private async Task SaveAndLinkDiscordAsync(bool shouldCreateChannel)
+    {
+        try
+        {
+            await SaveAsync();
+            System.Diagnostics.Debug.WriteLine($"[CommanderVM] SaveAndLinkDiscord — shouldCreate:{shouldCreateChannel}, channelMgr:{_discordChannelManager != null}, faction:{_commander.Faction?.Name}, factionCatId:{_commander.Faction?.DiscordCategoryId}, discordUserId:{_commander.DiscordUserId}");
+            if (shouldCreateChannel && _discordChannelManager != null && _commander.Faction != null)
+            {
+                await _discordChannelManager.OnCommanderDiscordLinkedAsync(_commander, _commander.Faction);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[CommanderVM] SaveAndLinkDiscord failed: {ex.Message}");
+        }
     }
 
     public int? CoordinateQ
@@ -307,6 +359,34 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     private void ClearFollowingArmy()
     {
         FollowingArmy = null;
+    }
+
+    /// <summary>
+    /// Debounces Discord channel rename. Same pattern as FactionViewModel — avoids
+    /// hitting Discord's 2-per-10min channel rename rate limit.
+    /// </summary>
+    private void ScheduleDiscordChannelRename()
+    {
+        if (_discordChannelManager == null) return;
+        if (!_commander.DiscordChannelId.HasValue) return;
+
+        _discordDebounceCts?.Cancel();
+        _discordDebounceCts = new CancellationTokenSource();
+        var ct = _discordDebounceCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1500, ct);
+                await _discordChannelManager.OnCommanderUpdatedAsync(_commander);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CommanderVM] Discord rename failed: {ex.Message}");
+            }
+        });
     }
 
     private async Task SaveAsync()

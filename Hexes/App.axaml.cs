@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -71,7 +72,16 @@ public partial class App : Application
 
             // Auto-start Discord bot if previously configured (fire-and-forget)
             var botService = Services.GetRequiredService<IDiscordBotService>();
-            _ = botService.TryAutoStartAsync();
+            var channelManager = Services.GetRequiredService<IDiscordChannelManager>();
+            _ = Task.Run(async () =>
+            {
+                await botService.TryAutoStartAsync();
+                if (botService.IsConnected)
+                {
+                    await channelManager.EnsureSentinelFactionResourcesAsync();
+                    await channelManager.EnsureCoLocationCategoryAsync();
+                }
+            });
 
             desktop.ShutdownRequested += (_, e) =>
             {
@@ -97,6 +107,7 @@ public partial class App : Application
         services.AddScoped<IGameStateService, GameStateService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IMessageService, MessageService>();
+        services.AddScoped<ICoLocationChannelService, CoLocationChannelService>();
         services.AddScoped<ITimeAdvanceService, TimeAdvanceService>();
         services.AddScoped<IPathfindingService, PathfindingService>();
 

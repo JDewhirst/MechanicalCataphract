@@ -1,5 +1,7 @@
 using Hexes;
+using Moq;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
 
 namespace MechanicalCataphract.Tests.Services.Integration;
@@ -14,6 +16,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     private MapService _mapService = null!;
     private CommanderService _commanderService = null!;
     private PathfindingService _pathfindingService = null!;
+    private CoLocationChannelService _coLocationChannelService = null!;
 
     [SetUp]
     public async Task SetUp()
@@ -26,9 +29,12 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         _mapService = new MapService(Context);
         _commanderService = new CommanderService(Context);
         _pathfindingService = new PathfindingService(_mapService, _messageService, _armyService, _commanderService);
+        _coLocationChannelService = new CoLocationChannelService(Context);
+        var discordChannelManager = new Mock<IDiscordChannelManager>();
         _timeAdvanceService = new TimeAdvanceService(
             Context, _gameStateService, _armyService, _messageService,
-            _mapService, _pathfindingService, _commanderService);
+            _mapService, _pathfindingService, _commanderService,
+            _coLocationChannelService, discordChannelManager.Object);
     }
 
     [Test]

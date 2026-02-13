@@ -28,6 +28,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly IGameStateService _gameStateService;
     private readonly ITimeAdvanceService _timeAdvanceService;
     private readonly IPathfindingService _pathfindingService;
+    private readonly ICoLocationChannelService _coLocationChannelService;
     private readonly IDiscordBotService _discordBotService;
     private readonly IDiscordChannelManager _discordChannelManager;
 
@@ -145,6 +146,9 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<Message> _messages = new();
 
+    [ObservableProperty]
+    private ObservableCollection<CoLocationChannel> _coLocationChannels = new();
+
     // Selected entities for highlighting and left panel display
     [ObservableProperty]
     private object? _selectedEntity;
@@ -170,6 +174,9 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private Message? _selectedMessage;
 
+    [ObservableProperty]
+    private CoLocationChannel? _selectedCoLocationChannel;
+
     public HexMapViewModel(
         IMapService mapService,
         IFactionService factionService,
@@ -180,6 +187,7 @@ public partial class HexMapViewModel : ObservableObject
         IGameStateService gameStateService,
         ITimeAdvanceService timeAdvanceService,
         IPathfindingService pathfindingService,
+        ICoLocationChannelService coLocationChannelService,
         IDiscordBotService discordBotService,
         IDiscordChannelManager discordChannelManager)
     {
@@ -192,6 +200,7 @@ public partial class HexMapViewModel : ObservableObject
         _gameStateService = gameStateService;
         _timeAdvanceService = timeAdvanceService;
         _pathfindingService = pathfindingService;
+        _coLocationChannelService = coLocationChannelService;
         _discordBotService = discordBotService;
         _discordChannelManager = discordChannelManager;
     }
@@ -254,6 +263,9 @@ public partial class HexMapViewModel : ObservableObject
         var messages = await _messageService.GetAllAsync();
         Messages = new ObservableCollection<Message>(messages);
 
+        var coLocationChannels = await _coLocationChannelService.GetAllWithCommandersAsync();
+        CoLocationChannels = new ObservableCollection<CoLocationChannel>(coLocationChannels);
+
         var gameState = await _gameStateService.GetGameStateAsync();
         GameTime = gameState.CurrentGameTime;
     }
@@ -312,6 +324,13 @@ public partial class HexMapViewModel : ObservableObject
             await _discordBotService.StartBotAsync();
             IsDiscordConnected = _discordBotService.IsConnected;
             DiscordStatusMessage = _discordBotService.StatusMessage;
+
+            // Ensure the "No Faction" sentinel and Co-Location category have Discord resources
+            if (IsDiscordConnected)
+            {
+                await _discordChannelManager.EnsureSentinelFactionResourcesAsync();
+                await _discordChannelManager.EnsureCoLocationCategoryAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -343,17 +362,19 @@ public partial class HexMapViewModel : ObservableObject
     {
         // Reload all data from database
         //await RefreshHexesAsync();      // VisibleHexes
-        await RefreshArmiesAsync();     // Armies
-        await RefreshCommandersAsync(); // Commanders
-        await RefreshMessagesAsync();   // Messages
-        await RefreshFactionsAsync();   // Factions
-        await RefreshOrdersAsync();     // Orders
+        await RefreshArmiesAsync();              // Armies
+        await RefreshCommandersAsync();          // Commanders
+        await RefreshMessagesAsync();            // Messages
+        await RefreshFactionsAsync();            // Factions
+        await RefreshOrdersAsync();              // Orders
+        await RefreshCoLocationChannelsAsync();   // CoLocationChannels
         //await RefreshGameStateAsync();  // GameTime, etc.
 
         // Clear selections (optional - entities may have changed)
         SelectedArmy = null;
         SelectedCommander = null;
         SelectedMessage = null;
+        SelectedCoLocationChannel = null;
         SelectedEntityViewModel = null;
 
         StatusMessage = "Data refreshed";
@@ -387,6 +408,12 @@ public partial class HexMapViewModel : ObservableObject
     {
         var messages = await _messageService.GetAllAsync();
         Messages = new ObservableCollection<Message>(messages);
+    }
+
+    public async Task RefreshCoLocationChannelsAsync()
+    {
+        var channels = await _coLocationChannelService.GetAllWithCommandersAsync();
+        CoLocationChannels = new ObservableCollection<CoLocationChannel>(channels);
     }
 
     private async Task LoadVisibleHexesAsync()
@@ -870,6 +897,32 @@ public partial class HexMapViewModel : ObservableObject
         }
     }
 
+    partial void OnSelectedCoLocationChannelChanged(CoLocationChannel? value)
+    {
+        if (value != null)
+        {
+            SelectedFaction = null;
+            SelectedArmy = null;
+            SelectedCommander = null;
+            SelectedOrder = null;
+            SelectedMessage = null;
+            SelectedHex = null;
+            SelectedMapHex = null;
+            _ = LoadCoLocationChannelWithDetailsAsync(value.Id);
+            StatusMessage = $"Selected co-location channel: {value.Name}";
+        }
+    }
+
+    private async Task LoadCoLocationChannelWithDetailsAsync(int channelId)
+    {
+        var channel = await _coLocationChannelService.GetWithCommandersAsync(channelId);
+        if (channel != null)
+        {
+            var vm = new CoLocationChannelViewModel(channel, _coLocationChannelService, Armies, Commanders, _discordChannelManager);
+            SelectedEntityViewModel = vm;
+        }
+    }
+
     partial void OnSelectedMapHexChanged(MapHex? value)
     {
         if (value != null)
@@ -1087,6 +1140,29 @@ public partial class HexMapViewModel : ObservableObject
         await _messageService.DeleteAsync(message.Id);
         await RefreshMessagesAsync();
         StatusMessage = "Deleted message";
+    }
+
+    [RelayCommand]
+    private async Task AddCoLocationChannelAsync()
+    {
+        var channel = new CoLocationChannel
+        {
+            Name = "New Channel",
+        };
+        await _coLocationChannelService.CreateAsync(channel);
+        await _discordChannelManager.OnCoLocationChannelCreatedAsync(channel);
+        await RefreshCoLocationChannelsAsync();
+        StatusMessage = $"Created co-location channel: {channel.Name}";
+    }
+
+    [RelayCommand]
+    private async Task DeleteCoLocationChannelAsync(CoLocationChannel channel)
+    {
+        if (channel == null) return;
+        await _discordChannelManager.OnCoLocationChannelDeletedAsync(channel);
+        await _coLocationChannelService.DeleteAsync(channel.Id);
+        await RefreshCoLocationChannelsAsync();
+        StatusMessage = $"Deleted co-location channel: {channel.Name}";
     }
 
     #endregion

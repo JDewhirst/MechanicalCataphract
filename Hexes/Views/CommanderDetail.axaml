@@ -30,6 +30,13 @@
                      Watermark="@username"/>
         </StackPanel>
 
+        <!-- Discord User ID -->
+        <StackPanel>
+            <TextBlock Text="Discord User ID" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding DiscordUserId, Mode=TwoWay}"
+                     Watermark="Right-click user → Copy User ID"/>
+        </StackPanel>
+
         <!-- Current Location -->
         <StackPanel Spacing="2">
             <TextBlock Text="Current Location" FontWeight="SemiBold" FontSize="11"/>

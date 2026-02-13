@@ -40,6 +40,7 @@ public class Commander : IPathMovable
 
     // Navigation
     public ICollection<Army> CommandedArmies { get; set; } = new List<Army>();
+    public ICollection<CoLocationChannel> CoLocationChannels { get; set; } = new List<CoLocationChannel>();
 
     // Computed property for DataGrid display
     public string? CommandingArmyName => CommandedArmies?.FirstOrDefault()?.Name;

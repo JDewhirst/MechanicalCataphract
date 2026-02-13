@@ -23,6 +23,7 @@ public class WargameDbContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<GameState> GameStates { get; set; }
     public DbSet<DiscordConfig> DiscordConfigs { get; set; }
+    public DbSet<CoLocationChannel> CoLocationChannels { get; set; }
     public DbSet<WeatherUpdateRecord> WeatherUpdateRecords { get; set; }
 
     public WargameDbContext(DbContextOptions<WargameDbContext> options)
@@ -103,6 +104,26 @@ public class WargameDbContext : DbContext
             .WithMany(h => h.Commanders)
             .HasForeignKey(c => new { c.CoordinateQ, c.CoordinateR })
             .OnDelete(DeleteBehavior.SetNull);
+
+        // CoLocationChannel -> Army (following)
+        modelBuilder.Entity<CoLocationChannel>()
+            .HasOne(c => c.FollowingArmy)
+            .WithMany()
+            .HasForeignKey(c => c.FollowingArmyId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // CoLocationChannel -> MapHex (following hex)
+        modelBuilder.Entity<CoLocationChannel>()
+            .HasOne(c => c.FollowingHex)
+            .WithMany()
+            .HasForeignKey(c => new { c.FollowingHexQ, c.FollowingHexR })
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // CoLocationChannel <-> Commander (many-to-many)
+        modelBuilder.Entity<CoLocationChannel>()
+            .HasMany(c => c.Commanders)
+            .WithMany(c => c.CoLocationChannels)
+            .UsingEntity("CoLocationChannelCommander");
 
         // MapHex -> LocationFaction (for embedded location)
         modelBuilder.Entity<MapHex>()

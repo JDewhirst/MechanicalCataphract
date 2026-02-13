@@ -23,5 +23,6 @@ namespace MechanicalCataphract.Services
         public int CommandersMoved { get; init; }
         public int OrdersExecuted { get; init; }
         public int ArmiesSupplied { get; init; }
+        public int CoLocationRemovals { get; init; }
     }
 }

@@ -6,4 +6,5 @@ public class DiscordConfig
     public string? BotToken { get; set; }
     public ulong? GuildId { get; set; }
     public ulong? AdminRoleId { get; set; }
+    public ulong? CoLocationCategoryId { get; set; }
 }
