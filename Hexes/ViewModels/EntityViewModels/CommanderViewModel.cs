@@ -21,6 +21,8 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     private readonly ICommanderService _service;
     private readonly IPathfindingService? _pathfindingService;
     private readonly IDiscordChannelManager? _discordChannelManager;
+    private readonly int _mapRows;
+    private readonly int _mapCols;
 
     // Debounce Discord channel rename — 2-per-10min rate limit on channel renames
     private CancellationTokenSource? _discordDebounceCts;
@@ -122,6 +124,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
             int row = Row ?? 0;
+            if (!IsOffsetInBounds(value.Value, row)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             CoordinateQ = hex.q; CoordinateR = hex.r;
             OnPropertyChanged();
@@ -136,6 +139,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
             int col = Col ?? 0;
+            if (!IsOffsetInBounds(col, value.Value)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             CoordinateQ = hex.q; CoordinateR = hex.r;
             OnPropertyChanged();
@@ -162,6 +166,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
             int row = TargetRow ?? 0;
+            if (!IsOffsetInBounds(value.Value, row)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
             OnPropertyChanged();
@@ -176,6 +181,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
             int col = TargetCol ?? 0;
+            if (!IsOffsetInBounds(col, value.Value)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
             OnPropertyChanged();
@@ -389,17 +395,22 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         });
     }
 
+    private bool IsOffsetInBounds(int col, int row)
+        => col >= 0 && col < _mapCols && row >= 0 && row < _mapRows;
+
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_commander);
     }
 
-    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
+    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
     {
         _commander = commander;
         _service = service;
         AvailableArmies = availableArmies;
         AvailableFactions = availableFactions;
+        _mapRows = mapRows;
+        _mapCols = mapCols;
         _pathfindingService = pathfindingService;
         _discordChannelManager = discordChannelManager;
     }

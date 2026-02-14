@@ -19,6 +19,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     private readonly Army _army;
     private readonly IArmyService _service;
     private readonly IPathfindingService? _pathfindingService;
+    private readonly int _mapRows;
+    private readonly int _mapCols;
 
     public string EntityTypeName => "Army";
 
@@ -60,6 +62,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
             int row = Row ?? 0;
+            if (!IsOffsetInBounds(value.Value, row)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             CoordinateQ = hex.q; CoordinateR = hex.r;
             OnPropertyChanged();
@@ -74,6 +77,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
             int col = Col ?? 0;
+            if (!IsOffsetInBounds(col, value.Value)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             CoordinateQ = hex.q; CoordinateR = hex.r;
             OnPropertyChanged();
@@ -100,6 +104,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
             int row = TargetRow ?? 0;
+            if (!IsOffsetInBounds(value.Value, row)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
             OnPropertyChanged();
@@ -114,6 +119,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
             int col = TargetCol ?? 0;
+            if (!IsOffsetInBounds(col, value.Value)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
             OnPropertyChanged();
@@ -477,12 +483,17 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         OnPropertyChanged(nameof(DaysOfSupply));
       }
 
-    public ArmyViewModel(Army army, IArmyService service, IEnumerable<Commander> availableCommanders, IEnumerable<Faction> availableFactions, IPathfindingService? pathfindingService = null)
+    private bool IsOffsetInBounds(int col, int row)
+        => col >= 0 && col < _mapCols && row >= 0 && row < _mapRows;
+
+    public ArmyViewModel(Army army, IArmyService service, IEnumerable<Commander> availableCommanders, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IPathfindingService? pathfindingService = null)
     {
         _army = army;
         _service = service;
         _availableCommanders = availableCommanders;
         _availableFactions = availableFactions;
+        _mapRows = mapRows;
+        _mapCols = mapCols;
         _pathfindingService = pathfindingService;
         Brigades = new ObservableCollection<Brigade>(_army.Brigades);
         SaveCommand = new AsyncRelayCommand(SaveAsync);

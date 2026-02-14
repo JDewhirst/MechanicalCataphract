@@ -36,6 +36,9 @@ public class MessageService : IMessageService
 
     public async Task<Message> CreateAsync(Message entity)
     {
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.SenderCoordinateQ, entity.SenderCoordinateR, "SenderCoordinate");
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
         entity.CreatedAt = DateTime.UtcNow;
         _context.Messages.Add(entity);
         await _context.SaveChangesAsync();
@@ -44,6 +47,9 @@ public class MessageService : IMessageService
 
     public async Task UpdateAsync(Message entity)
     {
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.SenderCoordinateQ, entity.SenderCoordinateR, "SenderCoordinate");
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
         _context.Messages.Update(entity);
         await _context.SaveChangesAsync();
     }

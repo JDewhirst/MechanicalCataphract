@@ -20,6 +20,8 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
     private readonly IMessageService _service;
     private readonly IPathfindingService? _pathfindingService;
     private readonly IDiscordChannelManager? _discordChannelManager;
+    private readonly int _mapRows;
+    private readonly int _mapCols;
 
     public string EntityTypeName => "Message";
 
@@ -90,6 +92,7 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
             int row = TargetRow ?? 0;
+            if (!IsOffsetInBounds(value.Value, row)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
             OnPropertyChanged();
@@ -104,6 +107,7 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
             int col = TargetCol ?? 0;
+            if (!IsOffsetInBounds(col, value.Value)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
             OnPropertyChanged();
@@ -129,6 +133,7 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
             int row = Row ?? 0;
+            if (!IsOffsetInBounds(value.Value, row)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             CoordinateQ = hex.q; CoordinateR = hex.r;
             OnPropertyChanged();
@@ -143,6 +148,7 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
             int col = Col ?? 0;
+            if (!IsOffsetInBounds(col, value.Value)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             CoordinateQ = hex.q; CoordinateR = hex.r;
             OnPropertyChanged();
@@ -317,6 +323,9 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
         }
     }
 
+    private bool IsOffsetInBounds(int col, int row)
+        => col >= 0 && col < _mapCols && row >= 0 && row < _mapRows;
+
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_message);
@@ -324,11 +333,14 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 
     public MessageViewModel(
         Message message, IMessageService service, IEnumerable<Commander> availableCommanders,
+        int mapRows = int.MaxValue, int mapCols = int.MaxValue,
         IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
     {
         _message = message;
         _service = service;
         _availableCommanders = availableCommanders;
+        _mapRows = mapRows;
+        _mapCols = mapCols;
         _pathfindingService = pathfindingService;
         _discordChannelManager = discordChannelManager;
     }

@@ -837,7 +837,7 @@ public partial class HexMapViewModel : ObservableObject
         var armyWithDetails = await _armyService.GetArmyWithBrigadesAsync(armyId);
         if (armyWithDetails != null)
         {
-            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions, _pathfindingService);
+            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService);
             armyVm.TransferRequested += OnBrigadeTransferRequested;
             armyVm.PathSelectionRequested += StartPathSelectionMode;
             armyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
@@ -883,7 +883,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedMessage = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _pathfindingService, _discordChannelManager);
+            var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
             cmdVm.PathSelectionRequested += StartPathSelectionMode;
             cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
@@ -918,7 +918,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedOrder = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            var messageVm = new MessageViewModel(value, _messageService, Commanders, _pathfindingService, _discordChannelManager);
+            var messageVm = new MessageViewModel(value, _messageService, Commanders, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
             messageVm.PathSelectionRequested += StartPathSelectionMode;
             messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
@@ -1385,7 +1385,7 @@ public partial class HexMapViewModel : ObservableObject
             // Recreate the MessageViewModel to reflect the updated Path
             if (SelectedMessage != null)
             {
-                var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _pathfindingService, _discordChannelManager);
+                var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
                 refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;
@@ -1399,7 +1399,7 @@ public partial class HexMapViewModel : ObservableObject
             // Recreate the ArmyViewModel to reflect the updated Path
             if (SelectedArmy != null)
             {
-                var refreshedArmyVm = new ArmyViewModel(SelectedArmy, _armyService, Commanders, Factions, _pathfindingService);
+                var refreshedArmyVm = new ArmyViewModel(SelectedArmy, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService);
                 refreshedArmyVm.TransferRequested += OnBrigadeTransferRequested;
                 refreshedArmyVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedArmyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
@@ -1414,7 +1414,7 @@ public partial class HexMapViewModel : ObservableObject
             // Recreate the CommanderViewModel to reflect the updated Path
             if (SelectedCommander != null)
             {
-                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, Armies, Factions, _pathfindingService, _discordChannelManager);
+                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, Armies, Factions, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
                 refreshedCmdVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedCmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedCmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;

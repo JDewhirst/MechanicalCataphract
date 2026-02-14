@@ -38,6 +38,8 @@ public class ArmyService : IArmyService
 
     public async Task<Army> CreateAsync(Army entity)
     {
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
         _context.Armies.Add(entity);
         await _context.SaveChangesAsync();
         return entity;
@@ -45,6 +47,8 @@ public class ArmyService : IArmyService
 
     public async Task UpdateAsync(Army entity)
     {
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
         _context.Armies.Update(entity);
         await _context.SaveChangesAsync();
     }
@@ -101,6 +105,7 @@ public class ArmyService : IArmyService
 
     public async Task MoveArmyAsync(int armyId, Hex destination)
     {
+        await CoordinateValidator.ValidateCoordinatesAsync(_context, destination.q, destination.r, "Destination");
         var army = await _context.Armies.FindAsync(armyId);
         if (army != null)
         {
