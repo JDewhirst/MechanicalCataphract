@@ -597,7 +597,10 @@ public class HexMapView : Control
         var messages = Messages;
         if (messages == null || messages.Count == 0) return null;
 
-        var messageGroups = GroupEntitiesByHex(messages, m => (m.CoordinateQ, m.CoordinateR));
+        var activeMessages = messages.Where(m => !m.Delivered).ToList();
+        if (activeMessages.Count == 0) return null;
+
+        var messageGroups = GroupEntitiesByHex(activeMessages, m => (m.CoordinateQ, m.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
         double hitRadius = Math.Max(6, HexRadius * 0.27);  // Matches smaller envelope size
 
@@ -690,12 +693,26 @@ public class HexMapView : Control
 
         using (context.PushClip(viewport))
         {
+            // Pass 1: Draw hex backgrounds (terrain, icons, overlays, selections, labels)
             foreach (var mapHex in hexes)
             {
                 DrawHex(context, layout, mapHex, viewport);
             }
 
-            // Render army and commander markers on top of hexes
+            // Pass 2: Draw all roads and rivers in a separate pass so they layer
+            // consistently across hex boundaries (no road partially behind an adjacent hex)
+            foreach (var mapHex in hexes)
+            {
+                DrawRoadsAndRivers(context, layout, mapHex, viewport);
+            }
+
+            // Pass 3: Draw location icons on top of roads/rivers
+            foreach (var mapHex in hexes)
+            {
+                DrawLocationIcons(context, layout, mapHex, viewport);
+            }
+
+            // Pass 4: Render entity markers and paths on top
             RenderArmyMarkers(context, layout, viewport);
             RenderCommanderMarkers(context, layout, viewport);
             RenderMessageMarkers(context, layout, viewport);
@@ -751,14 +768,6 @@ public class HexMapView : Control
                 DrawTerrainIcon(context, iconData.bitmap, iconData.scaleFactor);
             }
 
-            // 2b. Draw location icon centered on hex (if location set)
-            if (mapHex.LocationTypeId.HasValue &&
-                _locationIconCache.TryGetValue(mapHex.LocationTypeId.Value, out var locIconData) &&
-                locIconData.bitmap != null)
-            {
-                DrawTerrainIcon(context, locIconData.bitmap, locIconData.scaleFactor);
-            }
-
             // 3. Draw overlay on top (if not "None")
             if (overlayBrush != null)
             {
@@ -791,41 +800,92 @@ public class HexMapView : Control
             context.DrawText(text, new AvaloniaPoint(-text.Width / 2, textY));
         }
 
-        // Draw roads and rivers
-        RenderRoads(context, mapHex, center);
-        RenderRivers(context, mapHex, corners);
     }
 
-    private void RenderRoads(DrawingContext context, MapHex mapHex, AvaloniaPoint center)
+    /// <summary>
+    /// Draws roads and rivers for a single hex in a separate rendering pass.
+    /// This ensures all roads/rivers layer consistently on top of all hex backgrounds.
+    /// </summary>
+    private void DrawRoadsAndRivers(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
     {
-        if (string.IsNullOrEmpty(mapHex.RoadDirections)) return;
+        bool hasRivers = !string.IsNullOrEmpty(mapHex.RiverEdges);
+        bool hasRoads = !string.IsNullOrEmpty(mapHex.RoadDirections);
+        if (!hasRivers && !hasRoads) return;
 
-        var layout = GetLayout();
         var hex = mapHex.ToHex();
+        var center = layout.HexToPixel(hex);
+        var corners = layout.PolygonCorners(hex);
 
-        for (int dir = 0; dir < 6; dir++)
+        // Viewport culling
+        double minX = corners.Min(c => c.X);
+        double maxX = corners.Max(c => c.X);
+        double minY = corners.Min(c => c.Y);
+        double maxY = corners.Max(c => c.Y);
+
+        if (maxX < viewport.Left || minX > viewport.Right ||
+            maxY < viewport.Top || minY > viewport.Bottom)
+            return;
+
+        var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
+        using (context.PushTransform(translateMatrix))
         {
-            if (mapHex.HasRoadInDirection(dir))
+            // Draw rivers (on hex edges)
+            if (hasRivers)
             {
-                var neighborCenter = layout.HexToPixel(hex.Neighbor(dir));
-                context.DrawLine(RoadPen, center, neighborCenter);
+                for (int dir = 0; dir < 6; dir++)
+                {
+                    if (mapHex.HasRiverOnEdge(dir))
+                    {
+                        int cornerIdx = (dir + 5) % 6;
+                        var c1 = corners[cornerIdx];
+                        var c2 = corners[(cornerIdx + 1) % 6];
+                        context.DrawLine(RiverPen,
+                            new AvaloniaPoint(c1.X - center.X, c1.Y - center.Y),
+                            new AvaloniaPoint(c2.X - center.X, c2.Y - center.Y));
+                    }
+                }
+            }
+
+            // Draw roads (from center toward neighbor centers)
+            if (hasRoads)
+            {
+                for (int dir = 0; dir < 6; dir++)
+                {
+                    if (mapHex.HasRoadInDirection(dir))
+                    {
+                        var neighborCenter = layout.HexToPixel(hex.Neighbor(dir));
+                        context.DrawLine(RoadPen,
+                            new AvaloniaPoint(0, 0),
+                            new AvaloniaPoint(neighborCenter.X - center.X, neighborCenter.Y - center.Y));
+                    }
+                }
             }
         }
     }
 
-    private void RenderRivers(DrawingContext context, MapHex mapHex, List<AvaloniaPoint> corners)
+    /// <summary>
+    /// Draws the location icon for a single hex in a separate rendering pass.
+    /// This ensures location icons render on top of roads/rivers.
+    /// </summary>
+    private void DrawLocationIcons(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
     {
-        if (string.IsNullOrEmpty(mapHex.RiverEdges)) return;
+        if (!mapHex.LocationTypeId.HasValue) return;
+        if (!_locationIconCache.TryGetValue(mapHex.LocationTypeId.Value, out var locIconData)) return;
+        if (locIconData.bitmap == null) return;
 
-        for (int dir = 0; dir < 6; dir++)
+        var hex = mapHex.ToHex();
+        var center = layout.HexToPixel(hex);
+
+        // Viewport culling
+        double margin = HexRadius;
+        if (center.X < viewport.Left - margin || center.X > viewport.Right + margin ||
+            center.Y < viewport.Top - margin || center.Y > viewport.Bottom + margin)
+            return;
+
+        var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
+        using (context.PushTransform(translateMatrix))
         {
-            if (mapHex.HasRiverOnEdge(dir))
-            {
-                int cornerIdx = (dir + 5) % 6;
-                var corner1 = corners[cornerIdx];
-                var corner2 = corners[(cornerIdx + 1) % 6];
-                context.DrawLine(RiverPen, corner1, corner2);
-            }
+            DrawTerrainIcon(context, locIconData.bitmap, locIconData.scaleFactor);
         }
     }
 
@@ -976,7 +1036,10 @@ public class HexMapView : Control
         var messages = Messages;
         if (messages == null || messages.Count == 0) return;
 
-        var messageGroups = GroupEntitiesByHex(messages, m => (m.CoordinateQ, m.CoordinateR));
+        var activeMessages = messages.Where(m => !m.Delivered).ToList();
+        if (activeMessages.Count == 0) return;
+
+        var messageGroups = GroupEntitiesByHex(activeMessages, m => (m.CoordinateQ, m.CoordinateR));
         var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
 
         foreach (var group in messageGroups)
