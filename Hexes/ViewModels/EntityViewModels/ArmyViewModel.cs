@@ -393,7 +393,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         await SaveAsync();
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = false)]
     private async Task AddBrigadeAsync()
     {
         System.Diagnostics.Debug.WriteLine($"AddBrigadeAsync called for Army {_army.Id} ({_army.Name})");
@@ -424,7 +424,6 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         }
 
         // Update local collections for UI
-        _army.Brigades.Add(brigade);
         Brigades.Add(brigade);
         NotifyComputedPropertiesChanged();
         System.Diagnostics.Debug.WriteLine($"Brigade added to local collections. Total brigades: {Brigades.Count}");
