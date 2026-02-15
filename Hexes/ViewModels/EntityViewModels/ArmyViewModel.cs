@@ -340,6 +340,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     /// </summary>
     public ObservableCollection<Brigade> Brigades { get; }
 
+    public event Action? Saved;
+
     /// <summary>
     /// Event raised when a brigade transfer is requested. The handler should show a dialog
     /// and return the target Army, or null if cancelled.
@@ -470,6 +472,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     {
         await _service.UpdateAsync(_army);
         NotifyComputedPropertiesChanged();
+        Saved?.Invoke();
     }
 
     private void NotifyComputedPropertiesChanged()

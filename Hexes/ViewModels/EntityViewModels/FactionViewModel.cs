@@ -97,6 +97,7 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
     public ObservableCollection<Army> Armies { get; }
     public ObservableCollection<Commander> Commanders { get; }
 
+    public event Action? Saved;
     public event Action<Army>? ArmySelected;
     public event Action<Commander>? CommanderSelected;
 
@@ -116,6 +117,7 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_faction);
+        Saved?.Invoke();
     }
 
     /// <summary>

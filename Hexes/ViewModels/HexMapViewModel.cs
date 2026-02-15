@@ -13,6 +13,7 @@ using MechanicalCataphract.Data.Entities;
 using Microsoft.Extensions.DependencyInjection;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Discord;
+using Avalonia.Threading;
 using MechanicalCataphract.Services;
 
 namespace GUI.ViewModels;
@@ -100,6 +101,10 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<Hex> _pathSelectionHexes = new();
     public int PathSelectionCount => PathSelectionHexes.Count;
+
+    // Sync guard: prevents OnSelectedXxxChanged from recreating entity VMs
+    // when we replace items in collections during Saved-event sync.
+    private bool _isSyncingCollection;
 
     // Map dimensions
     private int _mapRows;
@@ -208,6 +213,35 @@ public partial class HexMapViewModel : ObservableObject
         _discordMessageHandler = discordMessageHandler;
 
         _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
+    }
+
+    /// <summary>
+    /// Replaces the entire ObservableCollection to force DataGrid re-binding.
+    /// EF Core's identity map means the entity references are the same object,
+    /// so RemoveAt+Insert doesn't trigger re-reads. A new collection reference
+    /// forces the DataGrid to rebuild all rows with current property values.
+    /// Wrapped in Dispatcher.UIThread.Post to eliminate threading ambiguity
+    /// from fire-and-forget SaveAsync calls.
+    /// </summary>
+    private void SyncEntityInCollection<T>(
+        Func<ObservableCollection<T>> getCollection,
+        Action<ObservableCollection<T>> setCollection,
+        Action<T>? setSelected,
+        T entity)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            _isSyncingCollection = true;
+            try
+            {
+                setCollection(new ObservableCollection<T>(getCollection()));
+                setSelected?.Invoke(entity);
+            }
+            finally
+            {
+                _isSyncingCollection = false;
+            }
+        });
     }
 
     private async void OnDiscordEntitiesChanged()
@@ -783,6 +817,7 @@ public partial class HexMapViewModel : ObservableObject
     // Selection clearing - when one entity type is selected, clear others
     partial void OnSelectedFactionChanged(Faction? value)
     {
+        if (_isSyncingCollection || value == null) return;
         if (value != null)
         {
             SelectedArmy = null;
@@ -799,6 +834,7 @@ public partial class HexMapViewModel : ObservableObject
 
     partial void OnSelectedArmyChanged(Army? value)
     {
+        if (_isSyncingCollection || value == null) return;
         if (value != null)
         {
             SelectedFaction = null;
@@ -826,6 +862,7 @@ public partial class HexMapViewModel : ObservableObject
             // Wire up navigation events
             factionVm.ArmySelected += army => SelectedArmy = army;
             factionVm.CommanderSelected += commander => SelectedCommander = commander;
+            factionVm.Saved += () => SyncEntityInCollection(() => Factions, c => Factions = c, f => SelectedFaction = f, factionVm.Entity);
 
             SelectedEntityViewModel = factionVm;
             StatusMessage = $"Selected faction: {factionWithDetails.Name}";
@@ -842,6 +879,7 @@ public partial class HexMapViewModel : ObservableObject
             armyVm.PathSelectionRequested += StartPathSelectionMode;
             armyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             armyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+            armyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, armyVm.Entity);
             SelectedEntityViewModel = armyVm;
         }
     }
@@ -875,6 +913,7 @@ public partial class HexMapViewModel : ObservableObject
 
     partial void OnSelectedCommanderChanged(Commander? value)
     {
+        if (_isSyncingCollection || value == null) return;
         if (value != null)
         {
             SelectedFaction = null;
@@ -888,6 +927,7 @@ public partial class HexMapViewModel : ObservableObject
             cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
             cmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
+            cmdVm.Saved += () => SyncEntityInCollection(() => Commanders, c => Commanders = c, c => SelectedCommander = c, cmdVm.Entity);
             SelectedEntityViewModel = cmdVm;
             StatusMessage = $"Selected commander: {value.Name}";
         }
@@ -895,6 +935,7 @@ public partial class HexMapViewModel : ObservableObject
 
     partial void OnSelectedOrderChanged(OrderViewModel? value)
     {
+        if (_isSyncingCollection || value == null) return;
         if (value != null)
         {
             SelectedFaction = null;
@@ -910,6 +951,7 @@ public partial class HexMapViewModel : ObservableObject
 
     partial void OnSelectedMessageChanged(Message? value)
     {
+        if (_isSyncingCollection || value == null) return;
         if (value != null)
         {
             SelectedFaction = null;
@@ -922,6 +964,7 @@ public partial class HexMapViewModel : ObservableObject
             messageVm.PathSelectionRequested += StartPathSelectionMode;
             messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+            messageVm.Saved += () => SyncEntityInCollection(() => Messages, c => Messages = c, m => SelectedMessage = m, messageVm.Entity);
             SelectedEntityViewModel = messageVm;
             StatusMessage = $"Selected message: {value.SenderCommander?.Name ?? "?"} → {value.TargetCommander?.Name ?? "?"}";
         }
@@ -929,6 +972,7 @@ public partial class HexMapViewModel : ObservableObject
 
     partial void OnSelectedCoLocationChannelChanged(CoLocationChannel? value)
     {
+        if (_isSyncingCollection || value == null) return;
         if (value != null)
         {
             SelectedFaction = null;
@@ -949,12 +993,14 @@ public partial class HexMapViewModel : ObservableObject
         if (channel != null)
         {
             var vm = new CoLocationChannelViewModel(channel, _coLocationChannelService, Armies, Commanders, _discordChannelManager);
+            vm.Saved += () => SyncEntityInCollection(() => CoLocationChannels, c => CoLocationChannels = c, c => SelectedCoLocationChannel = c, vm.Entity);
             SelectedEntityViewModel = vm;
         }
     }
 
     partial void OnSelectedMapHexChanged(MapHex? value)
     {
+        if (_isSyncingCollection || value == null) return;
         if (value != null)
         {
             SelectedFaction = null;
@@ -974,6 +1020,7 @@ public partial class HexMapViewModel : ObservableObject
         if (hexWithDetails != null)
         {
             var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions, LocationTypes);
+            hexVm.Saved += () => SyncEntityInCollection(() => VisibleHexes, c => VisibleHexes = c, null, hexVm.Entity);
 
             SelectedEntityViewModel = hexVm;
             StatusMessage = $"Selected hex: {hexWithDetails.Q}, {hexWithDetails.R}";
@@ -1389,6 +1436,7 @@ public partial class HexMapViewModel : ObservableObject
                 refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+                refreshedMsgVm.Saved += () => SyncEntityInCollection(() => Messages, c => Messages = c, m => SelectedMessage = m, refreshedMsgVm.Entity);
                 SelectedEntityViewModel = refreshedMsgVm;
             }
         }
@@ -1404,6 +1452,7 @@ public partial class HexMapViewModel : ObservableObject
                 refreshedArmyVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedArmyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedArmyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+                refreshedArmyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, refreshedArmyVm.Entity);
                 SelectedEntityViewModel = refreshedArmyVm;
             }
         }
@@ -1419,6 +1468,7 @@ public partial class HexMapViewModel : ObservableObject
                 refreshedCmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedCmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
                 refreshedCmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
+                refreshedCmdVm.Saved += () => SyncEntityInCollection(() => Commanders, c => Commanders = c, c => SelectedCommander = c, refreshedCmdVm.Entity);
                 SelectedEntityViewModel = refreshedCmdVm;
             }
         }

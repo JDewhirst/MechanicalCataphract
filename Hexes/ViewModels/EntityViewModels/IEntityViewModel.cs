@@ -1,3 +1,5 @@
+using System;
+
 namespace GUI.ViewModels.EntityViewModels;
 
 /// <summary>
@@ -11,4 +13,10 @@ public interface IEntityViewModel
     /// Used as header in the left panel.
     /// </summary>
     string EntityTypeName { get; }
+
+    /// <summary>
+    /// Raised after the entity has been persisted to the database.
+    /// Used to sync right-panel summary grids with left-panel detail edits.
+    /// </summary>
+    event Action? Saved;
 }

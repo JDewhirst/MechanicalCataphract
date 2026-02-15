@@ -1,3 +1,4 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
@@ -16,6 +17,8 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
     private readonly IMapService _service;
 
     public string EntityTypeName => "Hex";
+
+    public event Action? Saved;
 
     /// <summary>
     /// The underlying entity (for bindings that need direct access).
@@ -95,6 +98,7 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
     private async Task SaveAsync()
     {
         await _service.UpdateHexAsync(_mapHex);
+        Saved?.Invoke();
     }
 
     public MapHexViewModel(MapHex mapHex, IMapService service, IEnumerable<Faction> availableFactions, IEnumerable<LocationType> availableLocationTypes)

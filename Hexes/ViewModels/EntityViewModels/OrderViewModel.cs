@@ -16,6 +16,8 @@ public partial class OrderViewModel : ObservableObject, IEntityViewModel
 
     public string EntityTypeName => "Order";
 
+    public event Action? Saved;
+
     /// <summary>
     /// The underlying entity (for bindings that need direct access).
     /// </summary>
@@ -57,6 +59,7 @@ public partial class OrderViewModel : ObservableObject, IEntityViewModel
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_order);
+        Saved?.Invoke();
     }
 
     public OrderViewModel(Order order, IOrderService service)

@@ -25,6 +25,8 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 
     public string EntityTypeName => "Message";
 
+    public event Action? Saved;
+
     /// <summary>
     /// The underlying entity (for bindings that need direct access).
     /// </summary>
@@ -329,6 +331,7 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_message);
+        Saved?.Invoke();
     }
 
     public MessageViewModel(

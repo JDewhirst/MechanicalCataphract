@@ -23,6 +23,8 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
 
     public string EntityTypeName => "Co-Location Channel";
 
+    public event Action? Saved;
+
     public IEnumerable<Army> AvailableArmies { get; }
     public IEnumerable<Commander> AvailableCommanders { get; }
 
@@ -221,6 +223,7 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_channel);
+        Saved?.Invoke();
     }
 
     public CoLocationChannelViewModel(

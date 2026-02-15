@@ -29,6 +29,8 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
 
     public string EntityTypeName => "Commander";
 
+    public event Action? Saved;
+
     public IEnumerable<Army> AvailableArmies { get; }
     public IEnumerable<Faction> AvailableFactions { get; }
 
@@ -401,6 +403,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_commander);
+        Saved?.Invoke();
     }
 
     public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
