@@ -32,4 +32,20 @@ public interface IDiscordChannelManager
     /// Sends a game message to a commander's private Discord channel.
     /// </summary>
     Task SendMessageToCommanderChannelAsync(Commander target, string content);
+
+    /// <summary>
+    /// Sends a Discord embed to a commander's private channel.
+    /// </summary>
+    Task SendEmbedToCommanderChannelAsync(Commander target, NetCord.Rest.EmbedProperties embed);
+
+    // Army status reports
+    /// <summary>
+    /// Sends army status report embeds for all armies commanded by the given commander.
+    /// </summary>
+    Task SendArmyReportsToCommanderAsync(int commanderId);
+
+    /// <summary>
+    /// Sends army status reports to all commanders who have Discord channels. Used by daily tick.
+    /// </summary>
+    Task SendAllArmyReportsAsync();
 }

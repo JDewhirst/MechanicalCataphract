@@ -606,6 +606,73 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
     }
 
+    public async Task SendEmbedToCommanderChannelAsync(Commander target, EmbedProperties embed)
+    {
+        if (!_botService.IsConnected) return;
+        if (!target.DiscordChannelId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            await rest.SendMessageAsync(target.DiscordChannelId.Value,
+                new NetCord.Rest.MessageProperties { Embeds = [embed] });
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Embed sent to '{target.Name}' channel.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendEmbedToCommanderChannel failed: {ex.Message}");
+        }
+    }
+
+    public async Task SendArmyReportsToCommanderAsync(int commanderId)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var commanderService = scope.ServiceProvider.GetRequiredService<Services.ICommanderService>();
+            var gameStateService = scope.ServiceProvider.GetRequiredService<Services.IGameStateService>();
+
+            var commander = await commanderService.GetCommanderWithArmiesAsync(commanderId);
+            if (commander == null || !commander.DiscordChannelId.HasValue) return;
+
+            var gameState = await gameStateService.GetGameStateAsync();
+
+            foreach (var army in commander.CommandedArmies)
+            {
+                var embed = ArmyReportEmbedBuilder.BuildArmyReport(army, commander, gameState.CurrentGameTime);
+                await SendEmbedToCommanderChannelAsync(commander, embed);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendArmyReportsToCommander failed: {ex.Message}");
+        }
+    }
+
+    public async Task SendAllArmyReportsAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var commanderIds = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .ToListAsync(db.Commanders
+                    .Where(c => c.DiscordChannelId != null)
+                    .Select(c => c.Id));
+
+            foreach (var id in commanderIds)
+            {
+                await SendArmyReportsToCommanderAsync(id);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Daily army reports sent to {commanderIds.Count} commanders.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendAllArmyReports failed: {ex.Message}");
+        }
+    }
+
     private async Task<ulong?> GetCoLocationCategoryIdAsync()
     {
         using var scope = _serviceProvider.CreateScope();

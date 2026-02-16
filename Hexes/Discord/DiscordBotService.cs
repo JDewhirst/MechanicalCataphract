@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord;
 using NetCord.Gateway;
@@ -105,6 +107,13 @@ public class DiscordBotService : IDiscordBotService
             {
                 if (interaction is ApplicationCommandInteraction appCmdInteraction)
                 {
+                    // Handle /report inline — look up commander by channel, send army embeds
+                    if (appCmdInteraction.Data.Name == "report")
+                    {
+                        await HandleReportCommandAsync(appCmdInteraction);
+                        return;
+                    }
+
                     var context = new ApplicationCommandContext(appCmdInteraction, _client);
                     var result = await _commandService.ExecuteAsync(context);
 
@@ -168,6 +177,12 @@ public class DiscordBotService : IDiscordBotService
             try
             {
                 await _commandService.CreateCommandsAsync(_client.Rest, _client.Id);
+
+                // Register /report manually (handled inline, not via a command module)
+                await _client.Rest.CreateGlobalApplicationCommandAsync(
+                    _client.Id,
+                    new SlashCommandProperties("report", "Get a status report for all your armies"));
+
                 System.Diagnostics.Debug.WriteLine($"[DiscordBot] Commands registered. Guild: {guildId}");
             }
             catch (Exception ex)
@@ -195,6 +210,42 @@ public class DiscordBotService : IDiscordBotService
         finally
         {
             _lock.Release();
+        }
+    }
+
+    private async Task HandleReportCommandAsync(ApplicationCommandInteraction interaction)
+    {
+        try
+        {
+            var channelId = interaction.Channel.Id;
+
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var commander = await db.Commanders
+                .FirstOrDefaultAsync(c => c.DiscordChannelId == channelId);
+
+            if (commander == null)
+            {
+                await interaction.SendResponseAsync(
+                    InteractionCallback.Message("No commander is linked to this channel."));
+                return;
+            }
+
+            await interaction.SendResponseAsync(
+                InteractionCallback.Message("Generating army reports..."));
+
+            var channelManager = _serviceProvider.GetRequiredService<IDiscordChannelManager>();
+            await channelManager.SendArmyReportsToCommanderAsync(commander.Id);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordBot] /report handler error: {ex.Message}");
+            try
+            {
+                await interaction.SendResponseAsync(
+                    InteractionCallback.Message("Failed to generate army reports."));
+            }
+            catch { /* interaction may already have been responded to */ }
         }
     }
 

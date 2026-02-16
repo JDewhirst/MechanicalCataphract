@@ -72,7 +72,13 @@ namespace MechanicalCataphract.Services
                     armiesSupplied = await ProcessAllArmyDailySupplyConsumptionAsync();
                 }
 
-                // 6. Future: weather, event spreading etc.
+                // 6. Send daily army reports
+                if (newTime.Hour == gameState.ArmyReportTime.Hours + 1)
+                {
+                    await _discordChannelManager.SendAllArmyReportsAsync();
+                }
+
+                // 7. Future: weather, event spreading etc.
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
