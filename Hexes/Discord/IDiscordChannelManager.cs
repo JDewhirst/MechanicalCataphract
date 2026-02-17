@@ -1,3 +1,4 @@
+using System.IO;
 using System.Threading.Tasks;
 using MechanicalCataphract.Data.Entities;
 
@@ -48,4 +49,9 @@ public interface IDiscordChannelManager
     /// Sends army status reports to all commanders who have Discord channels. Used by daily tick.
     /// </summary>
     Task SendAllArmyReportsAsync();
+
+    /// <summary>
+    /// Sends a scouting report PNG image to a commander's private Discord channel.
+    /// </summary>
+    Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName);
 }

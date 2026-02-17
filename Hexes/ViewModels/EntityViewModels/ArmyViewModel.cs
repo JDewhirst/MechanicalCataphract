@@ -145,6 +145,12 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     private string? _pathComputeStatus;
 
     /// <summary>
+    /// Event raised when user requests a scouting report for this army.
+    /// HexMapViewModel subscribes to this to render and send via Discord.
+    /// </summary>
+    public event Func<Army, Task>? ScoutingReportRequested;
+
+    /// <summary>
     /// Event raised when user wants to select a path for this army.
     /// HexMapViewModel subscribes to this to enter path selection mode.
     /// </summary>
@@ -177,6 +183,13 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     private void CancelPathSelection()
     {
         PathSelectionCancelRequested?.Invoke();
+    }
+
+    [RelayCommand]
+    private async Task SendScoutingReport()
+    {
+        if (ScoutingReportRequested != null)
+            await ScoutingReportRequested.Invoke(_army);
     }
 
     [RelayCommand]
@@ -406,8 +419,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
             ArmyId = _army.Id,
             FactionId = _army.FactionId,
             UnitType = UnitType.Infantry,
-            Number = 1000,
-            ScoutingRange = 1
+            Number = 1000
         };
 
         System.Diagnostics.Debug.WriteLine($"Created brigade with ArmyId={brigade.ArmyId}, FactionId={brigade.FactionId}");

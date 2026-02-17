@@ -15,6 +15,7 @@ using MechanicalCataphract.Data;
 using MechanicalCataphract.Discord;
 using Avalonia.Threading;
 using MechanicalCataphract.Services;
+using SkiaSharp;
 
 namespace GUI.ViewModels;
 
@@ -879,6 +880,7 @@ public partial class HexMapViewModel : ObservableObject
             armyVm.PathSelectionRequested += StartPathSelectionMode;
             armyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             armyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+            armyVm.ScoutingReportRequested += OnScoutingReportRequested;
             armyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, armyVm.Entity);
             SelectedEntityViewModel = armyVm;
         }
@@ -909,6 +911,77 @@ public partial class HexMapViewModel : ObservableObject
         }
 
         return result;
+    }
+
+    private async Task OnScoutingReportRequested(Army army)
+    {
+        // Validate prerequisites
+        if (army.Commander == null)
+        {
+            StatusMessage = "Cannot send scouting report: army has no commander";
+            return;
+        }
+        if (!army.Commander.DiscordChannelId.HasValue)
+        {
+            StatusMessage = "Cannot send scouting report: commander has no Discord channel";
+            return;
+        }
+        if (!army.CoordinateQ.HasValue || !army.CoordinateR.HasValue)
+        {
+            StatusMessage = "Cannot send scouting report: army has no location";
+            return;
+        }
+        if (army.Brigades == null || army.Brigades.Count == 0)
+        {
+            StatusMessage = "Cannot send scouting report: army has no brigades";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Generating scouting report...";
+
+            int scoutingRange = army.Brigades.Max(b => b.ScoutingRange);
+            var centerHex = new Hex(army.CoordinateQ.Value, army.CoordinateR.Value,
+                -army.CoordinateQ.Value - army.CoordinateR.Value);
+
+            // Gather map data
+            var allHexes = await _mapService.GetAllHexesAsync();
+            var hexesInRange = allHexes.Where(h => centerHex.Distance(h.ToHex()) <= scoutingRange).ToList();
+            var terrainTypes = await _mapService.GetTerrainTypesAsync();
+            var locationTypes = await _mapService.GetLocationTypesAsync();
+
+            // Filter armies within scouting range
+            var armiesInRange = Armies
+                .Where(a => a.CoordinateQ.HasValue && a.CoordinateR.HasValue)
+                .Where(a =>
+                {
+                    var aHex = new Hex(a.CoordinateQ!.Value, a.CoordinateR!.Value, -a.CoordinateQ.Value - a.CoordinateR.Value);
+                    return centerHex.Distance(aHex) <= scoutingRange;
+                })
+                .ToList();
+
+            // Render
+            using var bitmap = ScoutingReportRenderer.RenderScoutingReport(
+                hexesInRange, terrainTypes, locationTypes, armiesInRange, centerHex, scoutingRange);
+
+            // Encode to PNG
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = new System.IO.MemoryStream();
+            data.SaveTo(stream);
+            stream.Position = 0;
+
+            // Send via Discord
+            await _discordChannelManager.SendScoutingReportAsync(army.Commander, stream, army.Name);
+
+            StatusMessage = $"Scouting report sent for {army.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to send scouting report: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine($"[HexMapViewModel] OnScoutingReportRequested failed: {ex}");
+        }
     }
 
     partial void OnSelectedCommanderChanged(Commander? value)
@@ -1136,8 +1209,7 @@ public partial class HexMapViewModel : ObservableObject
             ArmyId = army.Id,
             FactionId = army.FactionId,
             UnitType = UnitType.Infantry,
-            Number = 1000,
-            ScoutingRange = 1
+            Number = 1000
         };
 
         // Need a brigade service - for now use DbContext directly via army service
@@ -1452,6 +1524,7 @@ public partial class HexMapViewModel : ObservableObject
                 refreshedArmyVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedArmyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedArmyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+                refreshedArmyVm.ScoutingReportRequested += OnScoutingReportRequested;
                 refreshedArmyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, refreshedArmyVm.Entity);
                 SelectedEntityViewModel = refreshedArmyVm;
             }

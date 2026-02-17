@@ -18,5 +18,11 @@ public class Brigade
 
     // Stats
     public int Number { get; set; }
-    public int ScoutingRange { get; set; } = 1;
+
+    // Computed from UnitType — Cavalry scouts farther
+    public int ScoutingRange => UnitType switch
+    {
+        UnitType.Cavalry => 2,
+        _ => 1
+    };
 }

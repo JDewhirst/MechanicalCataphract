@@ -104,6 +104,11 @@
             </Border>
         </StackPanel>
 
+        <Button Content="Send Scouting Report"
+                Command="{Binding SendScoutingReportCommand}"
+                ToolTip.Tip="Render map around army and send to commander's Discord channel"
+                FontSize="11" Padding="8,2" Margin="0,5,0,0"/>
+
        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
            <TextBlock Text="Combat Strength:" FontWeight="SemiBold" FontSize="11"/>
            <TextBlock Text="{Binding CombatStrength}" FontSize="11"/>

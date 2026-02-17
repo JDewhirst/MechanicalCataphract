@@ -148,12 +148,12 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     public async Task GetMaxScoutingRangeAsync_ReturnsMax()
     {
         var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
-        await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "1st", 100, scoutingRange: 1);
-        await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "2nd", 100, scoutingRange: 3);
-        await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "3rd", 100, scoutingRange: 2);
+        await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "1st", 100, unitType: UnitType.Infantry);
+        await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "2nd", 100, unitType: UnitType.Cavalry);
+        await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "3rd", 100, unitType: UnitType.Skirmishers);
 
         var max = await _service.GetMaxScoutingRangeAsync(army.Id);
-        Assert.That(max, Is.EqualTo(3));
+        Assert.That(max, Is.EqualTo(2));
     }
 
     [Test]

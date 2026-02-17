@@ -84,6 +84,10 @@ public class WargameDbContext : DbContext
             .HasForeignKey(b => b.ArmyId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // ScoutingRange is computed from UnitType, not stored
+        modelBuilder.Entity<Brigade>()
+            .Ignore(b => b.ScoutingRange);
+
         // Commander -> Faction
         modelBuilder.Entity<Commander>()
             .HasOne(c => c.Faction)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -670,6 +671,29 @@ public class DiscordChannelManager : IDiscordChannelManager
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendAllArmyReports failed: {ex.Message}");
+        }
+    }
+
+    public async Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName)
+    {
+        if (!_botService.IsConnected) return;
+        if (!target.DiscordChannelId.HasValue) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            imageStream.Position = 0;
+            var attachment = new AttachmentProperties($"scouting-report-{armyName.ToLowerInvariant().Replace(' ', '-')}.png", imageStream);
+            await rest.SendMessageAsync(target.DiscordChannelId.Value, new MessageProperties
+            {
+                Content = $"Scouting report for **{armyName}**",
+                Attachments = [attachment]
+            });
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Scouting report sent to '{target.Name}' for army '{armyName}'.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendScoutingReport failed: {ex.Message}");
         }
     }
 

@@ -71,15 +71,14 @@ public static class SeedHelpers
 
     public static async Task<Brigade> SeedBrigadeAsync(
         WargameDbContext ctx, int armyId, string name = "Brigade", int number = 100,
-        UnitType unitType = UnitType.Infantry, int scoutingRange = 1)
+        UnitType unitType = UnitType.Infantry)
     {
         var brigade = new Brigade
         {
             ArmyId = armyId,
             Name = name,
             Number = number,
-            UnitType = unitType,
-            ScoutingRange = scoutingRange
+            UnitType = unitType
         };
         ctx.Brigades.Add(brigade);
         await ctx.SaveChangesAsync();
