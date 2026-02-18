@@ -20,8 +20,8 @@ public interface IPathfindingService
     /// <summary>Moves a message along its path for the given hours.</summary>
     Task<int> MoveMessage(Message message, int hours);
 
-    /// <summary>Moves an army along its path for the given hours.</summary>
-    Task<int> MoveArmy(Army army, int hours);
+    /// <summary>Moves an army along its path for the given hours. Respects daytime restriction unless night marching.</summary>
+    Task<int> MoveArmy(Army army, int hours, DateTime currentGameTime);
 
     /// <summary>Moves a commander along their path for the given hours.</summary>
     Task<int> MoveCommander(Commander commander, int hours);

@@ -50,14 +50,15 @@ namespace MechanicalCataphract.Services
             {
                 // 1. Update game time
                 var gameState = await _gameStateService.GetGameStateAsync();
-                var newTime = gameState.CurrentGameTime.Add(amount);
+                var oldTime = gameState.CurrentGameTime;
+                var newTime = oldTime.Add(amount);
                 gameState.CurrentGameTime = newTime;
 
                 // 2. Process message movement (in order)
                 var messagesMoved = await ProcessMessageMovementAsync();
 
                 // 3. Process army movement
-                var armiesMoved = await ProcessArmyMovementAsync();
+                var armiesMoved = await ProcessArmyMovementAsync(oldTime);
 
                 // 4. Process commander movement
                 var commandersMoved = await ProcessCommanderMovementAsync();
@@ -129,13 +130,13 @@ namespace MechanicalCataphract.Services
             return messagesMoved;
         }
 
-        private async Task<int> ProcessArmyMovementAsync()
+        private async Task<int> ProcessArmyMovementAsync(DateTime currentGameTime)
         {
             int armiesMoved = 0;
             var armies = await _armyService.GetAllAsync();
             foreach (Army army in armies)
             {
-                armiesMoved += await _pathfindingService.MoveArmy(army, 1);
+                armiesMoved += await _pathfindingService.MoveArmy(army, 1, currentGameTime);
             }
             return armiesMoved;
         }

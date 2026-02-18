@@ -272,6 +272,19 @@ public class MapService : IMapService
         return hexA.HasRoadInDirection(direction.Value);
     }
 
+    public async Task<bool> HasRiverBetweenAsync(Hex a, Hex b)
+    {
+        var direction = GetNeighborDirection(a, b);
+        if (direction == null)
+            return false; // Not adjacent
+
+        var hexA = await GetHexAsync(a);
+        if (hexA == null)
+            return false;
+
+        return hexA.HasRiverOnEdge(direction.Value);
+    }
+
     public static int? GetNeighborDirection(Hex from, Hex to)
     {
         for (int dir = 0; dir < 6; dir++)

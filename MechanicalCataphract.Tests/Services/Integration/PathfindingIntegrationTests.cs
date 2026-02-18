@@ -1,3 +1,4 @@
+using System;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
@@ -98,11 +99,12 @@ public class PathfindingIntegrationTests : IntegrationTestBase
             Path = new List<Hex> { endHex.ToHex() }
         });
 
-        // Army rate 0.5, road cost 6 → need 12 hours
+        // Army rate 1.0, road cost 6 → need 6 hours
+        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
         int totalMoved = 0;
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 6; i++)
         {
-            totalMoved += await _pathfindingService.MoveArmy(army, 1);
+            totalMoved += await _pathfindingService.MoveArmy(army, 1, noon);
         }
 
         // Reload from DB to verify persistence

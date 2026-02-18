@@ -111,6 +111,17 @@ public class TestMapBuilder
                 return mapHex.HasRoadInDirection(dir.Value);
             });
 
+        // HasRiverBetweenAsync — checks if hex A has a river on the edge toward hex B
+        mock.Setup(m => m.HasRiverBetweenAsync(It.IsAny<Hex>(), It.IsAny<Hex>()))
+            .ReturnsAsync((Hex a, Hex b) =>
+            {
+                if (!_hexes.TryGetValue((a.q, a.r), out var mapHex))
+                    return false;
+                var dir = a.DirectionTo(b);
+                if (dir == null) return false;
+                return mapHex.HasRiverOnEdge(dir.Value);
+            });
+
         return mock;
     }
 

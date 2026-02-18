@@ -1,3 +1,4 @@
+using System;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
@@ -370,9 +371,10 @@ public class PathfindingServiceTests
     {
         var builder = new TestMapBuilder();
         var service = CreateService(builder.BuildMockMapService());
+        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
 
         var army = new Army { CoordinateQ = null, CoordinateR = null };
-        var result = await service.MoveArmy(army, 1);
+        var result = await service.MoveArmy(army, 1, noon);
         Assert.That(result, Is.EqualTo(0));
     }
 
@@ -381,21 +383,22 @@ public class PathfindingServiceTests
     {
         var builder = new TestMapBuilder();
         var service = CreateService(builder.BuildMockMapService());
+        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
 
         var army = new Army
         {
             CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex>()
         };
-        var result = await service.MoveArmy(army, 1);
+        var result = await service.MoveArmy(army, 1, noon);
         Assert.That(result, Is.EqualTo(0));
     }
 
     [Test]
     public async Task MoveArmy_SlowerThanMessage()
     {
-        // Army rate = 0.5, Message rate = 2
-        // Off-road cost 12: Army threshold = 12/0.5 = 24h, Message threshold = 12/2 = 6h
+        // Army rate = 1.0, Message rate = 2
+        // Off-road cost 12: Army threshold = 12/1.0 = 12h, Message threshold = 12/2 = 6h
         var builder = new TestMapBuilder()
             .AddHex(0, 0)
             .AddHex(1, 0);
@@ -403,17 +406,18 @@ public class PathfindingServiceTests
         mockMap.Setup(m => m.HasRoadBetweenAsync(It.IsAny<Hex>(), It.IsAny<Hex>()))
             .ReturnsAsync(false);
         var service = CreateService(mockMap);
+        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
 
         var nextHex = new Hex(1, 0, -1);
 
-        // Army with 12 hours should NOT move (needs 24)
+        // Army with 6 hours should NOT move (needs 12)
         var army = new Army
         {
             CoordinateQ = 0, CoordinateR = 0,
             Path = new List<Hex> { nextHex },
             TimeInTransit = 0
         };
-        var armyResult = await service.MoveArmy(army, 12);
+        var armyResult = await service.MoveArmy(army, 6, noon);
         Assert.That(armyResult, Is.EqualTo(0));
 
         // Message with 12 hours SHOULD move (needs 6)
@@ -437,6 +441,7 @@ public class PathfindingServiceTests
         mockMap.Setup(m => m.HasRoadBetweenAsync(It.IsAny<Hex>(), It.IsAny<Hex>()))
             .ReturnsAsync(false);
         var service = CreateService(mockMap);
+        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
 
         var nextHex = new Hex(1, 0, -1);
         var army = new Army
@@ -446,8 +451,8 @@ public class PathfindingServiceTests
             TimeInTransit = 0
         };
 
-        // Off-road cost=12, rate=0.5 → threshold=24
-        var result = await service.MoveArmy(army, 24);
+        // Off-road cost=12, rate=1.0 → threshold=12
+        var result = await service.MoveArmy(army, 12, noon);
 
         Assert.That(result, Is.EqualTo(1));
         Assert.That(army.CoordinateQ, Is.EqualTo(1));

@@ -115,7 +115,7 @@
        </StackPanel>
 
         <!-- Two-column grid for stats -->
-        <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="10">
+        <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="10">
             <!-- Row 0: Morale / Wagons -->
             <StackPanel Grid.Row="0" Grid.Column="0">
                 <TextBlock Text="Morale" FontWeight="SemiBold" FontSize="11"/>
@@ -176,30 +176,48 @@
                 <TextBlock Text="{Binding MaxCarry}"/>
             </StackPanel>
 
+            <!-- Row 6: Marching Column Length -->
+            <StackPanel Grid.Row="6" Grid.Column="0">
+                <TextBlock Text="Column Length" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding MarchingColumnLength}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="6" Grid.Column="1">
+                <TextBlock Text="Forced March Days" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding ForcedMarchDays, Mode=TwoWay}"/>
+            </StackPanel>
+
             <!-- Increment/Decrement Supply by DailySupplyConsumption -->
-            <Button Grid.Row="6" Grid.Column="0"
+            <Button Grid.Row="7" Grid.Column="0"
                     Content="Eat Supply" FontSize="11" Padding="8,2"
                     Command="{Binding EatSuppliesCommand}"/>
-            <Button Grid.Row="6" Grid.Column="1"
+            <Button Grid.Row="7" Grid.Column="1"
                     Content="Undo Eat Supply" FontSize="11" Padding="8,2"
                     Command="{Binding UndoEatSuppliesCommand}"/>
 
             <!-- Apply Casualites Button -->
-            <Button Grid.Row="7" Grid.Column="0"
+            <Button Grid.Row="8" Grid.Column="0"
                     Content="Apply Casualties" FontSize="11" Padding="8,2"
                     Command="{Binding ApplyCasualtiesCommand}"/>
-            <StackPanel Grid.Row="7" Grid.Column="1">
+            <StackPanel Grid.Row="8" Grid.Column="1">
 				<TextBlock Text="Casualty %" FontWeight="SemiBold" FontSize="11"/>
                 <TextBox Text="{Binding CasualtyPercentage, Mode=TwoWay}"/>
             </StackPanel>
 
-            <!-- Row ?: Checkboxes -->
-            <CheckBox Grid.Row="8" Grid.Column="0"
+            <!-- Row 9: Checkboxes -->
+            <CheckBox Grid.Row="9" Grid.Column="0"
                       Content="Garrison"
                       IsChecked="{Binding IsGarrison, Mode=TwoWay}"/>
-            <CheckBox Grid.Row="8" Grid.Column="1"
+            <CheckBox Grid.Row="9" Grid.Column="1"
                       Content="Resting"
                       IsChecked="{Binding IsResting, Mode=TwoWay}"/>
+
+            <!-- Row 10: Night Marching / Forced March -->
+            <CheckBox Grid.Row="10" Grid.Column="0"
+                      Content="Night Marching"
+                      IsChecked="{Binding IsNightMarching, Mode=TwoWay}"/>
+            <CheckBox Grid.Row="10" Grid.Column="1"
+                      Content="Forced March"
+                      IsChecked="{Binding IsForcedMarch, Mode=TwoWay}"/>
 
             
         </Grid>

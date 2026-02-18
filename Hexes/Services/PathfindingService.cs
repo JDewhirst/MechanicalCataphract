@@ -169,113 +169,105 @@ public class PathfindingService : IPathfindingService
         return path;
     }
 
-    public async Task<int> MoveMessage(Message message, int hours)
+    /// <summary>
+    /// Shared movement logic for any IPathMovable entity.
+    /// </summary>
+    /// <param name="entity">The entity to move</param>
+    /// <param name="hours">Hours of movement to apply</param>
+    /// <param name="saveAsync">Callback to persist the entity</param>
+    /// <param name="effectiveRate">Override movement rate (null = use entity's MovementRate)</param>
+    /// <param name="extraCost">Additional cost on top of base movement cost (e.g. river fording)</param>
+    /// <returns>1 if entity advanced to next waypoint, 0 otherwise</returns>
+    private async Task<int> MoveEntity(IPathMovable entity, int hours, Func<Task> saveAsync, float? effectiveRate = null, int extraCost = 0)
     {
-        // 1. Get current location as Hex
-        if (message.CoordinateQ == null || message.CoordinateR == null)
-            return 0; // No location
+        if (entity.CoordinateQ == null || entity.CoordinateR == null)
+            return 0;
 
-        if (message.Path == null || message.Path.Count == 0)
-            return 0; // No path to follow
+        if (entity.Path == null || entity.Path.Count == 0)
+            return 0;
 
         var currentHex = new Hex(
-            message.CoordinateQ.Value,
-            message.CoordinateR.Value,
-            -message.CoordinateQ.Value - message.CoordinateR.Value);
+            entity.CoordinateQ.Value,
+            entity.CoordinateR.Value,
+            -entity.CoordinateQ.Value - entity.CoordinateR.Value);
 
-        // 2. Next waypoint is Path[0]
-        var nextHex = message.Path[0];
+        var nextHex = entity.Path[0];
 
-        // 3. Check for road between them
         bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
+        int movementCost = (hasRoad ? RoadCost : OffRoadCost) + extraCost;
 
-        // 4. Determine cost
-        int movementCost = hasRoad ? RoadCost : OffRoadCost;
+        float rate = effectiveRate ?? entity.MovementRate;
 
-        // 5. increment timeInTransit and check if reached cost
-        message.TimeInTransit += hours;
-        if (message.TimeInTransit >= (movementCost / message.MovementRate))
+        entity.TimeInTransit += hours;
+        if (entity.TimeInTransit >= (movementCost / rate))
         {
-            message.CoordinateQ = nextHex.q;
-            message.CoordinateR = nextHex.r;
-            message.Path.Remove(nextHex);
-            message.TimeInTransit = message.TimeInTransit - movementCost / message.MovementRate;
-            await _messageService.UpdateAsync(message);
+            entity.CoordinateQ = nextHex.q;
+            entity.CoordinateR = nextHex.r;
+            entity.Path.Remove(nextHex);
+            entity.TimeInTransit = entity.TimeInTransit - movementCost / rate;
+            await saveAsync();
             return 1;
         }
 
-        await _messageService.UpdateAsync(message);
+        await saveAsync();
         return 0;
     }
 
-    public async Task<int> MoveArmy(Army army, int hours)
+    public async Task<int> MoveMessage(Message message, int hours)
     {
+        return await MoveEntity(message, hours, () => _messageService.UpdateAsync(message));
+    }
+
+    public async Task<int> MoveArmy(Army army, int hours, DateTime currentGameTime)
+    {
+        // Daytime restriction: armies only march 8am–8pm unless night marching
+        if (!army.IsNightMarching && (currentGameTime.Hour < 8 || currentGameTime.Hour >= 20))
+            return 0;
+
         if (army.CoordinateQ == null || army.CoordinateR == null)
             return 0;
 
         if (army.Path == null || army.Path.Count == 0)
             return 0;
 
+        // Determine effective movement rate
+        float baseRate = army.MovementRate; // 1.0 mph
+        bool isLongColumn = army.MarchingColumnLength > 6;
+
+        // Speed cap for long columns
+        if (isLongColumn)
+            baseRate = 0.5f;
+
+        // Forced march doubles effective rate
+        float effectiveRate = army.IsForcedMarch ? baseRate * 2.0f : baseRate;
+
+        // Track forced march hours
+        if (army.IsForcedMarch)
+            army.ForcedMarchHours += hours;
+
+        // River fording penalty: when crossing a river edge without a bridge
+        int extraCost = 0;
         var currentHex = new Hex(
             army.CoordinateQ.Value,
             army.CoordinateR.Value,
             -army.CoordinateQ.Value - army.CoordinateR.Value);
-
         var nextHex = army.Path[0];
 
         bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
+        bool hasRiver = await _mapService.HasRiverBetweenAsync(currentHex, nextHex);
 
-        int movementCost = hasRoad ? RoadCost : OffRoadCost;
+        // River without bridge = fording penalty (cavalry excluded, forced march doesn't help)
+        if (hasRiver && !hasRoad)
+            extraCost = army.FordingColumnLength * 6;
 
-        army.TimeInTransit += hours;
-        if (army.TimeInTransit >= (movementCost / army.MovementRate))
-        {
-            army.CoordinateQ = nextHex.q;
-            army.CoordinateR = nextHex.r;
-            army.Path.Remove(nextHex);
-            army.TimeInTransit = army.TimeInTransit - movementCost / army.MovementRate;
-            await _armyService.UpdateAsync(army);
-            return 1;
-        }
-
-        await _armyService.UpdateAsync(army);
-        return 0;
+        return await MoveEntity(army, hours, () => _armyService.UpdateAsync(army), effectiveRate, extraCost);
     }
 
     public async Task<int> MoveCommander(Commander commander, int hours)
     {
-        if (commander.CoordinateQ == null || commander.CoordinateR == null)
-            return 0;
-
         if (commander.FollowingArmyId != null)
             return 0;
 
-        if (commander.Path == null || commander.Path.Count == 0)
-            return 0;
-
-        var currentHex = new Hex(
-            commander.CoordinateQ.Value,
-            commander.CoordinateR.Value,
-            -commander.CoordinateQ.Value - commander.CoordinateR.Value);
-
-        var nextHex = commander.Path[0];
-
-        bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
-
-        int movementCost = hasRoad ? RoadCost : OffRoadCost;
-
-        commander.TimeInTransit += hours;
-        if (commander.TimeInTransit >= (movementCost / commander.MovementRate))
-        {
-            commander.CoordinateQ = nextHex.q;
-            commander.CoordinateR = nextHex.r;
-            commander.Path.Remove(nextHex);
-            commander.TimeInTransit = commander.TimeInTransit - movementCost / commander.MovementRate;
-            await _commanderService.UpdateAsync(commander);
-            return 1;
-        }
-
-        await _commanderService.UpdateAsync(commander);
-        return 0;
+        return await MoveEntity(commander, hours, () => _commanderService.UpdateAsync(commander));
     }
 }

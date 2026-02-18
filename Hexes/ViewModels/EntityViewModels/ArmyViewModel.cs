@@ -339,6 +339,26 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         get => _army.IsResting;
         set { if (_army.IsResting != value) { _army.IsResting = value; OnPropertyChanged(); _ = SaveAsync(); } }
     }
+
+    public bool IsNightMarching
+    {
+        get => _army.IsNightMarching;
+        set { if (_army.IsNightMarching != value) { _army.IsNightMarching = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
+    public bool IsForcedMarch
+    {
+        get => _army.IsForcedMarch;
+        set { if (_army.IsForcedMarch != value) { _army.IsForcedMarch = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
+    public double ForcedMarchDays
+    {
+        get => _army.ForcedMarchHours / 24.0;
+        set { var hours = (int)(value * 24); if (_army.ForcedMarchHours != hours) { _army.ForcedMarchHours = hours; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
+    public int MarchingColumnLength => _army.MarchingColumnLength;
     public int CombatStrength => Brigades.Sum(b => b.Number * GetUnitTypeCombatPower(b.UnitType));
     private static int GetUnitTypeCombatPower(UnitType unitType) => unitType switch
     {
@@ -495,6 +515,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         OnPropertyChanged(nameof(MaxCarry));
         OnPropertyChanged(nameof(DailySupplyConsumption));
         OnPropertyChanged(nameof(DaysOfSupply));
+        OnPropertyChanged(nameof(MarchingColumnLength));
       }
 
     private bool IsOffsetInBounds(int col, int row)

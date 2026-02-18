@@ -29,4 +29,9 @@ public interface IPathMovable
     /// Movement rate in miles per hour.
     /// </summary>
     float MovementRate { get; }
+
+    /// <summary>
+    /// Time accumulated moving toward the next waypoint (in hours).
+    /// </summary>
+    float TimeInTransit { get; set; }
 }
