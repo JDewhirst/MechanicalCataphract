@@ -279,16 +279,11 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     {
         get
         {
-           return Brigades.Sum(b => b.Number * GetUnitTypeCarry(b.UnitType) ) + (GetUnitTypeCarry(UnitType.Infantry)*NonCombatants) + Wagons * 1000;
+            return Brigades.Sum(b => b.Number * b.UnitType.CarryCapacityPerMan())
+                + (UnitType.Infantry.CarryCapacityPerMan() * NonCombatants)
+                + Wagons * 1000;
         }
     }
-    private static int GetUnitTypeCarry(UnitType unitType) => unitType switch
-    {
-        UnitType.Infantry => 15,
-        UnitType.Cavalry => 75,
-        UnitType.Skirmishers => 15,
-        _ => 0
-    };
 
     public int DailySupplyConsumption
     {
@@ -359,14 +354,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     }
 
     public int MarchingColumnLength => _army.MarchingColumnLength;
-    public int CombatStrength => Brigades.Sum(b => b.Number * GetUnitTypeCombatPower(b.UnitType));
-    private static int GetUnitTypeCombatPower(UnitType unitType) => unitType switch
-    {
-        UnitType.Infantry => 1,
-        UnitType.Cavalry => 2,
-        UnitType.Skirmishers => 1,
-        _ => 1
-    };
+    public int CombatStrength => Brigades.Sum(b => b.Number * b.UnitType.CombatPowerPerMan());
 
     /// <summary>
     /// Observable collection of brigades for UI binding.

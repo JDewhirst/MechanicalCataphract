@@ -157,16 +157,10 @@ public class ArmyService : IArmyService
     public async Task<int> GetDailySupplyConsumptionAsync(int armyId)
     {
         var army = await GetArmyWithBrigadesAsync(armyId);
-        return army.Brigades.Sum(b => b.Number * GetUnitSupplyConsumption(b.UnitType)) + (GetUnitSupplyConsumption(UnitType.Infantry) * army.NonCombatants) + (GetUnitSupplyConsumption(UnitType.Cavalry) * army.Wagons); ;
+        return army.Brigades.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan())
+            + (UnitType.Infantry.SupplyConsumptionPerMan() * army.NonCombatants)
+            + (UnitType.Cavalry.SupplyConsumptionPerMan() * army.Wagons);
     }
-
-    private static int GetUnitSupplyConsumption(UnitType unitType) => unitType switch
-    {
-        UnitType.Infantry => 1,
-        UnitType.Skirmishers => 1,
-        UnitType.Cavalry => 10,
-        _ => 0
-    };
 
 
 }

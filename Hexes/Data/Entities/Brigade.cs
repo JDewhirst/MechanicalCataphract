@@ -20,9 +20,5 @@ public class Brigade
     public int Number { get; set; }
 
     // Computed from UnitType — Cavalry scouts farther
-    public int ScoutingRange => UnitType switch
-    {
-        UnitType.Cavalry => 2,
-        _ => 1
-    };
+    public int ScoutingRange => UnitType.ScoutingRange();
 }

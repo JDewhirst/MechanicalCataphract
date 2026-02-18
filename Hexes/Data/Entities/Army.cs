@@ -51,10 +51,10 @@ public class Army : IPathMovable
     {
         get
         {
-            int footTroops = (Brigades?.Where(b => b.UnitType == UnitType.Infantry || b.UnitType == UnitType.Skirmishers).Sum(b => b.Number) ?? 0) + NonCombatants;
-            int cavalry = Brigades?.Where(b => b.UnitType == UnitType.Cavalry).Sum(b => b.Number) ?? 0;
-            return (int)Math.Ceiling(footTroops / 5000.0)
-                 + (int)Math.Ceiling(cavalry / 2000.0)
+            int footTroops = (Brigades?.Where(b => b.UnitType.CountsForFordingLength()).Sum(b => b.Number) ?? 0) + NonCombatants;
+            int cavalry    =  Brigades?.Where(b => !b.UnitType.CountsForFordingLength()).Sum(b => b.Number) ?? 0;
+            return (int)Math.Ceiling(footTroops / (double)UnitType.Infantry.MarchingColumnCapacity())
+                 + (int)Math.Ceiling(cavalry    / (double)UnitType.Cavalry.MarchingColumnCapacity())
                  + (int)Math.Ceiling(Wagons / 50.0);
         }
     }
@@ -64,8 +64,8 @@ public class Army : IPathMovable
     {
         get
         {
-            int footTroops = (Brigades?.Where(b => b.UnitType == UnitType.Infantry || b.UnitType == UnitType.Skirmishers).Sum(b => b.Number) ?? 0) + NonCombatants;
-            return (int)Math.Ceiling(footTroops / 5000.0)
+            int footTroops = (Brigades?.Where(b => b.UnitType.CountsForFordingLength()).Sum(b => b.Number) ?? 0) + NonCombatants;
+            return (int)Math.Ceiling(footTroops / (double)UnitType.Infantry.MarchingColumnCapacity())
                  + (int)Math.Ceiling(Wagons / 50.0);
         }
     }
@@ -74,8 +74,8 @@ public class Army : IPathMovable
     public ICollection<Brigade> Brigades { get; set; } = new List<Brigade>();
 
     // Computed properties for DataGrid display
-    public int CombatStrength => Brigades?.Sum(b => b.Number * (b.UnitType == UnitType.Cavalry ? 2 : 1)) ?? 0;
-    public int DailySupplyConsumption => (Brigades?.Sum(b => b.Number * (b.UnitType == UnitType.Cavalry ? 10 : 1)) ?? 0)
+    public int CombatStrength => Brigades?.Sum(b => b.Number * b.UnitType.CombatPowerPerMan()) ?? 0;
+    public int DailySupplyConsumption => (Brigades?.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan()) ?? 0)
         + NonCombatants + (Wagons * 10);
     public double DaysOfSupply => DailySupplyConsumption > 0 ? (double)CarriedSupply / DailySupplyConsumption : 0;
 }

@@ -35,6 +35,10 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             Context, _gameStateService, _armyService, _messageService,
             _mapService, _pathfindingService, _commanderService,
             _coLocationChannelService, discordChannelManager.Object);
+
+        // Pin game time to a deterministic daytime value so movement tests are not
+        // dependent on the wall clock. 08:00 gives 12 consecutive valid march hours.
+        await _gameStateService.SetGameTimeAsync(new DateTime(1805, 1, 1, 8, 0, 0));
     }
 
     [Test]
@@ -108,7 +112,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             Path = new List<Hex> { endHex.ToHex() }
         });
 
-        // Army movement rate is 0.5, road cost is 6, so need 6/0.5 = 12 hours
+        // Empty army: MarchingColumnLength=0, isLongColumn=false, rate=1.0
+        // Need RoadCost(6)/rate(1.0)=6 valid march hours. Running 12 hours ensures margin.
         for (int i = 0; i < 12; i++)
         {
             await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
@@ -210,7 +215,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             FollowingArmyId = army.Id
         });
 
-        // Army movement rate is 0.5, road cost is 6, so need 6/0.5 = 12 hours
+        // Empty army: MarchingColumnLength=0, isLongColumn=false, rate=1.0
+        // Need RoadCost(6)/rate(1.0)=6 valid march hours. Running 12 hours ensures margin.
         for (int i = 0; i < 12; i++)
         {
             await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
