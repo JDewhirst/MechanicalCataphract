@@ -52,10 +52,6 @@ public class PathfindingService : IPathfindingService
         if (start.q == end.q && start.r == end.r)
             return new PathResult { Success = true, Path = Array.Empty<Hex>(), TotalCost = 0 };
 
-        // Preload faction rules into cache so A* loop can query synchronously
-        if (factionId.HasValue)
-            await _factionRuleService.PreloadForFactionAsync(factionId.Value);
-
         // Load all hexes into a dictionary for fast lookup
         var allHexes = await _mapService.GetAllHexesAsync();
         var hexMap = allHexes.ToDictionary(h => (h.Q, h.R), h => h);
@@ -101,7 +97,7 @@ public class PathfindingService : IPathfindingService
 
                 // Calculate movement cost
                 var currentMapHex = hexMap[(current.q, current.r)];
-                int moveCost = GetMovementCost(currentMapHex, dir, entityType, factionId, rules);
+                int moveCost = GetMovementCost(currentMapHex, dir, entityType, rules);
 
                 int tentativeGScore = gScore[(current.q, current.r)] + moveCost;
 
@@ -133,19 +129,10 @@ public class PathfindingService : IPathfindingService
 
     /// <summary>
     /// Calculates movement cost from a hex in a given direction.
-    /// Checks the RiversAsRoads faction rule synchronously (cache must be preloaded).
     /// </summary>
-    private int GetMovementCost(MapHex from, int direction, TravelEntityType entityType, int? factionId, GameRulesData rules)
+    private static int GetMovementCost(MapHex from, int direction, TravelEntityType entityType, GameRulesData rules)
     {
         bool hasRoad = from.HasRoadInDirection(direction);
-
-        // Faction rule: rivers count as roads for this faction
-        bool riversAsRoads = factionId.HasValue &&
-            _factionRuleService.GetCachedRuleValue(factionId.Value, FactionRuleKeys.RiversAsRoads) == 1.0;
-
-        if (!hasRoad && riversAsRoads && from.HasRiverOnEdge(direction))
-            hasRoad = true;
-
         int baseCost = hasRoad ? rules.Movement.RoadCost : rules.Movement.OffRoadCost;
 
         return entityType switch
@@ -287,13 +274,8 @@ public class PathfindingService : IPathfindingService
         bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
         bool hasRiver = await _mapService.HasRiverBetweenAsync(currentHex, nextHex);
 
-        // Check RiversAsRoads faction rule
-        await _factionRuleService.PreloadForFactionAsync(army.FactionId);
-        bool riversAsRoads = _factionRuleService.GetCachedRuleValue(
-            army.FactionId, FactionRuleKeys.RiversAsRoads) == 1.0;
-
-        // River without bridge (and rivers not treated as roads) = fording penalty
-        if (hasRiver && !hasRoad && !riversAsRoads)
+        // River without bridge = fording penalty (cavalry excluded, forced march doesn't help)
+        if (hasRiver && !hasRoad)
             extraCost = army.FordingColumnLength * rules.Movement.RiverFordingCostPerColumnUnit;
 
         return await MoveEntity(army, hours, () => _armyService.UpdateAsync(army), effectiveRate, extraCost);
