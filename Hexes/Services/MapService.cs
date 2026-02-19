@@ -181,7 +181,7 @@ public class MapService : IMapService
         {
             var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
 
-            totalSupply += mapHex.PopulationDensity * 500;
+            totalSupply += mapHex.PopulationDensity * GameRules.Current.Supply.ForageMultiplierPerDensity;
             mapHex.TimesForaged++;
         }
 

@@ -34,7 +34,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_NameChange_TriggersDiscordUpdate()
     {
         var faction = new Faction { Id = 5, Name = "Old Name", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
 
         vm.Name = "New Name";
 
@@ -51,7 +51,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_ColorChange_TriggersDiscordUpdate()
     {
         var faction = new Faction { Id = 5, Name = "Test", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
 
         vm.ColorHex = "#00FF00";
 
@@ -67,7 +67,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_NameAndColorChange_DebouncesIntoSingleCall()
     {
         var faction = new Faction { Id = 5, Name = "Old", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
 
         vm.Name = "New";
         vm.ColorHex = "#00FF00";
@@ -85,7 +85,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_RapidNameChanges_DebouncesFinalValue()
     {
         var faction = new Faction { Id = 5, Name = "Original", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
 
         vm.Name = "First";
         vm.Name = "Second";
@@ -117,7 +117,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_RulesChange_DoesNotTriggerDiscordUpdate()
     {
         var faction = new Faction { Id = 5, Name = "Test", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
 
         vm.Rules = "Some rules text";
 
@@ -334,6 +334,7 @@ public class DiscordChannelManagerViewModelTests
             timeAdvanceService.Object,
             pathfindingService.Object,
             _coLocService.Object,
+            new Mock<IFactionRuleService>().Object,
             botService.Object,
             _channelMgr.Object,
             new Mock<IDiscordMessageHandler>().Object);

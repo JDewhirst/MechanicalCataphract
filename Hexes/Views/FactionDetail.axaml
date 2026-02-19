@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:GUI.ViewModels.EntityViewModels"
              xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             xmlns:collections="using:System.Collections.Generic"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
              x:Class="GUI.Views.FactionDetail"
              x:DataType="vm:FactionViewModel">
@@ -96,6 +97,69 @@
                  <TextBlock Text="(No commanders)"
                             IsVisible="{Binding !Commanders.Count}"
                             Foreground="Gray" FontStyle="Italic" FontSize="11"/>
+             </StackPanel>
+         </Border>
+
+         <!-- Game Rules section -->
+         <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
+             <StackPanel Spacing="5">
+                 <TextBlock Text="Game Rules" FontWeight="Bold" FontSize="12"/>
+                 <TextBlock Text="Per-faction mechanical overrides (editable by referees)."
+                            FontSize="10" Foreground="Gray" TextWrapping="Wrap"/>
+
+                 <DataGrid ItemsSource="{Binding FactionRules}"
+                           AutoGenerateColumns="False"
+                           CanUserResizeColumns="True"
+                           CanUserReorderColumns="False"
+                           GridLinesVisibility="Horizontal"
+                           HeadersVisibility="Column"
+                           IsReadOnly="False"
+                           MaxHeight="180">
+                     <DataGrid.Columns>
+                         <!-- Rule key column: ComboBox bound to AvailableRuleKeys on parent VM -->
+                         <DataGridTemplateColumn Header="Rule" Width="*">
+                             <DataGridTemplateColumn.CellTemplate>
+                                 <DataTemplate x:DataType="vm:FactionRuleViewModel">
+                                     <TextBlock Text="{Binding RuleKey}" VerticalAlignment="Center" Margin="4,0"/>
+                                 </DataTemplate>
+                             </DataGridTemplateColumn.CellTemplate>
+                             <DataGridTemplateColumn.CellEditingTemplate>
+                                 <DataTemplate x:DataType="vm:FactionRuleViewModel">
+                                     <ComboBox SelectedItem="{Binding RuleKey, Mode=TwoWay}"
+                                               ItemsSource="{Binding $parent[UserControl].((vm:FactionViewModel)DataContext).AvailableRuleKeys}"
+                                               HorizontalAlignment="Stretch"/>
+                                 </DataTemplate>
+                             </DataGridTemplateColumn.CellEditingTemplate>
+                         </DataGridTemplateColumn>
+
+                         <!-- Value column -->
+                         <DataGridTextColumn Header="Value"
+                                             Binding="{Binding Value}"
+                                             Width="80"/>
+
+                         <!-- Remove button column -->
+                         <DataGridTemplateColumn Header="" Width="36">
+                             <DataGridTemplateColumn.CellTemplate>
+                                 <DataTemplate x:DataType="vm:FactionRuleViewModel">
+                                     <Button Content="✕"
+                                             FontSize="10"
+                                             Padding="2"
+                                             Command="{Binding $parent[UserControl].((vm:FactionViewModel)DataContext).RemoveFactionRuleCommand}"
+                                             CommandParameter="{Binding}"/>
+                                 </DataTemplate>
+                             </DataGridTemplateColumn.CellTemplate>
+                         </DataGridTemplateColumn>
+                     </DataGrid.Columns>
+                 </DataGrid>
+
+                 <TextBlock Text="(No game rules)"
+                            IsVisible="{Binding !FactionRules.Count}"
+                            Foreground="Gray" FontStyle="Italic" FontSize="11"/>
+
+                 <Button Content="+ Add Rule"
+                         Command="{Binding AddFactionRuleCommand}"
+                         Padding="6,2"
+                         HorizontalAlignment="Left"/>
              </StackPanel>
          </Border>
     </StackPanel>

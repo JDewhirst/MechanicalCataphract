@@ -2,6 +2,7 @@ using System;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Moq;
 
 namespace MechanicalCataphract.Tests.Services.Integration;
 
@@ -22,7 +23,18 @@ public class PathfindingIntegrationTests : IntegrationTestBase
         _armyService = new ArmyService(Context);
         _messageService = new MessageService(Context);
         _commanderService = new CommanderService(Context);
-        _pathfindingService = new PathfindingService(_mapService, _messageService, _armyService, _commanderService);
+
+        var mockGameRules = new Mock<IGameRulesService>();
+        mockGameRules.Setup(s => s.Rules).Returns(GameRulesService.CreateDefaults());
+
+        var mockFactionRules = new Mock<IFactionRuleService>();
+        mockFactionRules.Setup(s => s.PreloadForFactionAsync(It.IsAny<int>())).Returns(Task.CompletedTask);
+        mockFactionRules.Setup(s => s.GetCachedRuleValue(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<double>()))
+            .Returns((int _, string _, double d) => d);
+
+        _pathfindingService = new PathfindingService(
+            _mapService, _messageService, _armyService, _commanderService,
+            mockGameRules.Object, mockFactionRules.Object);
     }
 
     [Test]

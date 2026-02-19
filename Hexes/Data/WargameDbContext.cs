@@ -25,6 +25,7 @@ public class WargameDbContext : DbContext
     public DbSet<DiscordConfig> DiscordConfigs { get; set; }
     public DbSet<CoLocationChannel> CoLocationChannels { get; set; }
     public DbSet<WeatherUpdateRecord> WeatherUpdateRecords { get; set; }
+    public DbSet<FactionRule> FactionRules { get; set; }
 
     public WargameDbContext(DbContextOptions<WargameDbContext> options)
         : base(options) { }
@@ -142,6 +143,13 @@ public class WargameDbContext : DbContext
             .WithMany()
             .HasForeignKey(h => h.LocationTypeId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // FactionRule -> Faction (cascade delete: removing a faction removes its rules)
+        modelBuilder.Entity<FactionRule>()
+            .HasOne(r => r.Faction)
+            .WithMany()
+            .HasForeignKey(r => r.FactionId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Order -> Commander
         modelBuilder.Entity<Order>()

@@ -13,13 +13,29 @@ public class PathfindingServiceTests
     private Mock<IMessageService> _mockMessageService = null!;
     private Mock<IArmyService> _mockArmyService = null!;
     private Mock<ICommanderService> _mockCommanderService = null!;
+    private Mock<IGameRulesService> _mockGameRulesService = null!;
+    private Mock<IFactionRuleService> _mockFactionRuleService = null!;
 
     [SetUp]
     public void Setup()
     {
+        // Set up static GameRules accessor so entity computed properties don't throw
+        GameRules.SetForTesting(GameRulesService.CreateDefaults());
+
         _mockMessageService = new Mock<IMessageService>();
         _mockArmyService = new Mock<IArmyService>();
         _mockCommanderService = new Mock<ICommanderService>();
+
+        _mockGameRulesService = new Mock<IGameRulesService>();
+        _mockGameRulesService.Setup(s => s.Rules).Returns(GameRulesService.CreateDefaults());
+
+        _mockFactionRuleService = new Mock<IFactionRuleService>();
+        _mockFactionRuleService
+            .Setup(s => s.PreloadForFactionAsync(It.IsAny<int>()))
+            .Returns(Task.CompletedTask);
+        _mockFactionRuleService
+            .Setup(s => s.GetCachedRuleValue(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<double>()))
+            .Returns((int _, string _, double d) => d);
     }
 
     private PathfindingService CreateService(Mock<IMapService> mockMapService)
@@ -28,7 +44,9 @@ public class PathfindingServiceTests
             mockMapService.Object,
             _mockMessageService.Object,
             _mockArmyService.Object,
-            _mockCommanderService.Object);
+            _mockCommanderService.Object,
+            _mockGameRulesService.Object,
+            _mockFactionRuleService.Object);
     }
 
     #region FindPathAsync Tests

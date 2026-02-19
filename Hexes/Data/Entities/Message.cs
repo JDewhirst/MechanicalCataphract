@@ -1,6 +1,7 @@
 using Hexes;
 using System;
 using System.Collections.Generic;
+using MechanicalCataphract.Services;
 
 namespace MechanicalCataphract.Data.Entities;
 
@@ -31,7 +32,7 @@ public class Message : IPathMovable
     // Movement (implements IPathMovable)
     public List<Hex>? Path { get; set; }
     public float TimeInTransit { get; set; }
-    public float MovementRate => 2f;
+    public float MovementRate => (float)GameRules.Current.MovementRates.MessengerBaseRate;
 
     // Status
     public bool Delivered { get; set; }

@@ -1,0 +1,27 @@
+{
+  "movement": {
+    "roadCost": 6,
+    "offRoadCost": 12,
+    "armyMovementMultiplier": 1.5,
+    "marchDayStartHour": 8,
+    "marchDayEndHour": 20,
+    "longColumnThreshold": 6,
+    "longColumnSpeedCap": 0.5,
+    "forcedMarchMultiplier": 2.0,
+    "riverFordingCostPerColumnUnit": 6
+  },
+  "movementRates": {
+    "armyBaseRate": 1.0,
+    "messengerBaseRate": 2.0,
+    "commanderBaseRate": 2.0
+  },
+  "supply": {
+    "wagonSupplyMultiplier": 10,
+    "forageMultiplierPerDensity": 500
+  },
+  "unitStats": {
+    "infantry":    { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
+    "skirmishers": { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
+    "cavalry":     { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false }
+  }
+}

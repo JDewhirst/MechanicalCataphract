@@ -42,6 +42,10 @@ public partial class App : Application
         ConfigureServices(services);
         Services = services.BuildServiceProvider();
 
+        // Resolve GameRulesService immediately so GameRules.Current is set
+        // before any entity computed properties run (they use the static accessor).
+        Services.GetRequiredService<IGameRulesService>();
+
         // Ensure database is created and seed terrain types from assets
         using (var scope = Services.CreateScope())
         {
@@ -118,6 +122,9 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        // Game rules (singleton — loaded from game_rules.json, sets GameRules.Current)
+        services.AddSingleton<IGameRulesService, GameRulesService>();
+
         // Database
         services.AddDbContext<WargameDbContext>(options =>
             options.UseSqlite("Data Source=wargame.db"));
@@ -133,6 +140,7 @@ public partial class App : Application
         services.AddScoped<ICoLocationChannelService, CoLocationChannelService>();
         services.AddScoped<ITimeAdvanceService, TimeAdvanceService>();
         services.AddScoped<IPathfindingService, PathfindingService>();
+        services.AddScoped<IFactionRuleService, FactionRuleService>();
 
         // Discord (singletons — long-lived gateway connection)
         services.AddSingleton<IDiscordBotService, DiscordBotService>();

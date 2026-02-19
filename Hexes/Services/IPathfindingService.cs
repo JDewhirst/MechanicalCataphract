@@ -15,7 +15,9 @@ public interface IPathfindingService
     /// <param name="end">Target hex</param>
     /// <param name="entityType">Type of entity for travel speed calculation</param>
     /// <returns>Path result containing the route or failure reason</returns>
-    Task<PathResult> FindPathAsync(Hex start, Hex end, TravelEntityType entityType = TravelEntityType.Message);
+    Task<PathResult> FindPathAsync(Hex start, Hex end,
+        TravelEntityType entityType = TravelEntityType.Message,
+        int? factionId = null);
 
     /// <summary>Moves a message along its path for the given hours.</summary>
     Task<int> MoveMessage(Message message, int hours);

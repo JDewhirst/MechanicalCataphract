@@ -159,7 +159,7 @@ public class ArmyService : IArmyService
         var army = await GetArmyWithBrigadesAsync(armyId);
         return army.Brigades.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan())
             + (UnitType.Infantry.SupplyConsumptionPerMan() * army.NonCombatants)
-            + (UnitType.Cavalry.SupplyConsumptionPerMan() * army.Wagons);
+            + (int)(GameRules.Current.Supply.WagonSupplyMultiplier * army.Wagons);
     }
 
 

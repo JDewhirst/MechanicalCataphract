@@ -217,6 +217,7 @@ public class CoLocationChannelViewModelTests
             timeAdvanceService.Object,
             pathfindingService.Object,
             _coLocService.Object,
+            new Mock<IFactionRuleService>().Object,
             botService.Object,
             _channelMgr.Object,
             new Mock<IDiscordMessageHandler>().Object);

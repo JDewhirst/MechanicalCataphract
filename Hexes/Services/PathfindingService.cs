@@ -13,24 +13,28 @@ public class PathfindingService : IPathfindingService
     private readonly IMessageService _messageService;
     private readonly IArmyService _armyService;
     private readonly ICommanderService _commanderService;
-
-    // Cost constants (in abstract units, representing 6 miles per hex)
-    private const int RoadCost = 6;
-    private const int OffRoadCost = 12;
+    private readonly IGameRulesService _gameRulesService;
+    private readonly IFactionRuleService _factionRuleService;
 
     public PathfindingService(
         IMapService mapService,
         IMessageService messageService,
         IArmyService armyService,
-        ICommanderService commanderService)
+        ICommanderService commanderService,
+        IGameRulesService gameRulesService,
+        IFactionRuleService factionRuleService)
     {
         _mapService = mapService;
         _messageService = messageService;
         _armyService = armyService;
         _commanderService = commanderService;
+        _gameRulesService = gameRulesService;
+        _factionRuleService = factionRuleService;
     }
 
-    public async Task<PathResult> FindPathAsync(Hex start, Hex end, TravelEntityType entityType = TravelEntityType.Message)
+    public async Task<PathResult> FindPathAsync(Hex start, Hex end,
+        TravelEntityType entityType = TravelEntityType.Message,
+        int? factionId = null)
     {
         // Validate start and end hexes exist
         var startHex = await _mapService.GetHexAsync(start);
@@ -48,15 +52,21 @@ public class PathfindingService : IPathfindingService
         if (start.q == end.q && start.r == end.r)
             return new PathResult { Success = true, Path = Array.Empty<Hex>(), TotalCost = 0 };
 
+        // Preload faction rules into cache so A* loop can query synchronously
+        if (factionId.HasValue)
+            await _factionRuleService.PreloadForFactionAsync(factionId.Value);
+
         // Load all hexes into a dictionary for fast lookup
         var allHexes = await _mapService.GetAllHexesAsync();
         var hexMap = allHexes.ToDictionary(h => (h.Q, h.R), h => h);
+
+        var rules = _gameRulesService.Rules;
 
         // A* algorithm
         var openSet = new PriorityQueue<Hex, int>();
         var cameFrom = new Dictionary<(int q, int r), Hex>();
         var gScore = new Dictionary<(int q, int r), int> { [(start.q, start.r)] = 0 };
-        var fScore = new Dictionary<(int q, int r), int> { [(start.q, start.r)] = PathfindingHeuristic(start, end) };
+        var fScore = new Dictionary<(int q, int r), int> { [(start.q, start.r)] = PathfindingHeuristic(start, end, rules) };
 
         openSet.Enqueue(start, fScore[(start.q, start.r)]);
 
@@ -91,7 +101,7 @@ public class PathfindingService : IPathfindingService
 
                 // Calculate movement cost
                 var currentMapHex = hexMap[(current.q, current.r)];
-                int moveCost = GetMovementCost(currentMapHex, neighborMapHex, dir, entityType);
+                int moveCost = GetMovementCost(currentMapHex, dir, entityType, factionId, rules);
 
                 int tentativeGScore = gScore[(current.q, current.r)] + moveCost;
 
@@ -100,7 +110,7 @@ public class PathfindingService : IPathfindingService
                     // This path is better
                     cameFrom[neighborKey] = current;
                     gScore[neighborKey] = tentativeGScore;
-                    fScore[neighborKey] = tentativeGScore + PathfindingHeuristic(neighbor, end);
+                    fScore[neighborKey] = tentativeGScore + PathfindingHeuristic(neighbor, end, rules);
 
                     // Add to open set (PriorityQueue handles duplicates by priority)
                     openSet.Enqueue(neighbor, fScore[neighborKey]);
@@ -116,26 +126,31 @@ public class PathfindingService : IPathfindingService
     /// Heuristic function for A* - hex distance multiplied by minimum cost.
     /// Admissible because it never overestimates the actual cost.
     /// </summary>
-    private static int PathfindingHeuristic(Hex a, Hex b)
+    private static int PathfindingHeuristic(Hex a, Hex b, GameRulesData rules)
     {
-        return a.Distance(b) * RoadCost;
+        return a.Distance(b) * rules.Movement.RoadCost;
     }
 
     /// <summary>
-    /// Calculates movement cost between two adjacent hexes.
+    /// Calculates movement cost from a hex in a given direction.
+    /// Checks the RiversAsRoads faction rule synchronously (cache must be preloaded).
     /// </summary>
-    private static int GetMovementCost(MapHex from, MapHex to, int direction, TravelEntityType entityType)
+    private int GetMovementCost(MapHex from, int direction, TravelEntityType entityType, int? factionId, GameRulesData rules)
     {
-        // Check if there's a road connecting these hexes
         bool hasRoad = from.HasRoadInDirection(direction);
 
-        int baseCost = hasRoad ? RoadCost : OffRoadCost;
+        // Faction rule: rivers count as roads for this faction
+        bool riversAsRoads = factionId.HasValue &&
+            _factionRuleService.GetCachedRuleValue(factionId.Value, FactionRuleKeys.RiversAsRoads) == 1.0;
 
-        // Apply entity type modifier (could be expanded later)
+        if (!hasRoad && riversAsRoads && from.HasRiverOnEdge(direction))
+            hasRoad = true;
+
+        int baseCost = hasRoad ? rules.Movement.RoadCost : rules.Movement.OffRoadCost;
+
         return entityType switch
         {
-            TravelEntityType.Message => baseCost,           // Messengers move at base speed
-            TravelEntityType.Army => (int)(baseCost * 1.5), // Armies are 50% slower
+            TravelEntityType.Army => (int)(baseCost * rules.Movement.ArmyMovementMultiplier),
             _ => baseCost
         };
     }
@@ -172,12 +187,6 @@ public class PathfindingService : IPathfindingService
     /// <summary>
     /// Shared movement logic for any IPathMovable entity.
     /// </summary>
-    /// <param name="entity">The entity to move</param>
-    /// <param name="hours">Hours of movement to apply</param>
-    /// <param name="saveAsync">Callback to persist the entity</param>
-    /// <param name="effectiveRate">Override movement rate (null = use entity's MovementRate)</param>
-    /// <param name="extraCost">Additional cost on top of base movement cost (e.g. river fording)</param>
-    /// <returns>1 if entity advanced to next waypoint, 0 otherwise</returns>
     private async Task<int> MoveEntity(IPathMovable entity, int hours, Func<Task> saveAsync, float? effectiveRate = null, int extraCost = 0)
     {
         if (entity.CoordinateQ == null || entity.CoordinateR == null)
@@ -193,8 +202,9 @@ public class PathfindingService : IPathfindingService
 
         var nextHex = entity.Path[0];
 
+        var rules = _gameRulesService.Rules;
         bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
-        int movementCost = (hasRoad ? RoadCost : OffRoadCost) + extraCost;
+        int movementCost = (hasRoad ? rules.Movement.RoadCost : rules.Movement.OffRoadCost) + extraCost;
 
         float rate = effectiveRate ?? entity.MovementRate;
 
@@ -215,13 +225,34 @@ public class PathfindingService : IPathfindingService
 
     public async Task<int> MoveMessage(Message message, int hours)
     {
-        return await MoveEntity(message, hours, () => _messageService.UpdateAsync(message));
+        float effectiveRate = message.MovementRate;
+
+        // Faction rule: messenger speed bonus in own-controlled hexes
+        if (message.CoordinateQ.HasValue && message.CoordinateR.HasValue && message.SenderCommander != null)
+        {
+            var hex = await _mapService.GetHexAsync(message.CoordinateQ.Value, message.CoordinateR.Value);
+            if (hex?.ControllingFactionId != null && hex.ControllingFactionId == message.SenderCommander.FactionId)
+            {
+                await _factionRuleService.PreloadForFactionAsync(message.SenderCommander.FactionId);
+                double multiplier = _factionRuleService.GetCachedRuleValue(
+                    message.SenderCommander.FactionId,
+                    FactionRuleKeys.OwnTerritoryMessengerMultiplier,
+                    1.0);
+                effectiveRate = (float)(effectiveRate * multiplier);
+            }
+        }
+
+        return await MoveEntity(message, hours, () => _messageService.UpdateAsync(message), effectiveRate);
     }
 
     public async Task<int> MoveArmy(Army army, int hours, DateTime currentGameTime)
     {
-        // Daytime restriction: armies only march 8am–8pm unless night marching
-        if (!army.IsNightMarching && (currentGameTime.Hour < 8 || currentGameTime.Hour >= 20))
+        var rules = _gameRulesService.Rules;
+
+        // Daytime restriction: armies only march during configured hours unless night marching
+        if (!army.IsNightMarching &&
+            (currentGameTime.Hour < rules.Movement.MarchDayStartHour ||
+             currentGameTime.Hour >= rules.Movement.MarchDayEndHour))
             return 0;
 
         if (army.CoordinateQ == null || army.CoordinateR == null)
@@ -231,15 +262,15 @@ public class PathfindingService : IPathfindingService
             return 0;
 
         // Determine effective movement rate
-        float baseRate = army.MovementRate; // 1.0 mph
-        bool isLongColumn = army.MarchingColumnLength > 6;
+        float baseRate = army.MovementRate;
+        bool isLongColumn = army.MarchingColumnLength > rules.Movement.LongColumnThreshold;
 
         // Speed cap for long columns
         if (isLongColumn)
-            baseRate = 0.5f;
+            baseRate = (float)rules.Movement.LongColumnSpeedCap;
 
-        // Forced march doubles effective rate
-        float effectiveRate = army.IsForcedMarch ? baseRate * 2.0f : baseRate;
+        // Forced march multiplies effective rate
+        float effectiveRate = army.IsForcedMarch ? baseRate * (float)rules.Movement.ForcedMarchMultiplier : baseRate;
 
         // Track forced march hours
         if (army.IsForcedMarch)
@@ -256,9 +287,14 @@ public class PathfindingService : IPathfindingService
         bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
         bool hasRiver = await _mapService.HasRiverBetweenAsync(currentHex, nextHex);
 
-        // River without bridge = fording penalty (cavalry excluded, forced march doesn't help)
-        if (hasRiver && !hasRoad)
-            extraCost = army.FordingColumnLength * 6;
+        // Check RiversAsRoads faction rule
+        await _factionRuleService.PreloadForFactionAsync(army.FactionId);
+        bool riversAsRoads = _factionRuleService.GetCachedRuleValue(
+            army.FactionId, FactionRuleKeys.RiversAsRoads) == 1.0;
+
+        // River without bridge (and rivers not treated as roads) = fording penalty
+        if (hasRiver && !hasRoad && !riversAsRoads)
+            extraCost = army.FordingColumnLength * rules.Movement.RiverFordingCostPerColumnUnit;
 
         return await MoveEntity(army, hours, () => _armyService.UpdateAsync(army), effectiveRate, extraCost);
     }

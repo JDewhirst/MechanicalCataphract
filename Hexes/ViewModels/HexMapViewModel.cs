@@ -31,6 +31,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly ITimeAdvanceService _timeAdvanceService;
     private readonly IPathfindingService _pathfindingService;
     private readonly ICoLocationChannelService _coLocationChannelService;
+    private readonly IFactionRuleService _factionRuleService;
     private readonly IDiscordBotService _discordBotService;
     private readonly IDiscordChannelManager _discordChannelManager;
     private readonly IDiscordMessageHandler _discordMessageHandler;
@@ -195,6 +196,7 @@ public partial class HexMapViewModel : ObservableObject
         ITimeAdvanceService timeAdvanceService,
         IPathfindingService pathfindingService,
         ICoLocationChannelService coLocationChannelService,
+        IFactionRuleService factionRuleService,
         IDiscordBotService discordBotService,
         IDiscordChannelManager discordChannelManager,
         IDiscordMessageHandler discordMessageHandler)
@@ -209,6 +211,7 @@ public partial class HexMapViewModel : ObservableObject
         _timeAdvanceService = timeAdvanceService;
         _pathfindingService = pathfindingService;
         _coLocationChannelService = coLocationChannelService;
+        _factionRuleService = factionRuleService;
         _discordBotService = discordBotService;
         _discordChannelManager = discordChannelManager;
         _discordMessageHandler = discordMessageHandler;
@@ -827,7 +830,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedMessage = null;
             SelectedHex = null;
             SelectedMapHex = null;
-            SelectedEntityViewModel = new FactionViewModel(value, _factionService, _discordChannelManager);
+            SelectedEntityViewModel = new FactionViewModel(value, _factionService, _factionRuleService, _discordChannelManager);
             StatusMessage = $"Selected faction: {value.Name}";
             _ = LoadFactionWithDetailsAsync(value.Id);
         }
@@ -858,7 +861,7 @@ public partial class HexMapViewModel : ObservableObject
     _factionService.GetFactionWithArmiesAndCommandersAsync(factionId);
         if (factionWithDetails != null)
         {
-            var factionVm = new FactionViewModel(factionWithDetails, _factionService, _discordChannelManager);
+            var factionVm = new FactionViewModel(factionWithDetails, _factionService, _factionRuleService, _discordChannelManager);
 
             // Wire up navigation events
             factionVm.ArmySelected += army => SelectedArmy = army;

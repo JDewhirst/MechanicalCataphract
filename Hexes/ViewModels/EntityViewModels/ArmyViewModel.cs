@@ -218,7 +218,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         var start = new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value);
         var end = new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value);
 
-        var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Army);
+        var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Army, _army.FactionId);
 
         if (result.Success)
         {

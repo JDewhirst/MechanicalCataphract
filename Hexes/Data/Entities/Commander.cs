@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hexes;
+using MechanicalCataphract.Services;
 
 namespace MechanicalCataphract.Data.Entities;
 
@@ -32,7 +33,7 @@ public class Commander : IPathMovable
     // Movement
     public List<Hex>? Path { get; set; }
     public float TimeInTransit { get; set; }
-    public float MovementRate => 2f;
+    public float MovementRate => (float)GameRules.Current.MovementRates.CommanderBaseRate;
 
     // Following Army (physical location coupling, distinct from commanding)
     public int? FollowingArmyId { get; set; }

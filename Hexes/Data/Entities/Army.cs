@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hexes;
+using MechanicalCataphract.Services;
 
 namespace MechanicalCataphract.Data.Entities;
 
@@ -22,7 +23,7 @@ public class Army : IPathMovable
     // Movement
     public List<Hex>? Path { get; set; }
     public float TimeInTransit { get; set; }
-    public float MovementRate => 1.0f;
+    public float MovementRate => (float)GameRules.Current.MovementRates.ArmyBaseRate;
 
     // Ownership
     public int FactionId { get; set; }
@@ -76,6 +77,6 @@ public class Army : IPathMovable
     // Computed properties for DataGrid display
     public int CombatStrength => Brigades?.Sum(b => b.Number * b.UnitType.CombatPowerPerMan()) ?? 0;
     public int DailySupplyConsumption => (Brigades?.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan()) ?? 0)
-        + NonCombatants + (Wagons * 10);
+        + NonCombatants + (int)(Wagons * GameRules.Current.Supply.WagonSupplyMultiplier);
     public double DaysOfSupply => DailySupplyConsumption > 0 ? (double)CarriedSupply / DailySupplyConsumption : 0;
 }

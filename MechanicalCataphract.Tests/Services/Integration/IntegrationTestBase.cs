@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MechanicalCataphract.Data;
+using MechanicalCataphract.Services;
 
 namespace MechanicalCataphract.Tests.Services.Integration;
 
@@ -12,6 +13,9 @@ public abstract class IntegrationTestBase
     [SetUp]
     public async Task BaseSetUp()
     {
+        // Ensure entity computed properties (MovementRate, DailySupplyConsumption, etc.) don't throw
+        GameRules.SetForTesting(GameRulesService.CreateDefaults());
+
         _connection = new SqliteConnection("DataSource=:memory:");
         await _connection.OpenAsync();
 
