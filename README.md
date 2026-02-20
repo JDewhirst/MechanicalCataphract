@@ -14,6 +14,52 @@ Players command armies through a Discord bot interface while a referee manages t
 - Order tracking and processing
 - Discord bot integration for player interaction
 
+## Architecture
+
+```
+┌──────────────────────────┐    ┌──────────────────────────┐
+│       Avalonia UI        │    │   Discord Integration    │
+│                          │    │                          │
+│  MainWindow              │    │  DiscordBotService       │
+│  ├─ HexMapView (canvas)  │    │  DiscordChannelManager   │
+│  └─ Entity Detail Views  │    │  DiscordMessageHandler   │
+│  MapEditorWindow         │    │  ScoutingReportRenderer  │
+│  ├─ Terrain palette      │    │  (SkiaSharp → PNG)       │
+│  └─ Brush / Hex size     │    │                          │
+└──────────────┬───────────┘    └─────────────┬────────────┘
+               │ bindings & commands           │ events / gateway
+┌──────────────▼───────────────────────────────▼────────────┐
+│                    ViewModel Layer                         │
+│                                                            │
+│  HexMapViewModel  (main coordinator)                       │
+│  ├─ ArmyViewModel      ├─ CommanderViewModel               │
+│  ├─ FactionViewModel   ├─ MessageViewModel                 │
+│  ├─ MapHexViewModel    └─ OrderViewModel                   │
+│  └─ CoLocationChannelViewModel                             │
+└─────────────────────────────┬──────────────────────────────┘
+                              │ I*Service  (DI / scoped)
+┌─────────────────────────────▼──────────────────────────────┐
+│                    Service Layer                            │
+│                                                            │
+│  IMapService        IPathfindingService                    │
+│  IArmyService       IFactionRuleService                    │
+│  IFactionService    IGameRulesService ◄── game_rules.json  │
+│  ICommanderService  ITimeAdvanceService                    │
+│  IMessageService    ICoLocationChannelService              │
+│  IOrderService      IGameStateService                      │
+└─────────────────────────────┬──────────────────────────────┘
+                              │ Entity Framework Core
+┌─────────────────────────────▼──────────────────────────────┐
+│              Data Layer  (SQLite · wargame.db)              │
+│                                                            │
+│  WargameDbContext                                          │
+│  Army ── Brigade      Faction ── FactionRule               │
+│  MapHex ── TerrainType ── LocationType                     │
+│  Commander  Message  Order  GameState  Weather             │
+│  CoLocationChannel  DiscordConfig                          │
+└────────────────────────────────────────────────────────────┘
+```
+
 ## Build & Run
 
 Requires .NET 9.0 SDK.
