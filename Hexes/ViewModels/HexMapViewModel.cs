@@ -284,10 +284,11 @@ public partial class HexMapViewModel : ObservableObject
         if (LocationTypes.Count > 0)
             SelectedLocationType = LocationTypes[0];
 
-        // Check if map exists, if not create one
+        // Check if map exists, if not prompt for size and create one
         if (!await _mapService.MapExistsAsync())
         {
-            await _mapService.InitializeMapAsync(50, 50, TerrainTypes.Count > 0 ? TerrainTypes[0].Id : 1);
+            var (newRows, newCols) = await PromptMapSizeAsync();
+            await _mapService.InitializeMapAsync(newRows, newCols, TerrainTypes.Count > 0 ? TerrainTypes[0].Id : 1);
         }
 
         // Get map dimensions
@@ -915,6 +916,18 @@ public partial class HexMapViewModel : ObservableObject
             armyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, armyVm.Entity);
             SelectedEntityViewModel = armyVm;
         }
+    }
+
+    /// <summary>
+    /// Shows the New Map dialog so the user can choose grid dimensions on first launch.
+    /// Falls back to 50×50 if the dialog is cancelled or the window is not yet available.
+    /// </summary>
+    private static async Task<(int rows, int cols)> PromptMapSizeAsync()
+    {
+        if (App.MainWindow == null) return (50, 50);
+        var dialog = new NewMapDialog();
+        var confirmed = await dialog.ShowDialog<bool>(App.MainWindow);
+        return confirmed ? (dialog.Rows, dialog.Columns) : (50, 50);
     }
 
     /// <summary>

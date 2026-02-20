@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GUI.Windows.NewMapDialog"
+        Title="New Map"
+        Width="280" Height="165"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Grid RowDefinitions="Auto,Auto,Auto" Margin="16">
+        <Grid Grid.Row="0" ColumnDefinitions="90,*" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="Columns:" VerticalAlignment="Center"/>
+            <NumericUpDown x:Name="ColsInput" Grid.Column="1"
+                           Value="30" Minimum="5" Maximum="500" FormatString="0"/>
+        </Grid>
+        <Grid Grid.Row="1" ColumnDefinitions="90,*" Margin="0,0,0,16">
+            <TextBlock Grid.Column="0" Text="Rows:" VerticalAlignment="Center"/>
+            <NumericUpDown x:Name="RowsInput" Grid.Column="1"
+                           Value="30" Minimum="5" Maximum="500" FormatString="0"/>
+        </Grid>
+        <StackPanel Grid.Row="2" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Spacing="10">
+            <Button Content="Cancel" Width="75" Click="OnCancelClick"/>
+            <Button Content="Create" Width="75" Click="OnCreateClick"/>
+        </StackPanel>
+    </Grid>
+</Window>
