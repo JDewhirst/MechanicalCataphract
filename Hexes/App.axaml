@@ -15,5 +15,6 @@
         <!-- Application resource dictionary -->
         <SolidColorBrush x:Key="PrimaryBackground">#1de051</SolidColorBrush>
         <converters:EqualityConverter x:Key="EqualityConverter"/>
+        <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
     </Application.Resources>
 </Application>

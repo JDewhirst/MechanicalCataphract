@@ -119,6 +119,9 @@ public partial class HexMapViewModel : ObservableObject
     private Vector _panOffset = Vector.Zero;
 
     [ObservableProperty]
+    private int _brushSize = 1;
+
+    [ObservableProperty]
     private string _currentTool = "Pan";
 
     [ObservableProperty]
@@ -594,26 +597,51 @@ public partial class HexMapViewModel : ObservableObject
     [RelayCommand]
     private async Task PaintTerrainAsync((Hex hex, int terrainTypeId) args)
     {
-        await _mapService.SetTerrainAsync(args.hex, args.terrainTypeId);
+        // Build a fast lookup of hexes that actually exist in the grid
+        var existingCoords = new HashSet<(int q, int r)>(
+            VisibleHexes.Select(h => (h.Q, h.R)));
 
-        // Update local hex in collection
+        var toPaint = GetHexesInRadius(args.hex, BrushSize)
+            .Where(h => existingCoords.Contains((h.q, h.r)))
+            .ToList();
+
+        foreach (var hex in toPaint)
+            await _mapService.SetTerrainAsync(hex, args.terrainTypeId);
+
+        // Refresh the local collection for each painted hex
         for (int i = 0; i < VisibleHexes.Count; i++)
         {
             var mapHex = VisibleHexes[i];
-            if (mapHex.Q == args.hex.q && mapHex.R == args.hex.r)
+            if (toPaint.Any(h => h.q == mapHex.Q && h.r == mapHex.R))
             {
-                // Reload the hex from database to get updated TerrainType
-                var updatedHex = await _mapService.GetHexAsync(args.hex);
+                var updatedHex = await _mapService.GetHexAsync(new Hex(mapHex.Q, mapHex.R, -mapHex.Q - mapHex.R));
                 if (updatedHex != null)
-                {
                     VisibleHexes[i] = updatedHex;
-                }
-                break;
             }
         }
 
         var terrainName = TerrainTypes.FirstOrDefault(t => t.Id == args.terrainTypeId)?.Name ?? "Unknown";
-        StatusMessage = $"Painted {terrainName} at ({args.hex.q}, {args.hex.r})";
+        StatusMessage = BrushSize == 1
+            ? $"Painted {terrainName} at ({args.hex.q}, {args.hex.r})"
+            : $"Painted {terrainName} at ({args.hex.q}, {args.hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
+    }
+
+    /// <summary>
+    /// Returns all cube-coordinate Hex values within distance (brushSize - 1) of center.
+    /// BrushSize 1 => center only. BrushSize 2 => center + ring-1 (7 hexes).
+    /// </summary>
+    private static IEnumerable<Hex> GetHexesInRadius(Hex center, int brushSize)
+    {
+        int radius = Math.Max(0, brushSize - 1);
+        for (int dq = -radius; dq <= radius; dq++)
+        {
+            int rMin = Math.Max(-radius, -dq - radius);
+            int rMax = Math.Min(radius, -dq + radius);
+            for (int dr = rMin; dr <= rMax; dr++)
+            {
+                yield return new Hex(center.q + dq, center.r + dr, -(center.q + dq) - (center.r + dr));
+            }
+        }
     }
 
     [RelayCommand]
