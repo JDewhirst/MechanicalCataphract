@@ -41,7 +41,7 @@ public record NewsRules(
 
 public record WeatherRules(
     int DailyUpdateHour,
-    Dictionary<string, double> Probabilities);
+    Dictionary<string, Dictionary<string, double>> Transitions);
 
 public record GameRulesData(
     MovementRules Movement,

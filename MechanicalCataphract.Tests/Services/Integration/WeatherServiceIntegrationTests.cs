@@ -37,16 +37,19 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
-    public async Task UpdateDailyWeather_OnlyUsesWeatherTypesInProbabilities()
+    public async Task UpdateDailyWeather_OnlyUsesWeatherTypesInTransitions()
     {
-        // Default probabilities only cover Clear, Rain, Overcast, Fog (ids 1,2,5,6)
-        // Storm (3) and Snow (4) are excluded
-        var gameDate = new DateTime(1805, 6, 15);
+        // Default transitions only target Clear, Rain, Overcast, Fog (ids 1,2,5,6)
+        // Storm (3) and Snow (4) are excluded from all transition rows
+        // Seed hexes with Clear weather so the Clear transition row is used
+        var clearId = Context.WeatherTypes.Single(w => w.Name == "Clear").Id;
+        foreach (var hex in Context.MapHexes.ToList())
+            hex.WeatherId = clearId;
+        await Context.SaveChangesAsync();
 
+        var gameDate = new DateTime(1805, 6, 15);
         await _weatherService.UpdateDailyWeatherAsync(gameDate);
 
-        // All seeded weather types from EnsureCreated are in DB
-        // Fetch weather names assigned to hexes
         var hexes = Context.MapHexes.ToList();
         var assignedIds = hexes.Select(h => h.WeatherId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
         var assignedNames = Context.WeatherTypes
@@ -56,7 +59,7 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
 
         var allowedNames = new[] { "Clear", "Rain", "Overcast", "Fog" };
         Assert.That(assignedNames.All(n => allowedNames.Contains(n, StringComparer.OrdinalIgnoreCase)), Is.True,
-            "Only weather types listed in probability rules should be assigned");
+            "Only weather types listed in transition rules should be assigned");
     }
 
     [Test]
@@ -92,25 +95,69 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
-    public async Task UpdateDailyWeather_ReturnsZero_WhenNoProbabilitiesMatchDb()
+    public async Task UpdateDailyWeather_ReturnsZero_WhenNoTransitionsMatchDb()
     {
-        // Override rules with probabilities for weather names that don't exist in the DB
+        // Override rules with transitions whose target names don't exist in the DB
         var rulesWithNoMatch = new GameRulesData(
             GameRulesService.CreateDefaults().Movement,
             GameRulesService.CreateDefaults().MovementRates,
             GameRulesService.CreateDefaults().Supply,
             GameRulesService.CreateDefaults().UnitStats,
             GameRulesService.CreateDefaults().News,
-            new WeatherRules(6, new System.Collections.Generic.Dictionary<string, double>
+            new WeatherRules(6, new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>
             {
-                ["Blizzard"] = 1.0  // doesn't exist in seeded DB
+                ["Clear"] = new() { ["Blizzard"] = 1.0 }  // target doesn't exist in seeded DB
             }));
         _mockGameRules.Setup(s => s.Rules).Returns(rulesWithNoMatch);
 
         var gameDate = new DateTime(1805, 6, 15);
         int updated = await _weatherService.UpdateDailyWeatherAsync(gameDate);
 
-        Assert.That(updated, Is.EqualTo(0), "No update when no DB weather types match probabilities");
+        Assert.That(updated, Is.EqualTo(0), "No update when no DB weather types match transition targets");
+    }
+
+    [Test]
+    public async Task UpdateDailyWeather_UsesCurrentWeatherForTransition()
+    {
+        // Use deterministic transitions: Clear->Overcast (100%), Rain->Fog (100%)
+        var deterministicRules = new GameRulesData(
+            GameRulesService.CreateDefaults().Movement,
+            GameRulesService.CreateDefaults().MovementRates,
+            GameRulesService.CreateDefaults().Supply,
+            GameRulesService.CreateDefaults().UnitStats,
+            GameRulesService.CreateDefaults().News,
+            new WeatherRules(6, new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>
+            {
+                ["Clear"] = new() { ["Overcast"] = 1.0 },
+                ["Rain"]  = new() { ["Fog"] = 1.0 }
+            }));
+        _mockGameRules.Setup(s => s.Rules).Returns(deterministicRules);
+
+        // Assign some hexes Clear and some Rain
+        var weatherTypes = Context.WeatherTypes.ToList();
+        var clearId = weatherTypes.Single(w => w.Name == "Clear").Id;
+        var rainId  = weatherTypes.Single(w => w.Name == "Rain").Id;
+        var overcastId = weatherTypes.Single(w => w.Name == "Overcast").Id;
+        var fogId = weatherTypes.Single(w => w.Name == "Fog").Id;
+
+        var hexes = Context.MapHexes.ToList();
+        for (int i = 0; i < hexes.Count; i++)
+            hexes[i].WeatherId = i % 2 == 0 ? clearId : rainId;
+        await Context.SaveChangesAsync();
+
+        await _weatherService.UpdateDailyWeatherAsync(new DateTime(1805, 6, 15));
+
+        // Reload hexes
+        var updated = Context.MapHexes.ToList();
+        for (int i = 0; i < updated.Count; i++)
+        {
+            if (i % 2 == 0)
+                Assert.That(updated[i].WeatherId, Is.EqualTo(overcastId),
+                    $"Hex {i} started as Clear, should transition to Overcast");
+            else
+                Assert.That(updated[i].WeatherId, Is.EqualTo(fogId),
+                    $"Hex {i} started as Rain, should transition to Fog");
+        }
     }
 
     [Test]

@@ -71,12 +71,12 @@ public class GameRulesService : IGameRulesService
         News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0),
         Weather: new WeatherRules(
             DailyUpdateHour: 6,
-            Probabilities: new System.Collections.Generic.Dictionary<string, double>
+            Transitions: new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>
             {
-                ["Clear"]    = 0.40,
-                ["Rain"]     = 0.25,
-                ["Overcast"] = 0.20,
-                ["Fog"]      = 0.15
+                ["Clear"]    = new() { ["Clear"]=0.40, ["Overcast"]=0.25, ["Rain"]=0.20, ["Fog"]=0.15 },
+                ["Overcast"] = new() { ["Overcast"]=0.40, ["Rain"]=0.25, ["Fog"]=0.20, ["Clear"]=0.15 },
+                ["Rain"]     = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 },
+                ["Fog"]      = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 }
             }));
 
     private static GameRulesData FromDto(GameRulesDto dto)
@@ -117,7 +117,7 @@ public class GameRulesService : IGameRulesService
                 RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0),
             Weather: new WeatherRules(
                 DailyUpdateHour: w?.DailyUpdateHour ?? defaults.Weather.DailyUpdateHour,
-                Probabilities: w?.Probabilities ?? defaults.Weather.Probabilities));
+                Transitions: w?.Transitions ?? defaults.Weather.Transitions));
     }
 
     private static UnitTypeStats FromUnitDto(UnitTypeStatsDto? dto) => dto == null
@@ -154,7 +154,7 @@ public class GameRulesService : IGameRulesService
     private class WeatherDto
     {
         public int? DailyUpdateHour { get; set; }
-        public System.Collections.Generic.Dictionary<string, double>? Probabilities { get; set; }
+        public System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>? Transitions { get; set; }
     }
 
     private class NewsDto

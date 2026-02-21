@@ -30,27 +30,42 @@ public class WeatherService : IWeatherService
         if (alreadyUpdated)
             return 0;
 
-        // Load all weather types and build weighted pool from rules
+        // Load all weather types and build per-row transition lookup
         var allWeatherTypes = await _context.WeatherTypes.ToListAsync();
-        var probabilities = _gameRulesService.Rules.Weather.Probabilities;
+        var transitions = _gameRulesService.Rules.Weather.Transitions;
 
-        var weightedPool = new List<(Weather weather, double weight)>();
-        foreach (var weather in allWeatherTypes)
+        var transitionLookup = new Dictionary<string, List<(Weather, double)>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (fromName, targetProbabilities) in transitions)
         {
-            if (probabilities.TryGetValue(weather.Name, out double weight))
-                weightedPool.Add((weather, weight));
+            var pool = new List<(Weather, double)>();
+            foreach (var (toName, weight) in targetProbabilities)
+            {
+                var match = allWeatherTypes.FirstOrDefault(w =>
+                    string.Equals(w.Name, toName, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                    pool.Add((match, weight));
+            }
+            if (pool.Count > 0)
+                transitionLookup[fromName] = pool;
         }
 
-        if (weightedPool.Count == 0)
+        if (transitionLookup.Count == 0)
             return 0;
 
-        double totalWeight = weightedPool.Sum(p => p.weight);
+        // Fallback row: "Clear" if present, else the first available row
+        if (!transitionLookup.TryGetValue("Clear", out var fallbackRow))
+            fallbackRow = transitionLookup.Values.First();
 
-        // Load all hexes and assign random weather
-        var hexes = await _context.MapHexes.ToListAsync();
+        // Load hexes with current weather and apply Markov transition
+        var hexes = await _context.MapHexes.Include(h => h.Weather).ToListAsync();
         foreach (var hex in hexes)
         {
-            hex.WeatherId = PickWeightedRandom(weightedPool, totalWeight).Id;
+            var currentName = hex.Weather?.Name ?? "";
+            if (!transitionLookup.TryGetValue(currentName, out var row))
+                row = fallbackRow;
+
+            double totalWeight = row.Sum(p => p.Item2);
+            hex.WeatherId = PickWeightedRandom(row, totalWeight).Id;
         }
 
         _context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { UpdateDate = updateDate });

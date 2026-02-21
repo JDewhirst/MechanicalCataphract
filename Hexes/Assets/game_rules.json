@@ -30,11 +30,11 @@
   },
   "weather": {
     "dailyUpdateHour": 6,
-    "probabilities": {
-      "Clear":    0.40,
-      "Rain":     0.25,
-      "Overcast": 0.20,
-      "Fog":      0.15
+    "transitions": {
+      "Clear":    { "Clear": 0.40, "Overcast": 0.25, "Rain": 0.20, "Fog": 0.15 },
+      "Overcast": { "Overcast": 0.40, "Rain": 0.25, "Fog": 0.20, "Clear": 0.15 },
+      "Rain":     { "Fog": 0.40, "Clear": 0.25, "Overcast": 0.20, "Rain": 0.15 },
+      "Fog":      { "Fog": 0.40, "Clear": 0.25, "Overcast": 0.20, "Rain": 0.15 }
     }
   }
 }
