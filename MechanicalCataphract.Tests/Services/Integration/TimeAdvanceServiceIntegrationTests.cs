@@ -40,10 +40,13 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         var discordChannelManager = new Mock<IDiscordChannelManager>();
         var newsService = new Mock<INewsService>();
         newsService.Setup(s => s.ProcessEventDeliveriesAsync(It.IsAny<DateTime>())).ReturnsAsync(0);
+        var weatherService = new Mock<IWeatherService>();
+        weatherService.Setup(s => s.UpdateDailyWeatherAsync(It.IsAny<DateTime>())).ReturnsAsync(0);
         _timeAdvanceService = new TimeAdvanceService(
             Context, _gameStateService, _armyService, _messageService,
             _mapService, _pathfindingService, _commanderService,
-            _coLocationChannelService, discordChannelManager.Object, newsService.Object);
+            _coLocationChannelService, discordChannelManager.Object, newsService.Object,
+            weatherService.Object);
 
         // Pin game time to a deterministic daytime value so movement tests are not
         // dependent on the wall clock. 08:00 gives 12 consecutive valid march hours.

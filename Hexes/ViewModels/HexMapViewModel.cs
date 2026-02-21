@@ -70,6 +70,9 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private LocationType? _selectedLocationType;
 
+    [ObservableProperty]
+    private ObservableCollection<MechanicalCataphract.Data.Entities.Weather> _weatherTypes = new();
+
     // Overlay options for map visualization
     public ObservableCollection<string> OverlayOptions { get; } = new()
     {
@@ -298,6 +301,10 @@ public partial class HexMapViewModel : ObservableObject
 
         if (LocationTypes.Count > 0)
             SelectedLocationType = LocationTypes[0];
+
+        // Load weather types
+        var weatherTypes = await _mapService.GetWeatherTypesAsync();
+        WeatherTypes = new ObservableCollection<MechanicalCataphract.Data.Entities.Weather>(weatherTypes);
 
         // Check if map exists, if not prompt for size and create one
         if (!await _mapService.MapExistsAsync())
@@ -1150,7 +1157,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedCommander = null;
             SelectedOrder = null;
             SelectedMessage = null;
-            SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions, LocationTypes);
+            SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions, LocationTypes, WeatherTypes);
             StatusMessage = $"Selected Hex: {value.LocationName}";
             _ = LoadHexWithDetailsAsync(value.Q, value.R);
         }
@@ -1161,7 +1168,7 @@ public partial class HexMapViewModel : ObservableObject
         var hexWithDetails = await _mapService.GetHexAsync(Q,R);
         if (hexWithDetails != null)
         {
-            var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions, LocationTypes);
+            var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions, LocationTypes, WeatherTypes);
             hexVm.Saved += () => SyncEntityInCollection(() => VisibleHexes, c => VisibleHexes = c, null, hexVm.Entity);
 
             SelectedEntityViewModel = hexVm;

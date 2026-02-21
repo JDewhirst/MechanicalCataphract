@@ -27,5 +27,14 @@
   "news": {
     "offRoadHoursPerHex": 24.0,
     "roadHoursPerHex": 12.0
+  },
+  "weather": {
+    "dailyUpdateHour": 6,
+    "probabilities": {
+      "Clear":    0.40,
+      "Rain":     0.25,
+      "Overcast": 0.20,
+      "Fog":      0.15
+    }
   }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
@@ -71,6 +72,24 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
     private readonly IEnumerable<LocationType> _availableLocationTypes;
     public IEnumerable<LocationType> AvailableLocationTypes => _availableLocationTypes;
 
+    private readonly IEnumerable<Weather> _availableWeatherTypes;
+    public IEnumerable<Weather> AvailableWeatherTypes => _availableWeatherTypes;
+
+    public Weather? Weather
+    {
+        get => _mapHex.Weather;
+        set
+        {
+            if (_mapHex.Weather != value)
+            {
+                _mapHex.Weather = value;
+                _mapHex.WeatherId = value?.Id;
+                OnPropertyChanged();
+                _ = SaveAsync();
+            }
+        }
+    }
+
     public string? LocationName
     {
         get => _mapHex.LocationName;
@@ -101,11 +120,12 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
         Saved?.Invoke();
     }
 
-    public MapHexViewModel(MapHex mapHex, IMapService service, IEnumerable<Faction> availableFactions, IEnumerable<LocationType> availableLocationTypes)
+    public MapHexViewModel(MapHex mapHex, IMapService service, IEnumerable<Faction> availableFactions, IEnumerable<LocationType> availableLocationTypes, IEnumerable<Weather> availableWeatherTypes)
     {
         _mapHex = mapHex;
         _service = service;
         _availableFactions = availableFactions;
         _availableLocationTypes = availableLocationTypes;
+        _availableWeatherTypes = availableWeatherTypes.Where(w => !string.IsNullOrEmpty(w.IconPath));
     }
 }

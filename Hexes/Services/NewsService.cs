@@ -10,22 +10,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MechanicalCataphract.Services;
 
-public class NewsService : INewsService
+public class NewsService(
+    WargameDbContext context,
+    IMapService mapService,
+    IDiscordChannelManager discordChannelManager) : INewsService
 {
-    private readonly WargameDbContext _context;
-    private readonly IMapService _mapService;
-    private readonly IDiscordChannelManager _discordChannelManager;
-
-    public NewsService(
-        WargameDbContext context,
-        IMapService mapService,
-        IDiscordChannelManager discordChannelManager)
-    {
-        _context = context;
-        _mapService = mapService;
-        _discordChannelManager = discordChannelManager;
-    }
-
     public async Task<NewsItem> CreateEventAsync(
         string title,
         int originQ, int originR,
@@ -33,7 +22,7 @@ public class NewsService : INewsService
         Dictionary<int, string> factionMessages)
     {
         // Load all hexes and build adjacency lookup
-        var allHexes = await _mapService.GetAllHexesAsync();
+        var allHexes = await mapService.GetAllHexesAsync();
         var hexLookup = allHexes.ToDictionary(h => (h.Q, h.R));
 
         // Dijkstra flood-fill from origin
@@ -87,14 +76,14 @@ public class NewsService : INewsService
             DeliveredCommanderIds = new List<int>()
         };
 
-        _context.NewsItems.Add(newsItem);
-        await _context.SaveChangesAsync();
+        context.NewsItems.Add(newsItem);
+        await context.SaveChangesAsync();
         return newsItem;
     }
 
     public async Task<IList<NewsItem>> GetAllActiveAsync()
     {
-        return await _context.NewsItems
+        return await context.NewsItems
             .Where(e => e.IsActive)
             .OrderByDescending(e => e.CreatedAtGameTime)
             .ToListAsync();
@@ -102,7 +91,7 @@ public class NewsService : INewsService
 
     public async Task<int> ProcessEventDeliveriesAsync(DateTime currentGameTime)
     {
-        var activeEvents = await _context.NewsItems
+        var activeEvents = await context.NewsItems
             .Where(e => e.IsActive)
             .ToListAsync();
 
@@ -124,7 +113,7 @@ public class NewsService : INewsService
             var delivered = newsItem.DeliveredCommanderIds ?? new List<int>();
 
             // Find commanders in reached hexes
-            var commanders = await _context.Commanders
+            var commanders = await context.Commanders
                 .Include(c => c.Faction)
                 .Where(c => c.CoordinateQ.HasValue && c.CoordinateR.HasValue)
                 .ToListAsync();
@@ -141,7 +130,7 @@ public class NewsService : INewsService
                 if (!newsItem.FactionMessages.TryGetValue(commander.FactionId, out var message))
                     continue;
 
-                await _discordChannelManager.SendMessageToCommanderChannelAsync(commander, message);
+                await discordChannelManager.SendMessageToCommanderChannelAsync(commander, message);
                 newDeliveries.Add(commander.Id);
                 totalDeliveries++;
             }
@@ -149,50 +138,50 @@ public class NewsService : INewsService
             if (newDeliveries.Count > 0)
             {
                 newsItem.DeliveredCommanderIds = delivered.Concat(newDeliveries).ToList();
-                _context.NewsItems.Update(newsItem);
+                context.NewsItems.Update(newsItem);
             }
         }
 
         if (totalDeliveries > 0)
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
         return totalDeliveries;
     }
 
     public async Task UpdateAsync(NewsItem item)
     {
-        _context.NewsItems.Update(item);
-        await _context.SaveChangesAsync();
+        context.NewsItems.Update(item);
+        await context.SaveChangesAsync();
     }
 
     public async Task<IList<NewsItem>> GetAllAsync()
     {
-        return await _context.NewsItems
+        return await context.NewsItems
             .OrderByDescending(e => e.CreatedAtGameTime)
             .ToListAsync();
     }
 
     public async Task ReactivateEventAsync(int eventId)
     {
-        var newsItem = await _context.NewsItems.FindAsync(eventId);
+        var newsItem = await context.NewsItems.FindAsync(eventId);
         if (newsItem == null) return;
         newsItem.IsActive = true;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task DeactivateEventAsync(int eventId)
     {
-        var newsItem = await _context.NewsItems.FindAsync(eventId);
+        var newsItem = await context.NewsItems.FindAsync(eventId);
         if (newsItem == null) return;
         newsItem.IsActive = false;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task DeleteEventAsync(int eventId)
     {
-        var newsItem = await _context.NewsItems.FindAsync(eventId);
+        var newsItem = await context.NewsItems.FindAsync(eventId);
         if (newsItem == null) return;
-        _context.NewsItems.Remove(newsItem);
-        await _context.SaveChangesAsync();
+        context.NewsItems.Remove(newsItem);
+        await context.SaveChangesAsync();
     }
 }

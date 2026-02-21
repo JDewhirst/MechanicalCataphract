@@ -68,7 +68,16 @@ public class GameRulesService : IGameRulesService
             Infantry: new UnitTypeStats(1, 15, 1, 1, 5000, true),
             Skirmishers: new UnitTypeStats(1, 15, 1, 1, 5000, true),
             Cavalry: new UnitTypeStats(10, 75, 2, 2, 2000, false)),
-        News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0));
+        News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0),
+        Weather: new WeatherRules(
+            DailyUpdateHour: 6,
+            Probabilities: new System.Collections.Generic.Dictionary<string, double>
+            {
+                ["Clear"]    = 0.40,
+                ["Rain"]     = 0.25,
+                ["Overcast"] = 0.20,
+                ["Fog"]      = 0.15
+            }));
 
     private static GameRulesData FromDto(GameRulesDto dto)
     {
@@ -77,6 +86,9 @@ public class GameRulesService : IGameRulesService
         var s = dto.Supply ?? new SupplyDto();
         var us = dto.UnitStats ?? new UnitStatsDto();
         var n = dto.News ?? new NewsDto();
+        var w = dto.Weather;
+
+        var defaults = CreateDefaults();
 
         return new GameRulesData(
             Movement: new MovementRules(
@@ -102,7 +114,10 @@ public class GameRulesService : IGameRulesService
                 Cavalry: FromCavalryDto(us.Cavalry)),
             News: new NewsRules(
                 OffRoadHoursPerHex: n.OffRoadHoursPerHex ?? 24.0,
-                RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0));
+                RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0),
+            Weather: new WeatherRules(
+                DailyUpdateHour: w?.DailyUpdateHour ?? defaults.Weather.DailyUpdateHour,
+                Probabilities: w?.Probabilities ?? defaults.Weather.Probabilities));
     }
 
     private static UnitTypeStats FromUnitDto(UnitTypeStatsDto? dto) => dto == null
@@ -133,6 +148,13 @@ public class GameRulesService : IGameRulesService
         public SupplyDto? Supply { get; set; }
         public UnitStatsDto? UnitStats { get; set; }
         public NewsDto? News { get; set; }
+        public WeatherDto? Weather { get; set; }
+    }
+
+    private class WeatherDto
+    {
+        public int? DailyUpdateHour { get; set; }
+        public System.Collections.Generic.Dictionary<string, double>? Probabilities { get; set; }
     }
 
     private class NewsDto

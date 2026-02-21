@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -64,6 +65,43 @@ public partial class App : Application
                     dbContext.TerrainTypes.AddRange(terrainTypes);
                     dbContext.SaveChanges();
                 }
+            }
+
+            // Update weather type icon paths (runs every startup; handles existing databases)
+            {
+                var weatherIconMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Clear"]    = "avares://MechanicalCataphract/Assets/weather-icons/clear-day.svg",
+                    ["Rain"]     = "avares://MechanicalCataphract/Assets/weather-icons/rain.svg",
+                    ["Fog"]      = "avares://MechanicalCataphract/Assets/weather-icons/fog.svg",
+                    ["Overcast"] = "avares://MechanicalCataphract/Assets/weather-icons/overcast.svg",
+                };
+
+                var existingWeatherTypes = dbContext.WeatherTypes.ToList();
+
+                foreach (var kvp in weatherIconMap)
+                {
+                    var name = kvp.Key;
+                    var iconPath = kvp.Value;
+                    var weatherType = existingWeatherTypes.FirstOrDefault(
+                        w => w.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                    if (weatherType != null)
+                    {
+                        weatherType.IconPath = iconPath;
+                    }
+                    else if (name.Equals("Overcast", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dbContext.WeatherTypes.Add(new MechanicalCataphract.Data.Entities.Weather
+                        {
+                            Name = "Overcast",
+                            IconPath = iconPath,
+                            MovementModifier = 0.9,
+                            CombatModifier = 0.95
+                        });
+                    }
+                }
+
+                dbContext.SaveChanges();
             }
 
             // Update location type icons from properties file (runs every startup)
@@ -142,6 +180,7 @@ public partial class App : Application
         services.AddScoped<IPathfindingService, PathfindingService>();
         services.AddScoped<IFactionRuleService, FactionRuleService>();
         services.AddScoped<INewsService, NewsService>();
+        services.AddScoped<IWeatherService, WeatherService>();
 
         // Discord (singletons — long-lived gateway connection)
         services.AddSingleton<IDiscordBotService, DiscordBotService>();

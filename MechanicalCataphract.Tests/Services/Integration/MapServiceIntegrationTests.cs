@@ -249,7 +249,7 @@ public class MapServiceIntegrationTests : IntegrationTestBase
         var locations = await _service.GetLocationTypesAsync();
 
         Assert.That(terrains.Count, Is.EqualTo(1)); // only manually seeded Grass
-        Assert.That(weathers.Count, Is.EqualTo(5)); // EF-seeded
+        Assert.That(weathers.Count, Is.EqualTo(6)); // EF-seeded (Clear, Rain, Storm, Snow, Fog, Overcast)
         Assert.That(locations.Count, Is.EqualTo(5)); // EF-seeded (includes "No Location" sentinel)
     }
 }

@@ -25,5 +25,6 @@ namespace MechanicalCataphract.Services
         public int ArmiesSupplied { get; init; }
         public int CoLocationRemovals { get; init; }
         public int NewsProcessed { get; init; }
+        public int WeatherUpdated { get; init; }
     }
 }

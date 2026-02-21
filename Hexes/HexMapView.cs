@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Svg.Skia;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using AvaloniaPoint = Avalonia.Point;
@@ -215,6 +216,7 @@ public class HexMapView : Control
     private Dictionary<int, ISolidColorBrush> _factionColorCache = new();
     private Dictionary<int, (Bitmap? bitmap, double scaleFactor)> _terrainIconCache = new();
     private Dictionary<int, (Bitmap? bitmap, double scaleFactor)> _locationIconCache = new();
+    private Dictionary<int, IImage?> _weatherIconCache = new();
 
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
@@ -300,6 +302,7 @@ public class HexMapView : Control
         VisibleHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
         {
             view.RebuildFactionColorCache();
+            view.RebuildWeatherIconCache(view.VisibleHexes);
             view.InvalidateVisual();
         });
         TerrainTypesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
@@ -795,7 +798,18 @@ public class HexMapView : Control
                 context.DrawGeometry(overlayBrush, null, _cachedHexGeometry!);
             }
 
-            // 3. Draw selection highlight last (if selected)
+            // 3b. Draw weather SVG icon when in Weather overlay mode
+            if (SelectedOverlay == "Weather" && mapHex.WeatherId.HasValue
+                && _weatherIconCache.TryGetValue(mapHex.WeatherId.Value, out var weatherIcon)
+                && weatherIcon != null)
+            {
+                double weatherHexH = Math.Sqrt(3) * HexRadius;
+                double iconSize = weatherHexH * 0.65;
+                var destRect = new Rect(-iconSize / 2, -iconSize / 2, iconSize, iconSize);
+                context.DrawImage(weatherIcon, destRect);
+            }
+
+            // 4. Draw selection highlight (if selected)
             if (isSelected)
             {
                 context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
@@ -1420,6 +1434,35 @@ public class HexMapView : Control
         }
     }
 
+    private void RebuildWeatherIconCache(IList<MapHex>? hexes)
+    {
+        _weatherIconCache.Clear();
+        if (hexes == null) return;
+
+        foreach (var hex in hexes)
+        {
+            if (hex.Weather != null && !string.IsNullOrEmpty(hex.Weather.IconPath)
+                && !_weatherIconCache.ContainsKey(hex.Weather.Id))
+            {
+                _weatherIconCache[hex.Weather.Id] = LoadWeatherSvg(hex.Weather.IconPath);
+            }
+        }
+    }
+
+    private static IImage? LoadWeatherSvg(string iconPath)
+    {
+        try
+        {
+            var source = SvgSource.Load(iconPath, null);
+            if (source == null) return null;
+            return new SvgImage { Source = source };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static Bitmap? LoadTerrainIcon(string iconPath)
     {
         if (string.IsNullOrEmpty(iconPath)) return null;
@@ -1557,6 +1600,7 @@ public class HexMapView : Control
             "storm" => new SolidColorBrush(Color.FromArgb(128, 139, 0, 139)),    // Purple
             "snow" => new SolidColorBrush(Color.FromArgb(128, 255, 250, 250)),   // White
             "fog" => new SolidColorBrush(Color.FromArgb(128, 211, 211, 211)),    // Light gray
+            "overcast" => new SolidColorBrush(Color.FromArgb(128, 169, 169, 169)), // Medium gray
             _ => new SolidColorBrush(Color.FromArgb(128, 240, 240, 240))         // Off-white
         };
     }

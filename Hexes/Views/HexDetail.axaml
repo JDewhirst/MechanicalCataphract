@@ -81,10 +81,18 @@
              </ComboBox>
          </StackPanel>
 
-        <!-- Weather (read-only) -->
-        <StackPanel Orientation="Horizontal" Spacing="5">
-            <TextBlock Text="Weather:" FontWeight="SemiBold" FontSize="11"/>
-            <TextBlock Text="{Binding Entity.Weather.Name, FallbackValue='(None)'}" FontSize="11"/>
+        <!-- Weather -->
+        <StackPanel Margin="0,5,0,0">
+            <TextBlock Text="Weather" FontWeight="SemiBold" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding AvailableWeatherTypes}"
+                      SelectedItem="{Binding Weather, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Weather">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
         </StackPanel>
 
         <!-- Roads/Rivers info -->

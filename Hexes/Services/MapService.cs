@@ -8,14 +8,9 @@ using MechanicalCataphract.Data.Entities;
 
 namespace MechanicalCataphract.Services;
 
-public class MapService : IMapService
+public class MapService(WargameDbContext context) : IMapService
 {
-    private readonly WargameDbContext _context;
-
-    public MapService(WargameDbContext context)
-    {
-        _context = context;
-    }
+    private readonly WargameDbContext _context = context;
 
     public async Task InitializeMapAsync(int rows, int columns, int defaultTerrainTypeId = 1)
     {

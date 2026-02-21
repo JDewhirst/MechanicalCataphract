@@ -21,6 +21,7 @@ namespace MechanicalCataphract.Services
         private readonly ICoLocationChannelService _coLocationChannelService;
         private readonly IDiscordChannelManager _discordChannelManager;
         private readonly INewsService _newsService;
+        private readonly IWeatherService _weatherService;
 
         public TimeAdvanceService(
             WargameDbContext context,
@@ -32,7 +33,8 @@ namespace MechanicalCataphract.Services
             ICommanderService commanderService,
             ICoLocationChannelService coLocationChannelService,
             IDiscordChannelManager discordChannelManager,
-            INewsService newsService)
+            INewsService newsService,
+            IWeatherService weatherService)
         {
             _context = context;
             _gameStateService = gameStateService;
@@ -44,6 +46,7 @@ namespace MechanicalCataphract.Services
             _coLocationChannelService = coLocationChannelService;
             _discordChannelManager = discordChannelManager;
             _newsService = newsService;
+            _weatherService = weatherService;
         }
 
         public async Task<TimeAdvanceResult> AdvanceTimeAsync(TimeSpan amount)
@@ -85,6 +88,11 @@ namespace MechanicalCataphract.Services
                 // 7. Process event deliveries (news/rumour spreading)
                 int newsProcessed = await _newsService.ProcessEventDeliveriesAsync(newTime);
 
+                // 8. Update weather on day change
+                int weatherUpdated = 0;
+                if (newTime.Date > oldTime.Date)
+                    weatherUpdated = await _weatherService.UpdateDailyWeatherAsync(newTime);
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -97,7 +105,8 @@ namespace MechanicalCataphract.Services
                     CommandersMoved = commandersMoved,
                     ArmiesSupplied = armiesSupplied,
                     CoLocationRemovals = coLocationRemovals,
-                    NewsProcessed = newsProcessed
+                    NewsProcessed = newsProcessed,
+                    WeatherUpdated = weatherUpdated
                 };
             }
             catch (Exception ex)

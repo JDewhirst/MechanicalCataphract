@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace MechanicalCataphract.Services;
 
 public record MovementRules(
@@ -37,9 +39,14 @@ public record NewsRules(
     double OffRoadHoursPerHex,
     double RoadHoursPerHex);
 
+public record WeatherRules(
+    int DailyUpdateHour,
+    Dictionary<string, double> Probabilities);
+
 public record GameRulesData(
     MovementRules Movement,
     MovementRateRules MovementRates,
     SupplyRules Supply,
     UnitStatsRules UnitStats,
-    NewsRules News);
+    NewsRules News,
+    WeatherRules Weather);

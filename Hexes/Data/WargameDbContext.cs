@@ -249,11 +249,12 @@ public class WargameDbContext : DbContext
 
         // Seed default weather types
         modelBuilder.Entity<Weather>().HasData(
-            new Weather { Id = 1, Name = "Clear", MovementModifier = 1.0, CombatModifier = 1.0 },
-            new Weather { Id = 2, Name = "Rain", MovementModifier = 0.75, CombatModifier = 0.9 },
-            new Weather { Id = 3, Name = "Storm", MovementModifier = 0.5, CombatModifier = 0.7 },
-            new Weather { Id = 4, Name = "Snow", MovementModifier = 0.5, CombatModifier = 0.8 },
-            new Weather { Id = 5, Name = "Fog", MovementModifier = 0.75, CombatModifier = 0.8 }
+            new Weather { Id = 1, Name = "Clear",   IconPath = "avares://MechanicalCataphract/Assets/weather-icons/clear-day.svg", MovementModifier = 1.0, CombatModifier = 1.0 },
+            new Weather { Id = 2, Name = "Rain",    IconPath = "avares://MechanicalCataphract/Assets/weather-icons/rain.svg",      MovementModifier = 0.75, CombatModifier = 0.9 },
+            new Weather { Id = 3, Name = "Storm",   IconPath = "",                                                                  MovementModifier = 0.5, CombatModifier = 0.7 },
+            new Weather { Id = 4, Name = "Snow",    IconPath = "",                                                                  MovementModifier = 0.5, CombatModifier = 0.8 },
+            new Weather { Id = 5, Name = "Fog",     IconPath = "avares://MechanicalCataphract/Assets/weather-icons/fog.svg",       MovementModifier = 0.75, CombatModifier = 0.8 },
+            new Weather { Id = 6, Name = "Overcast",IconPath = "avares://MechanicalCataphract/Assets/weather-icons/overcast.svg",  MovementModifier = 0.9, CombatModifier = 0.95 }
         );
 
         // Seed default location types (Id=1 is the "No Location" sentinel)

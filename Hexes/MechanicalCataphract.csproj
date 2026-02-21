@@ -29,6 +29,7 @@
 <PackageReference Include="NetCord" Version="1.0.0-alpha.332" />
     <PackageReference Include="NetCord.Services" Version="1.0.0-alpha.332" />
     <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <PackageReference Include="Avalonia.Svg.Skia" Version="11.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,5 +41,6 @@
     <None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
     <!-- Also include as Avalonia resources for runtime loading -->
     <AvaloniaResource Include="Assets\**\*.png" />
+    <AvaloniaResource Include="Assets\**\*.svg" />
   </ItemGroup>
 </Project>
