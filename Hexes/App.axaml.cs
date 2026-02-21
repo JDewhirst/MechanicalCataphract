@@ -141,6 +141,7 @@ public partial class App : Application
         services.AddScoped<ITimeAdvanceService, TimeAdvanceService>();
         services.AddScoped<IPathfindingService, PathfindingService>();
         services.AddScoped<IFactionRuleService, FactionRuleService>();
+        services.AddScoped<INewsService, NewsService>();
 
         // Discord (singletons — long-lived gateway connection)
         services.AddSingleton<IDiscordBotService, DiscordBotService>();

@@ -33,8 +33,13 @@ public record UnitStatsRules(
     UnitTypeStats Skirmishers,
     UnitTypeStats Cavalry);
 
+public record NewsRules(
+    double OffRoadHoursPerHex,
+    double RoadHoursPerHex);
+
 public record GameRulesData(
     MovementRules Movement,
     MovementRateRules MovementRates,
     SupplyRules Supply,
-    UnitStatsRules UnitStats);
+    UnitStatsRules UnitStats,
+    NewsRules News);

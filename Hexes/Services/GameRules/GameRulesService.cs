@@ -67,7 +67,8 @@ public class GameRulesService : IGameRulesService
         UnitStats: new UnitStatsRules(
             Infantry: new UnitTypeStats(1, 15, 1, 1, 5000, true),
             Skirmishers: new UnitTypeStats(1, 15, 1, 1, 5000, true),
-            Cavalry: new UnitTypeStats(10, 75, 2, 2, 2000, false)));
+            Cavalry: new UnitTypeStats(10, 75, 2, 2, 2000, false)),
+        News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0));
 
     private static GameRulesData FromDto(GameRulesDto dto)
     {
@@ -75,6 +76,7 @@ public class GameRulesService : IGameRulesService
         var mr = dto.MovementRates ?? new MovementRatesDto();
         var s = dto.Supply ?? new SupplyDto();
         var us = dto.UnitStats ?? new UnitStatsDto();
+        var n = dto.News ?? new NewsDto();
 
         return new GameRulesData(
             Movement: new MovementRules(
@@ -97,7 +99,10 @@ public class GameRulesService : IGameRulesService
             UnitStats: new UnitStatsRules(
                 Infantry: FromUnitDto(us.Infantry),
                 Skirmishers: FromUnitDto(us.Skirmishers),
-                Cavalry: FromCavalryDto(us.Cavalry)));
+                Cavalry: FromCavalryDto(us.Cavalry)),
+            News: new NewsRules(
+                OffRoadHoursPerHex: n.OffRoadHoursPerHex ?? 24.0,
+                RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0));
     }
 
     private static UnitTypeStats FromUnitDto(UnitTypeStatsDto? dto) => dto == null
@@ -127,6 +132,13 @@ public class GameRulesService : IGameRulesService
         public MovementRatesDto? MovementRates { get; set; }
         public SupplyDto? Supply { get; set; }
         public UnitStatsDto? UnitStats { get; set; }
+        public NewsDto? News { get; set; }
+    }
+
+    private class NewsDto
+    {
+        public double? OffRoadHoursPerHex { get; set; }
+        public double? RoadHoursPerHex { get; set; }
     }
 
     private class MovementDto

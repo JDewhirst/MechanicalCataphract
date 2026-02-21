@@ -163,7 +163,8 @@
                           SelectedCommander="{Binding HexMapViewModel.SelectedCommander}"
                           SelectedMessage="{Binding HexMapViewModel.SelectedMessage}"
                           ForageSelectedHexes="{Binding HexMapViewModel.ForageSelectedHexes}"
-                          PathSelectionHexes="{Binding HexMapViewModel.PathSelectionHexes}"/>
+                          PathSelectionHexes="{Binding HexMapViewModel.PathSelectionHexes}"
+                          NewsReachedHexes="{Binding HexMapViewModel.NewsReachedHexes}"/>
 
         <!-- Row 1 Col 3: GridSplitter between map and right panel -->
         <GridSplitter Grid.Row="1" Grid.Column="3"
@@ -344,6 +345,51 @@
                                 <DataGridTextColumn Header="Cmdrs" Binding="{Binding Commanders.Count}" Width="45"/>
                             </DataGrid.Columns>
                         </DataGrid>
+                    </Grid>
+                </TabItem>
+
+                <!-- News Tab -->
+                <TabItem Header="News">
+                    <Grid RowDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <!-- Tool button -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="Drop News Tool" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.NewsDropToolCommand}"/>
+                        </StackPanel>
+
+                        <!-- News list -->
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding HexMapViewModel.NewsItems}"
+                                 SelectedItem="{Binding HexMapViewModel.SelectedNewsItem}"
+                                 SelectionMode="Single">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Spacing="2" IsEnabled="{Binding IsActive}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock FontSize="11" FontWeight="SemiBold"
+                                                       Text="{Binding Title}"
+                                                       IsVisible="{Binding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            <Border Background="#555555" CornerRadius="2" Padding="3,0"
+                                                    IsVisible="{Binding IsActive, Converter={x:Static BoolConverters.Not}}">
+                                                <TextBlock Text="STOPPED" FontSize="9" Foreground="#CCCCCC" FontWeight="Bold"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock FontSize="10" Foreground="Gray"
+                                                       Text="{Binding OriginQ, StringFormat='Q={0}'}"/>
+                                            <TextBlock FontSize="10" Foreground="Gray"
+                                                       Text="{Binding OriginR, StringFormat='R={0}'}"/>
+                                        </StackPanel>
+                                        <TextBlock FontSize="10" Foreground="Gray"
+                                                   Text="{Binding CreatedAtGameTime, StringFormat='{}{0:g}'}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Detail panel for selected news item -->
+                        <views:NewsItemDetail Grid.Row="2"
+                                               DataContext="{Binding HexMapViewModel}"/>
                     </Grid>
                 </TabItem>
 

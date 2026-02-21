@@ -206,6 +206,9 @@ public class CoLocationChannelViewModelTests
         _commanderService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Commander>());
         _coLocService.Setup(s => s.GetAllWithCommandersAsync()).ReturnsAsync(new List<CoLocationChannel>());
 
+        var newsService = new Mock<INewsService>();
+        newsService.Setup(s => s.GetAllActiveAsync()).ReturnsAsync(new List<MechanicalCataphract.Data.Entities.NewsItem>());
+
         return new HexMapViewModel(
             mapService.Object,
             _factionService.Object,
@@ -220,7 +223,8 @@ public class CoLocationChannelViewModelTests
             new Mock<IFactionRuleService>().Object,
             botService.Object,
             _channelMgr.Object,
-            new Mock<IDiscordMessageHandler>().Object);
+            new Mock<IDiscordMessageHandler>().Object,
+            newsService.Object);
     }
 
     [Test]

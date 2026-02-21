@@ -26,6 +26,7 @@ public class WargameDbContext : DbContext
     public DbSet<CoLocationChannel> CoLocationChannels { get; set; }
     public DbSet<WeatherUpdateRecord> WeatherUpdateRecords { get; set; }
     public DbSet<FactionRule> FactionRules { get; set; }
+    public DbSet<NewsItem> NewsItems { get; set; }
 
     public WargameDbContext(DbContextOptions<WargameDbContext> options)
         : base(options) { }
@@ -198,6 +199,45 @@ public class WargameDbContext : DbContext
                 v => v == null ? null : JsonSerializer.Serialize(v, hexJsonOptions),
                 v => v == null ? null : JsonSerializer.Deserialize<List<Hex>>(v, hexJsonOptions))
             .Metadata.SetValueComparer(hexListComparer);
+
+        // NewsItem JSON columns
+        var jsonOptions = new JsonSerializerOptions();
+
+        var dictComparer = new ValueComparer<Dictionary<int, string>?>(
+            (a, b) => a == null && b == null || a != null && b != null && JsonSerializer.Serialize(a, jsonOptions) == JsonSerializer.Serialize(b, jsonOptions),
+            c => c == null ? 0 : JsonSerializer.Serialize(c, jsonOptions).GetHashCode(),
+            c => c == null ? null : new Dictionary<int, string>(c));
+
+        modelBuilder.Entity<NewsItem>()
+            .Property(e => e.FactionMessages)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, jsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<Dictionary<int, string>>(v, jsonOptions))
+            .Metadata.SetValueComparer(dictComparer);
+
+        var hexArrivalListComparer = new ValueComparer<List<HexArrivalData>?>(
+            (a, b) => a == null && b == null || a != null && b != null && a.Count == b.Count,
+            c => c == null ? 0 : c.Count,
+            c => c == null ? null : c.ToList());
+
+        modelBuilder.Entity<NewsItem>()
+            .Property(e => e.HexArrivals)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, jsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<List<HexArrivalData>>(v, jsonOptions))
+            .Metadata.SetValueComparer(hexArrivalListComparer);
+
+        var intListComparer = new ValueComparer<List<int>?>(
+            (a, b) => a == null && b == null || a != null && b != null && a.SequenceEqual(b),
+            c => c == null ? 0 : c.Aggregate(0, HashCode.Combine),
+            c => c == null ? null : c.ToList());
+
+        modelBuilder.Entity<NewsItem>()
+            .Property(e => e.DeliveredCommanderIds)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, jsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<List<int>>(v, jsonOptions))
+            .Metadata.SetValueComparer(intListComparer);
 
         // Seed default faction
         modelBuilder.Entity<Faction>().HasData(

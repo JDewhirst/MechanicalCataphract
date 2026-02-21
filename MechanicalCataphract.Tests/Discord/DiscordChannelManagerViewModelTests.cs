@@ -323,6 +323,9 @@ public class DiscordChannelManagerViewModelTests
         messageService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Message>());
         _coLocService.Setup(s => s.GetAllWithCommandersAsync()).ReturnsAsync(new List<CoLocationChannel>());
 
+        var newsService = new Mock<INewsService>();
+        newsService.Setup(s => s.GetAllActiveAsync()).ReturnsAsync(new List<MechanicalCataphract.Data.Entities.NewsItem>());
+
         return new HexMapViewModel(
             mapService.Object,
             _factionService.Object,
@@ -337,7 +340,8 @@ public class DiscordChannelManagerViewModelTests
             new Mock<IFactionRuleService>().Object,
             botService.Object,
             _channelMgr.Object,
-            new Mock<IDiscordMessageHandler>().Object);
+            new Mock<IDiscordMessageHandler>().Object,
+            newsService.Object);
     }
 
     [Test]

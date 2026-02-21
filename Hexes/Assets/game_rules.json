@@ -23,5 +23,9 @@
     "infantry":    { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
     "skirmishers": { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
     "cavalry":     { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false }
+  },
+  "news": {
+    "offRoadHoursPerHex": 24.0,
+    "roadHoursPerHex": 12.0
   }
 }

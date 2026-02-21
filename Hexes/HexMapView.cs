@@ -136,6 +136,15 @@ public class HexMapView : Control
         set => SetValue(PathSelectionHexesProperty, value);
     }
 
+    public static readonly StyledProperty<IList<Hex>?> NewsReachedHexesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<Hex>?>(nameof(NewsReachedHexes));
+
+    public IList<Hex>? NewsReachedHexes
+    {
+        get => GetValue(NewsReachedHexesProperty);
+        set => SetValue(NewsReachedHexesProperty, value);
+    }
+
     public IList<Army>? Armies
     {
         get => GetValue(ArmiesProperty);
@@ -186,6 +195,7 @@ public class HexMapView : Control
     public event EventHandler<Hex>? RiverPainted;
     public event EventHandler<Hex>? EraseRequested;
     public event EventHandler<(Hex hex, string? locationName)>? LocationPainted;
+    public event EventHandler<Hex>? NewsDropRequested;
     private void OnForageSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         InvalidateVisual();
@@ -212,6 +222,9 @@ public class HexMapView : Control
 
     // Selection highlight (semi-transparent yellow ~70% opacity)
     private static readonly ISolidColorBrush SelectionBrush = new SolidColorBrush(Color.FromArgb(180, 255, 255, 0));
+
+    // News reached hex overlay (semi-transparent amber)
+    private static readonly ISolidColorBrush NewsReachedBrush = new SolidColorBrush(Color.FromArgb(80, 255, 180, 0));
 
     // Army/Commander marker rendering
     private static readonly Pen MarkerOutlinePen = new Pen(Brushes.Black, 2);
@@ -342,6 +355,7 @@ public class HexMapView : Control
             }
             view.InvalidateVisual();
         });
+        NewsReachedHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
     }
 
     public HexMapView()
@@ -417,6 +431,9 @@ public class HexMapView : Control
                     return;
                 case "ForageSelect":
                     HexClicked?.Invoke(this, hex);
+                    return;
+                case "NewsDrop":
+                    NewsDropRequested?.Invoke(this, hex);
                     return;
             }
 
@@ -745,6 +762,10 @@ public class HexMapView : Control
                           SelectedHex.Value.q == mapHex.Q &&
                           SelectedHex.Value.r == mapHex.R;
 
+        // Determine if this hex is in the selected news item's reached set
+        bool isNewsReached = NewsReachedHexes != null &&
+            NewsReachedHexes.Any(eh => eh.q == mapHex.Q && eh.r == mapHex.R);
+
         // Determine if we are currently using the Forage tool
         bool isForageSelected = ForageSelectedHexes != null &&
             ForageSelectedHexes.Any(fh => fh.q == mapHex.Q && fh.r == mapHex.R);
@@ -784,6 +805,12 @@ public class HexMapView : Control
             if (isForageSelected)
             {
                 context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
+            }
+
+            // 5. Draw news reached overlay (amber semi-transparent)
+            if (isNewsReached)
+            {
+                context.DrawGeometry(NewsReachedBrush, null, _cachedHexGeometry!);
             }
 
             // Draw coordinate label at bottom of hex, scaled with zoom

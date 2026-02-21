@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="500"
+        x:Class="GUI.Windows.NewsDropDialog"
+        Title="Drop News"
+        Width="420"
+        MinHeight="250"
+        MaxHeight="700"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height"
+        CanResize="False">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="15">
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,10">
+            <TextBlock x:Name="TitleText" FontWeight="Bold" FontSize="14"/>
+            <TextBlock Text="Enter a message per faction. Leave blank to skip that faction."
+                       FontSize="11" Foreground="Gray" TextWrapping="Wrap"/>
+            <!-- Title input row -->
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                <TextBlock Text="Title:" VerticalAlignment="Center" Width="50" FontSize="12"/>
+                <TextBox x:Name="TitleInputBox" Width="300" Watermark="Short title for this event…"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Faction message inputs -->
+        <ScrollViewer Grid.Row="1" MaxHeight="450">
+            <StackPanel x:Name="FactionPanel" Spacing="10"/>
+        </ScrollViewer>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Spacing="10" Margin="0,15,0,0">
+            <Button Content="Cancel" Width="80" Click="OnCancelClick"/>
+            <Button x:Name="OkButton" Content="Drop Event" Width="100"
+                    Click="OnOkClick" IsEnabled="False"/>
+        </StackPanel>
+    </Grid>
+</Window>

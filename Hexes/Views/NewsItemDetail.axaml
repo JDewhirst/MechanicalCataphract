@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="220"
+             x:Class="GUI.Views.NewsItemDetail"
+             x:DataType="vm:HexMapViewModel">
+
+    <StackPanel Spacing="6" Margin="5"
+                IsVisible="{Binding SelectedNewsItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+
+        <TextBlock FontWeight="SemiBold" FontSize="12" Text="Selected Event"/>
+
+        <!-- Title (only shown when non-empty) -->
+        <TextBlock Text="{Binding SelectedNewsItem.Title}"
+                   FontSize="13" FontWeight="Bold"
+                   IsVisible="{Binding SelectedNewsItem.Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+        <!-- Origin + time -->
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Origin:"
+                       FontSize="11" Foreground="Gray" Margin="0,0,8,0"/>
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding SelectedNewsItem.OriginQ, StringFormat='Q={0}'}" FontSize="11"/>
+                <TextBlock Text="{Binding SelectedNewsItem.OriginR, StringFormat='R={0}'}" FontSize="11"/>
+            </StackPanel>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Created:"
+                       FontSize="11" Foreground="Gray" Margin="0,0,8,0"/>
+            <TextBlock Grid.Row="1" Grid.Column="1"
+                       Text="{Binding SelectedNewsItem.CreatedAtGameTime, StringFormat='{}{0:g}'}"
+                       FontSize="11"/>
+        </Grid>
+
+        <!-- Status + action row -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Background="#2a6832" CornerRadius="3" Padding="5,2"
+                    IsVisible="{Binding SelectedNewsItem.IsActive}">
+                <TextBlock Text="ACTIVE" FontSize="10" Foreground="White" FontWeight="Bold"/>
+            </Border>
+            <Border Background="#555555" CornerRadius="3" Padding="5,2"
+                    IsVisible="{Binding SelectedNewsItem.IsActive, Converter={x:Static BoolConverters.Not}}">
+                <TextBlock Text="STOPPED" FontSize="10" Foreground="#CCCCCC" FontWeight="Bold"/>
+            </Border>
+            <Button Content="Deactivate" FontSize="10" Padding="6,2"
+                    Background="#8B4500" Foreground="White"
+                    IsVisible="{Binding SelectedNewsItem.IsActive}"
+                    Command="{Binding DeactivateNewsItemCommand}"
+                    CommandParameter="{Binding SelectedNewsItem}"/>
+            <Button Content="Reactivate" FontSize="10" Padding="6,2"
+                    Background="#2a6832" Foreground="White"
+                    IsVisible="{Binding SelectedNewsItem.IsActive, Converter={x:Static BoolConverters.Not}}"
+                    Command="{Binding ReactivateNewsItemCommand}"
+                    CommandParameter="{Binding SelectedNewsItem}"/>
+        </StackPanel>
+
+        <!-- Reached hexes count -->
+        <TextBlock Text="{Binding NewsReachedHexCount, StringFormat='Reached hexes: {0}'}"
+                   FontSize="11" Foreground="Gray"/>
+
+        <!-- Edit Messages -->
+        <Button Content="Edit Messages…" FontSize="11" Padding="8,3"
+                Command="{Binding EditNewsItemCommand}"
+                CommandParameter="{Binding SelectedNewsItem}"/>
+
+        <!-- Delete -->
+        <Button Content="Delete Event" FontSize="11" Padding="8,3"
+                Background="#8B0000" Foreground="White"
+                Command="{Binding DeleteNewsItemCommand}"
+                CommandParameter="{Binding SelectedNewsItem}"/>
+    </StackPanel>
+</UserControl>

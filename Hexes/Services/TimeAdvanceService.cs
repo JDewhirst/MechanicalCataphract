@@ -20,6 +20,7 @@ namespace MechanicalCataphract.Services
         private readonly ICommanderService _commanderService;
         private readonly ICoLocationChannelService _coLocationChannelService;
         private readonly IDiscordChannelManager _discordChannelManager;
+        private readonly INewsService _newsService;
 
         public TimeAdvanceService(
             WargameDbContext context,
@@ -30,7 +31,8 @@ namespace MechanicalCataphract.Services
             IPathfindingService pathfindingService,
             ICommanderService commanderService,
             ICoLocationChannelService coLocationChannelService,
-            IDiscordChannelManager discordChannelManager)
+            IDiscordChannelManager discordChannelManager,
+            INewsService newsService)
         {
             _context = context;
             _gameStateService = gameStateService;
@@ -41,6 +43,7 @@ namespace MechanicalCataphract.Services
             _commanderService = commanderService;
             _coLocationChannelService = coLocationChannelService;
             _discordChannelManager = discordChannelManager;
+            _newsService = newsService;
         }
 
         public async Task<TimeAdvanceResult> AdvanceTimeAsync(TimeSpan amount)
@@ -79,7 +82,8 @@ namespace MechanicalCataphract.Services
                     await _discordChannelManager.SendAllArmyReportsAsync();
                 }
 
-                // 7. Future: weather, event spreading etc.
+                // 7. Process event deliveries (news/rumour spreading)
+                int newsProcessed = await _newsService.ProcessEventDeliveriesAsync(newTime);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -92,7 +96,8 @@ namespace MechanicalCataphract.Services
                     ArmiesMoved = armiesMoved,
                     CommandersMoved = commandersMoved,
                     ArmiesSupplied = armiesSupplied,
-                    CoLocationRemovals = coLocationRemovals
+                    CoLocationRemovals = coLocationRemovals,
+                    NewsProcessed = newsProcessed
                 };
             }
             catch (Exception ex)

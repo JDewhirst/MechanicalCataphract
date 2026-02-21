@@ -35,6 +35,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly IDiscordBotService _discordBotService;
     private readonly IDiscordChannelManager _discordChannelManager;
     private readonly IDiscordMessageHandler _discordMessageHandler;
+    private readonly INewsService _newsService;
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -188,6 +189,18 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private CoLocationChannel? _selectedCoLocationChannel;
 
+    // News Items
+    [ObservableProperty]
+    private ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem> _newsItems = new();
+
+    [ObservableProperty]
+    private MechanicalCataphract.Data.Entities.NewsItem? _selectedNewsItem;
+
+    [ObservableProperty]
+    private ObservableCollection<Hex> _newsReachedHexes = new();
+
+    public int NewsReachedHexCount => NewsReachedHexes.Count;
+
     public HexMapViewModel(
         IMapService mapService,
         IFactionService factionService,
@@ -202,7 +215,8 @@ public partial class HexMapViewModel : ObservableObject
         IFactionRuleService factionRuleService,
         IDiscordBotService discordBotService,
         IDiscordChannelManager discordChannelManager,
-        IDiscordMessageHandler discordMessageHandler)
+        IDiscordMessageHandler discordMessageHandler,
+        INewsService newsService)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -218,6 +232,7 @@ public partial class HexMapViewModel : ObservableObject
         _discordBotService = discordBotService;
         _discordChannelManager = discordChannelManager;
         _discordMessageHandler = discordMessageHandler;
+        _newsService = newsService;
 
         _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
     }
@@ -331,6 +346,9 @@ public partial class HexMapViewModel : ObservableObject
 
         var gameState = await _gameStateService.GetGameStateAsync();
         GameTime = gameState.CurrentGameTime;
+
+        var newsItems = await _newsService.GetAllAsync();
+        NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
     }
 
     private async Task LoadDiscordConfigAsync()
@@ -431,6 +449,7 @@ public partial class HexMapViewModel : ObservableObject
         await RefreshFactionsAsync();            // Factions
         await RefreshOrdersAsync();              // Orders
         await RefreshCoLocationChannelsAsync();   // CoLocationChannels
+        await RefreshNewsItemsAsync();             // NewsItems
         //await RefreshGameStateAsync();  // GameTime, etc.
 
         // Clear selections (optional - entities may have changed)
@@ -477,6 +496,12 @@ public partial class HexMapViewModel : ObservableObject
     {
         var channels = await _coLocationChannelService.GetAllWithCommandersAsync();
         CoLocationChannels = new ObservableCollection<CoLocationChannel>(channels);
+    }
+
+    public async Task RefreshNewsItemsAsync()
+    {
+        var newsItems = await _newsService.GetAllAsync();
+        NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
     }
 
     private async Task LoadVisibleHexesAsync()
@@ -1619,6 +1644,105 @@ public partial class HexMapViewModel : ObservableObject
         IsPathSelectionModeActive = false;
         CurrentTool = "Pan";
         OnPropertyChanged(nameof(PathSelectionCount));
+    }
+
+    #endregion
+
+    #region News Commands
+
+    [RelayCommand]
+    private void NewsDropTool()
+    {
+        CurrentTool = "NewsDrop";
+        StatusMessage = "Tool: NewsDrop – click a hex to drop an event";
+    }
+
+    [RelayCommand]
+    private async Task DropNewsItemAsync(Hex hex)
+    {
+        if (App.MainWindow == null) return;
+        var gameState = await _gameStateService.GetGameStateAsync();
+
+        var dialog = new GUI.Windows.NewsDropDialog(hex, Factions);
+        var result = await dialog.ShowDialog<Dictionary<int, string>?>(App.MainWindow);
+
+        // Always revert to Pan tool so the map stays interactive
+        CurrentTool = "Pan";
+        StatusMessage = "Tool: Pan";
+
+        if (result == null || result.Count == 0) return;
+
+        await _newsService.CreateEventAsync(dialog.ResultTitle ?? string.Empty, hex.q, hex.r, gameState.CurrentGameTime, result);
+        await RefreshNewsItemsAsync();
+        StatusMessage = $"Event dropped at ({hex.q}, {hex.r})";
+    }
+
+    [RelayCommand]
+    private async Task DeleteNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? e)
+    {
+        if (e == null) return;
+        await _newsService.DeleteEventAsync(e.Id);
+        if (SelectedNewsItem?.Id == e.Id)
+        {
+            SelectedNewsItem = null;
+        }
+        await RefreshNewsItemsAsync();
+        StatusMessage = $"Deleted event {e.Id}";
+    }
+
+    [RelayCommand]
+    private async Task EditNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? item)
+    {
+        if (item == null || App.MainWindow == null) return;
+        var factions = await _factionService.GetAllAsync();
+        var dialog = new GUI.Windows.NewsDropDialog(item, factions);
+        var result = await dialog.ShowDialog<Dictionary<int, string>?>(App.MainWindow);
+
+        if (result == null) return;
+
+        item.Title = dialog.ResultTitle ?? item.Title;
+        item.FactionMessages = result;
+        await _newsService.UpdateAsync(item);
+        await RefreshNewsItemsAsync();
+        StatusMessage = $"Updated event: {item.Title}";
+    }
+
+    [RelayCommand]
+    private async Task DeactivateNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? e)
+    {
+        if (e == null) return;
+        await _newsService.DeactivateEventAsync(e.Id);
+        await RefreshNewsItemsAsync();
+        StatusMessage = $"Deactivated event {e.Id}";
+    }
+
+    [RelayCommand]
+    private async Task ReactivateNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? e)
+    {
+        if (e == null) return;
+        await _newsService.ReactivateEventAsync(e.Id);
+        await RefreshNewsItemsAsync();
+        StatusMessage = $"Reactivated event: {e.Title}";
+    }
+
+    partial void OnSelectedNewsItemChanged(MechanicalCataphract.Data.Entities.NewsItem? value)
+    {
+        if (value == null || value.HexArrivals == null)
+        {
+            NewsReachedHexes = new ObservableCollection<Hex>();
+            OnPropertyChanged(nameof(NewsReachedHexCount));
+            return;
+        }
+
+        double elapsedHours = (GameTime - value.CreatedAtGameTime).TotalHours;
+
+        var reached = value.HexArrivals
+            .Where(a => a.Hours <= elapsedHours)
+            .Select(a => new Hex(a.Q, a.R, -a.Q - a.R))
+            .ToList();
+
+        NewsReachedHexes = new ObservableCollection<Hex>(reached);
+        OnPropertyChanged(nameof(NewsReachedHexCount));
     }
 
     #endregion
