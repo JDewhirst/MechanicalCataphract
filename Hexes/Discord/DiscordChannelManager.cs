@@ -674,7 +674,7 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
     }
 
-    public async Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName)
+    public async Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName, string? weatherName)
     {
         if (!_botService.IsConnected) return;
         if (!target.DiscordChannelId.HasValue) return;
@@ -684,9 +684,10 @@ public class DiscordChannelManager : IDiscordChannelManager
             var rest = _botService.Client!.Rest;
             imageStream.Position = 0;
             var attachment = new AttachmentProperties($"scouting-report-{armyName.ToLowerInvariant().Replace(' ', '-')}.png", imageStream);
+            var weatherLine = weatherName != null ? $"\nWeather: {weatherName}" : "";
             await rest.SendMessageAsync(target.DiscordChannelId.Value, new MessageProperties
             {
-                Content = $"Scouting report for **{armyName}**",
+                Content = $"Scouting report for **{armyName}**{weatherLine}",
                 Attachments = [attachment]
             });
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Scouting report sent to '{target.Name}' for army '{armyName}'.");

@@ -91,6 +91,7 @@ public class MapService(WargameDbContext context) : IMapService
     {
         return await _context.MapHexes
             .Include(h => h.TerrainType)
+            .Include(h => h.Weather)
             .ToListAsync();
     }
 

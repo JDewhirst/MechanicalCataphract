@@ -1048,8 +1048,12 @@ public partial class HexMapViewModel : ObservableObject
             data.SaveTo(stream);
             stream.Position = 0;
 
+            // Resolve weather at the center hex
+            var centerMapHex = hexesInRange.FirstOrDefault(h => h.Q == centerHex.q && h.R == centerHex.r);
+            string? weatherName = centerMapHex?.Weather?.Name;
+
             // Send via Discord
-            await _discordChannelManager.SendScoutingReportAsync(army.Commander, stream, army.Name);
+            await _discordChannelManager.SendScoutingReportAsync(army.Commander, stream, army.Name, weatherName);
 
             StatusMessage = $"Scouting report sent for {army.Name}";
         }

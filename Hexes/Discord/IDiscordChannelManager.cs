@@ -53,5 +53,5 @@ public interface IDiscordChannelManager
     /// <summary>
     /// Sends a scouting report PNG image to a commander's private Discord channel.
     /// </summary>
-    Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName);
+    Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName, string? weatherName);
 }
