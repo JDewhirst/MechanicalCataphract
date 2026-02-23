@@ -126,6 +126,9 @@ public partial class HexMapViewModel : ObservableObject
     private int _brushSize = 1;
 
     [ObservableProperty]
+    private int _selectedPopulationDensity = 20;
+
+    [ObservableProperty]
     private string _currentTool = "Pan";
 
     [ObservableProperty]
@@ -616,6 +619,25 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void PopulationPaintTool()
+    {
+        CurrentTool = "PopulationPaint";
+        SelectedOverlay = "Population Density";
+        StatusMessage = $"Tool: Population Paint - Density {SelectedPopulationDensity}";
+    }
+
+    [RelayCommand]
+    private void SetPopulationDensity(string densityStr)
+    {
+        if (int.TryParse(densityStr, out var density))
+        {
+            SelectedPopulationDensity = density;
+            if (CurrentTool == "PopulationPaint")
+                StatusMessage = $"Tool: Population Paint - Density {SelectedPopulationDensity}";
+        }
+    }
+
+    [RelayCommand]
     private void SelectHex(Hex hex)
     {
         SelectedHex = hex;
@@ -641,19 +663,21 @@ public partial class HexMapViewModel : ObservableObject
         foreach (var hex in toPaint)
             await _mapService.SetTerrainAsync(hex, args.terrainTypeId);
 
-        // Refresh the local collection for each painted hex
+        // Update in-memory collection directly — no DB re-fetch required
+        var terrainType = TerrainTypes.FirstOrDefault(t => t.Id == args.terrainTypeId);
+        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
         for (int i = 0; i < VisibleHexes.Count; i++)
         {
             var mapHex = VisibleHexes[i];
-            if (toPaint.Any(h => h.q == mapHex.Q && h.r == mapHex.R))
+            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
             {
-                var updatedHex = await _mapService.GetHexAsync(new Hex(mapHex.Q, mapHex.R, -mapHex.Q - mapHex.R));
-                if (updatedHex != null)
-                    VisibleHexes[i] = updatedHex;
+                mapHex.TerrainTypeId = args.terrainTypeId;
+                mapHex.TerrainType = terrainType;
+                VisibleHexes[i] = mapHex;
             }
         }
 
-        var terrainName = TerrainTypes.FirstOrDefault(t => t.Id == args.terrainTypeId)?.Name ?? "Unknown";
+        var terrainName = terrainType?.Name ?? "Unknown";
         StatusMessage = BrushSize == 1
             ? $"Painted {terrainName} at ({args.hex.q}, {args.hex.r})"
             : $"Painted {terrainName} at ({args.hex.q}, {args.hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
@@ -826,7 +850,17 @@ public partial class HexMapViewModel : ObservableObject
     private async Task EraseAsync(Hex hex)
     {
         await _mapService.ClearRoadsAndRiversAsync(hex);
-        await RefreshHexInCollection(hex);
+        for (int i = 0; i < VisibleHexes.Count; i++)
+        {
+            var mapHex = VisibleHexes[i];
+            if (mapHex.Q == hex.q && mapHex.R == hex.r)
+            {
+                mapHex.RoadDirections = null;
+                mapHex.RiverEdges = null;
+                VisibleHexes[i] = mapHex;
+                break;
+            }
+        }
         StatusMessage = $"Cleared roads/rivers at ({hex.q}, {hex.r})";
     }
 
@@ -843,13 +877,37 @@ public partial class HexMapViewModel : ObservableObject
         if (SelectedLocationType.Id == 1)
         {
             await _mapService.ClearLocationAsync(args.hex);
-            await RefreshHexInCollection(args.hex);
+            for (int i = 0; i < VisibleHexes.Count; i++)
+            {
+                var mapHex = VisibleHexes[i];
+                if (mapHex.Q == args.hex.q && mapHex.R == args.hex.r)
+                {
+                    mapHex.LocationTypeId = null;
+                    mapHex.LocationType = null;
+                    mapHex.LocationName = null;
+                    mapHex.LocationFactionId = null;
+                    VisibleHexes[i] = mapHex;
+                    break;
+                }
+            }
             StatusMessage = $"Cleared location at ({args.hex.q}, {args.hex.r})";
             return;
         }
 
         await _mapService.SetLocationAsync(args.hex, SelectedLocationType.Id, args.locationName);
-        await RefreshHexInCollection(args.hex);
+        var locType = LocationTypes.FirstOrDefault(l => l.Id == SelectedLocationType.Id);
+        for (int i = 0; i < VisibleHexes.Count; i++)
+        {
+            var mapHex = VisibleHexes[i];
+            if (mapHex.Q == args.hex.q && mapHex.R == args.hex.r)
+            {
+                mapHex.LocationTypeId = SelectedLocationType.Id;
+                mapHex.LocationType = locType;
+                mapHex.LocationName = args.locationName;
+                VisibleHexes[i] = mapHex;
+                break;
+            }
+        }
 
         var name = string.IsNullOrEmpty(args.locationName) ? SelectedLocationType.Name : args.locationName;
         StatusMessage = $"Set location '{name}' ({SelectedLocationType.Name}) at ({args.hex.q}, {args.hex.r})";
@@ -859,8 +917,50 @@ public partial class HexMapViewModel : ObservableObject
     private async Task ClearLocationAsync(Hex hex)
     {
         await _mapService.ClearLocationAsync(hex);
-        await RefreshHexInCollection(hex);
+        for (int i = 0; i < VisibleHexes.Count; i++)
+        {
+            var mapHex = VisibleHexes[i];
+            if (mapHex.Q == hex.q && mapHex.R == hex.r)
+            {
+                mapHex.LocationTypeId = null;
+                mapHex.LocationType = null;
+                mapHex.LocationName = null;
+                mapHex.LocationFactionId = null;
+                VisibleHexes[i] = mapHex;
+                break;
+            }
+        }
         StatusMessage = $"Cleared location at ({hex.q}, {hex.r})";
+    }
+
+    [RelayCommand]
+    private async Task PaintPopulationAsync(Hex hex)
+    {
+        var existingCoords = new HashSet<(int q, int r)>(
+            VisibleHexes.Select(h => (h.Q, h.R)));
+
+        var toPaint = GetHexesInRadius(hex, BrushSize)
+            .Where(h => existingCoords.Contains((h.q, h.r)))
+            .ToList();
+
+        foreach (var h in toPaint)
+            await _mapService.SetPopulationDensityAsync(h, SelectedPopulationDensity);
+
+        // Update in-memory collection directly — no DB re-fetch required
+        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
+        for (int i = 0; i < VisibleHexes.Count; i++)
+        {
+            var mapHex = VisibleHexes[i];
+            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
+            {
+                mapHex.PopulationDensity = SelectedPopulationDensity;
+                VisibleHexes[i] = mapHex;
+            }
+        }
+
+        StatusMessage = BrushSize == 1
+            ? $"Painted density {SelectedPopulationDensity} at ({hex.q}, {hex.r})"
+            : $"Painted density {SelectedPopulationDensity} at ({hex.q}, {hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
     }
 
     partial void OnSelectedTerrainTypeChanged(TerrainType? value)

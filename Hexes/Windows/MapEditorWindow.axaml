@@ -59,9 +59,9 @@
 
             <Separator/>
 
-            <!-- Brush Size (terrain paint only) -->
+            <!-- Brush Size -->
             <StackPanel Orientation="Horizontal" Spacing="5">
-                <TextBlock Text="Brush (terrain only):" VerticalAlignment="Center"/>
+                <TextBlock Text="Brush size:" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding BrushSize, Mode=TwoWay}"
                                Minimum="1" Maximum="10" Increment="1"
                                Width="120"/>
@@ -118,6 +118,36 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+
+            <Separator/>
+
+            <!-- Population Density Palette -->
+            <TextBlock Text="Population Density" FontWeight="Bold" FontSize="14"/>
+            <ToggleButton Content="Population Brush" Margin="2"
+                          Command="{Binding PopulationPaintToolCommand}"
+                          IsChecked="{Binding CurrentTool,
+                                      Converter={StaticResource EqualityConverter},
+                                      ConverterParameter=PopulationPaint,
+                                      Mode=OneWay}"/>
+            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                <Button Content="20" Margin="2" Width="45"
+                        Command="{Binding SetPopulationDensityCommand}"
+                        CommandParameter="20"/>
+                <Button Content="40" Margin="2" Width="45"
+                        Command="{Binding SetPopulationDensityCommand}"
+                        CommandParameter="40"/>
+                <Button Content="60" Margin="2" Width="45"
+                        Command="{Binding SetPopulationDensityCommand}"
+                        CommandParameter="60"/>
+                <Button Content="80" Margin="2" Width="45"
+                        Command="{Binding SetPopulationDensityCommand}"
+                        CommandParameter="80"/>
+                <Button Content="100" Margin="2" Width="45"
+                        Command="{Binding SetPopulationDensityCommand}"
+                        CommandParameter="100"/>
+            </WrapPanel>
+            <TextBlock Text="{Binding SelectedPopulationDensity, StringFormat='Selected: {0}'}"
+                       FontSize="11" Foreground="Gray"/>
 
             <Separator/>
 

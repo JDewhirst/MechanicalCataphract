@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -66,6 +67,7 @@ public class MapService(WargameDbContext context) : IMapService
     public async Task<MapHex?> GetHexAsync(int q, int r)
     {
         return await _context.MapHexes
+            .AsNoTracking()
             .Include(h => h.TerrainType)
             .Include(h => h.ControllingFaction)
             .Include(h => h.Weather)
@@ -97,12 +99,17 @@ public class MapService(WargameDbContext context) : IMapService
 
     public async Task SetTerrainAsync(Hex hex, int terrainTypeId)
     {
-        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
-        if (mapHex != null)
-        {
-            mapHex.TerrainTypeId = terrainTypeId;
-            await _context.SaveChangesAsync();
-        }
+        await _context.MapHexes
+            .Where(h => h.Q == hex.q && h.R == hex.r)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.TerrainTypeId, terrainTypeId));
+    }
+
+    public async Task SetPopulationDensityAsync(Hex hex, int density)
+    {
+        var clamped = Math.Clamp(density, 0, 100);
+        await _context.MapHexes
+            .Where(h => h.Q == hex.q && h.R == hex.r)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.PopulationDensity, clamped));
     }
 
     public async Task SetRoadAsync(Hex hex, int direction, bool hasRoad)
@@ -143,12 +150,11 @@ public class MapService(WargameDbContext context) : IMapService
 
     public async Task ClearRoadsAndRiversAsync(Hex hex)
     {
-        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
-        if (mapHex == null) return;
-
-        mapHex.RoadDirections = null;
-        mapHex.RiverEdges = null;
-        await _context.SaveChangesAsync();
+        await _context.MapHexes
+            .Where(h => h.Q == hex.q && h.R == hex.r)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.RoadDirections, (string?)null)
+                .SetProperty(p => p.RiverEdges, (string?)null));
     }
 
     public async Task SetFactionControlAsync(Hex hex, int? factionId)
@@ -233,26 +239,22 @@ public class MapService(WargameDbContext context) : IMapService
 
     public async Task SetLocationAsync(Hex hex, int? locationTypeId, string? locationName, int? locationFactionId = null)
     {
-        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
-        if (mapHex != null)
-        {
-            mapHex.LocationTypeId = locationTypeId;
-            mapHex.LocationName = locationName;
-            mapHex.LocationFactionId = locationFactionId;
-            await _context.SaveChangesAsync();
-        }
+        await _context.MapHexes
+            .Where(h => h.Q == hex.q && h.R == hex.r)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.LocationTypeId, locationTypeId)
+                .SetProperty(p => p.LocationName, locationName)
+                .SetProperty(p => p.LocationFactionId, locationFactionId));
     }
 
     public async Task ClearLocationAsync(Hex hex)
     {
-        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
-        if (mapHex != null)
-        {
-            mapHex.LocationTypeId = null;
-            mapHex.LocationName = null;
-            mapHex.LocationFactionId = null;
-            await _context.SaveChangesAsync();
-        }
+        await _context.MapHexes
+            .Where(h => h.Q == hex.q && h.R == hex.r)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.LocationTypeId, (int?)null)
+                .SetProperty(p => p.LocationName, (string?)null)
+                .SetProperty(p => p.LocationFactionId, (int?)null));
     }
 
     public async Task<bool> HasRoadBetweenAsync(Hex a, Hex b)
@@ -294,7 +296,11 @@ public class MapService(WargameDbContext context) : IMapService
 
     public async Task UpdateHexAsync(MapHex hex)
     {
-        _context.MapHexes.Update(hex);
+        var tracked = _context.ChangeTracker.Entries<MapHex>()
+            .FirstOrDefault(e => e.Entity.Q == hex.Q && e.Entity.R == hex.R);
+        if (tracked != null)
+            tracked.State = EntityState.Detached;
+        _context.Entry(hex).State = EntityState.Modified;
         await _context.SaveChangesAsync();
     }
 }
