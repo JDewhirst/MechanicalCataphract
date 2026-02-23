@@ -45,6 +45,12 @@
                                           Converter={StaticResource EqualityConverter},
                                           ConverterParameter=Erase,
                                           Mode=OneWay}"/>
+                <ToggleButton Content="Faction" Margin="2"
+                              Command="{Binding FactionControlPaintToolCommand}"
+                              IsChecked="{Binding CurrentTool,
+                                          Converter={StaticResource EqualityConverter},
+                                          ConverterParameter=FactionControlPaint,
+                                          Mode=OneWay}"/>
             </WrapPanel>
 
             <Separator/>
@@ -148,6 +154,30 @@
             </WrapPanel>
             <TextBlock Text="{Binding SelectedPopulationDensity, StringFormat='Selected: {0}'}"
                        FontSize="11" Foreground="Gray"/>
+
+            <Separator/>
+
+            <!-- Faction Palette -->
+            <TextBlock Text="Factions" FontWeight="Bold" FontSize="14"/>
+            <ListBox ItemsSource="{Binding Factions}"
+                     SelectedItem="{Binding SelectedFactionForPainting}"
+                     MaxHeight="150">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Border Width="20" Height="20" CornerRadius="3"
+                                    BorderBrush="Black" BorderThickness="1">
+                                <Border.Background>
+                                    <SolidColorBrush Color="{Binding ColorHex,
+                                                                     TargetNullValue=#808080,
+                                                                     FallbackValue=#808080}"/>
+                                </Border.Background>
+                            </Border>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
             <Separator/>
 

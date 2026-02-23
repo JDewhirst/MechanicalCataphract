@@ -71,6 +71,9 @@ public partial class HexMapViewModel : ObservableObject
     private LocationType? _selectedLocationType;
 
     [ObservableProperty]
+    private Faction? _selectedFactionForPainting;
+
+    [ObservableProperty]
     private ObservableCollection<MechanicalCataphract.Data.Entities.Weather> _weatherTypes = new();
 
     // Overlay options for map visualization
@@ -627,6 +630,14 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void FactionControlPaintTool()
+    {
+        CurrentTool = "FactionControlPaint";
+        SelectedOverlay = "Faction Control";
+        StatusMessage = $"Tool: Faction Paint — {SelectedFactionForPainting?.Name ?? "None"}";
+    }
+
+    [RelayCommand]
     private void SetPopulationDensity(string densityStr)
     {
         if (int.TryParse(densityStr, out var density))
@@ -681,6 +692,40 @@ public partial class HexMapViewModel : ObservableObject
         StatusMessage = BrushSize == 1
             ? $"Painted {terrainName} at ({args.hex.q}, {args.hex.r})"
             : $"Painted {terrainName} at ({args.hex.q}, {args.hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
+    }
+
+    [RelayCommand]
+    private async Task PaintFactionControlAsync(Hex hex)
+    {
+        if (SelectedFactionForPainting == null) return;
+
+        var existingCoords = new HashSet<(int q, int r)>(
+            VisibleHexes.Select(h => (h.Q, h.R)));
+
+        var toPaint = GetHexesInRadius(hex, BrushSize)
+            .Where(h => existingCoords.Contains((h.q, h.r)))
+            .ToList();
+
+        foreach (var h in toPaint)
+            await _mapService.SetFactionControlAsync(h, SelectedFactionForPainting.Id);
+
+        // Update in-memory — no DB re-fetch required
+        var faction = SelectedFactionForPainting;
+        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
+        for (int i = 0; i < VisibleHexes.Count; i++)
+        {
+            var mapHex = VisibleHexes[i];
+            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
+            {
+                mapHex.ControllingFactionId = faction.Id;
+                mapHex.ControllingFaction = faction;
+                VisibleHexes[i] = mapHex;
+            }
+        }
+
+        StatusMessage = BrushSize == 1
+            ? $"Painted {faction.Name} at ({hex.q}, {hex.r})"
+            : $"Painted {faction.Name} at ({hex.q}, {hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
     }
 
     /// <summary>
@@ -976,6 +1021,14 @@ public partial class HexMapViewModel : ObservableObject
         if (CurrentTool == "LocationPaint" && value != null)
         {
             StatusMessage = $"Tool: Location Paint - {value.Name}";
+        }
+    }
+
+    partial void OnSelectedFactionForPaintingChanged(Faction? value)
+    {
+        if (CurrentTool == "FactionControlPaint" && value != null)
+        {
+            StatusMessage = $"Tool: Faction Paint — {value.Name}";
         }
     }
 

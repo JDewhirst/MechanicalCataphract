@@ -159,12 +159,9 @@ public class MapService(WargameDbContext context) : IMapService
 
     public async Task SetFactionControlAsync(Hex hex, int? factionId)
     {
-        var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
-        if (mapHex != null)
-        {
-            mapHex.ControllingFactionId = factionId;
-            await _context.SaveChangesAsync();
-        }
+        await _context.MapHexes
+            .Where(h => h.Q == hex.q && h.R == hex.r)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.ControllingFactionId, factionId));
     }
 
     public async Task<IList<MapHex>> GetHexesControlledByFactionAsync(int factionId)

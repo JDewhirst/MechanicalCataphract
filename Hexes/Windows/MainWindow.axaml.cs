@@ -67,6 +67,8 @@ public partial class MainWindow : Window
             viewModel.HexMapViewModel.PaintLocationCommand.Execute(args);
         HexMapView.PopulationPainted += (s, hex) =>
             viewModel.HexMapViewModel.PaintPopulationCommand.Execute(hex);
+        HexMapView.FactionControlPainted += (s, hex) =>
+            viewModel.HexMapViewModel.PaintFactionControlCommand.Execute(hex);
         HexMapView.NewsDropRequested += (s, hex) =>
             viewModel.HexMapViewModel.DropNewsItemCommand.Execute(hex);
 
