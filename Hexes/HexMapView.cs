@@ -230,6 +230,10 @@ public class HexMapView : Control
     // News reached hex overlay (semi-transparent amber)
     private static readonly ISolidColorBrush NewsReachedBrush = new SolidColorBrush(Color.FromArgb(80, 255, 180, 0));
 
+    // Grayscale scrim drawn between terrain and overlay to neutralize terrain color bleed
+    private static readonly ISolidColorBrush ScrimBrush =
+        new SolidColorBrush(Color.FromArgb(180, 0, 0, 0));
+
     // Army/Commander marker rendering
     private static readonly Pen MarkerOutlinePen = new Pen(Brushes.Black, 2);
     private static readonly Pen CommanderOutlinePen = new Pen(Brushes.White, 2);
@@ -802,9 +806,10 @@ public class HexMapView : Control
                 DrawTerrainIcon(context, iconData.bitmap, iconData.scaleFactor);
             }
 
-            // 3. Draw overlay on top (if not "None")
+            // 3. Draw scrim + overlay on top (if not "None")
             if (overlayBrush != null)
             {
+                context.DrawGeometry(ScrimBrush, null, _cachedHexGeometry!);
                 context.DrawGeometry(overlayBrush, null, _cachedHexGeometry!);
             }
 
@@ -1554,7 +1559,7 @@ public class HexMapView : Control
             baseColor = Color.Parse("#808080"); // Gray fallback
         }
 
-        return new SolidColorBrush(Color.FromArgb(191, baseColor.R, baseColor.G, baseColor.B));
+        return new SolidColorBrush(Color.FromArgb(100, baseColor.R, baseColor.G, baseColor.B));
     }
 
     /// <summary>
