@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MechanicalCataphract.Data.Entities;
@@ -62,9 +63,20 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
                 _pendingOldColor ??= _faction.ColorHex;
                 _faction.ColorHex = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(FactionColor));
                 _ = SaveAsync();
                 ScheduleDiscordUpdate();
             }
+        }
+    }
+
+    public Color FactionColor
+    {
+        get => Color.TryParse(_faction.ColorHex, out var c) ? c : Color.Parse("#808080");
+        set
+        {
+            // Strip alpha — DB stores #RRGGBB, not #AARRGGBB
+            ColorHex = $"#{value.R:X2}{value.G:X2}{value.B:X2}";
         }
     }
 

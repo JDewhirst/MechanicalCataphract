@@ -17,24 +17,11 @@
                      Watermark="Faction name"/>
         </StackPanel>
 
-        <!-- Color with preview -->
+        <!-- Color picker -->
         <StackPanel>
             <TextBlock Text="Color" FontWeight="SemiBold" FontSize="11"/>
-            <Grid ColumnDefinitions="*,30">
-                <TextBox Grid.Column="0"
-                         Text="{Binding ColorHex, Mode=TwoWay}"
-                         Watermark="#RRGGBB"/>
-                <Border Grid.Column="1"
-                        Width="24" Height="24"
-                        CornerRadius="3"
-                        Margin="5,0,0,0"
-                        BorderBrush="Gray"
-                        BorderThickness="1">
-                    <Border.Background>
-                        <SolidColorBrush Color="{Binding ColorHex, FallbackValue=#808080}"/>
-                    </Border.Background>
-                </Border>
-            </Grid>
+            <ColorPicker Color="{Binding FactionColor, Mode=TwoWay}"
+                         HorizontalAlignment="Left"/>
         </StackPanel>
 
         <!-- IsPlayerFaction -->
