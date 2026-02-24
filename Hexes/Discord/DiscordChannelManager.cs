@@ -65,19 +65,32 @@ public class DiscordChannelManager : IDiscordChannelManager
             faction.DiscordRoleId = role.Id;
 
             // 2. Create channel category for the faction
+            var categoryOverwrites = new List<PermissionOverwriteProperties>
+            {
+                new(guildId.Value, PermissionOverwriteType.Role)
+                {
+                    Denied = Permissions.CreatePublicThreads
+                           | Permissions.CreatePrivateThreads
+                           | Permissions.SendMessagesInThreads,
+                },
+            };
             var category = await rest.CreateGuildChannelAsync(guildId.Value,
-                new GuildChannelProperties(faction.Name, ChannelType.CategoryChannel));
+                new GuildChannelProperties(faction.Name, ChannelType.CategoryChannel)
+                {
+                    PermissionOverwrites = categoryOverwrites,
+                });
             faction.DiscordCategoryId = category.Id;
 
             // 3. Create read-only text channel in the category
             var channelOverwrites = new List<PermissionOverwriteProperties>
             {
-                // Deny @everyone from seeing the channel
+                // Deny @everyone from seeing the channel or interacting with threads
                 new(guildId.Value, PermissionOverwriteType.Role)
                 {
                     Denied = Permissions.ViewChannel
                           | Permissions.CreatePublicThreads
-                          | Permissions.CreatePrivateThreads,
+                          | Permissions.CreatePrivateThreads
+                          | Permissions.SendMessagesInThreads,
                 },
                 // Allow faction role to view but not send
                 new(role.Id, PermissionOverwriteType.Role)
@@ -229,7 +242,8 @@ public class DiscordChannelManager : IDiscordChannelManager
                 {
                     Denied = Permissions.ViewChannel
                           | Permissions.CreatePublicThreads
-                          | Permissions.CreatePrivateThreads,
+                          | Permissions.CreatePrivateThreads
+                          | Permissions.SendMessagesInThreads,
                 },
                 // Allow the commander's Discord user read+write
                 new(commander.DiscordUserId.Value, PermissionOverwriteType.User)
@@ -445,8 +459,20 @@ public class DiscordChannelManager : IDiscordChannelManager
             var guildId = config.GuildId;
             if (guildId == null) return;
 
+            var coLocCategoryOverwrites = new List<PermissionOverwriteProperties>
+            {
+                new(guildId.Value, PermissionOverwriteType.Role)
+                {
+                    Denied = Permissions.CreatePublicThreads
+                           | Permissions.CreatePrivateThreads
+                           | Permissions.SendMessagesInThreads,
+                },
+            };
             var category = await rest.CreateGuildChannelAsync(guildId.Value,
-                new GuildChannelProperties("Co-Location", ChannelType.CategoryChannel));
+                new GuildChannelProperties("Co-Location", ChannelType.CategoryChannel)
+                {
+                    PermissionOverwrites = coLocCategoryOverwrites,
+                });
             config.CoLocationCategoryId = category.Id;
             await db.SaveChangesAsync();
 
@@ -477,7 +503,8 @@ public class DiscordChannelManager : IDiscordChannelManager
                 {
                     Denied = Permissions.ViewChannel
                           | Permissions.CreatePublicThreads
-                          | Permissions.CreatePrivateThreads,
+                          | Permissions.CreatePrivateThreads
+                          | Permissions.SendMessagesInThreads,
                 },
             };
 
