@@ -53,6 +53,11 @@ public partial class MainWindow : Window
         {
             viewModel.HexMapViewModel.SelectedMessage = (message);
         };
+
+        HexMapView.NavyClicked += (s, navy) =>
+        {
+            viewModel.HexMapViewModel.SelectedNavy = navy;
+        };
         HexMapView.PanCompleted += (s, delta) =>
             viewModel.HexMapViewModel.CompletePanCommand.Execute(delta);
         HexMapView.TerrainPainted += (s, args) =>

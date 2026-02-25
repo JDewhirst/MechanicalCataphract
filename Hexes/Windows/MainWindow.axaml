@@ -38,6 +38,9 @@
         <DataTemplate DataType="entityVm:CoLocationChannelViewModel">
             <views:CoLocationChannelDetail/>
         </DataTemplate>
+        <DataTemplate DataType="entityVm:NavyViewModel">
+            <views:NavyDetail/>
+        </DataTemplate>
     </Window.DataTemplates>
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="400,Auto,*,Auto,400">
@@ -164,7 +167,9 @@
                           SelectedMessage="{Binding HexMapViewModel.SelectedMessage}"
                           ForageSelectedHexes="{Binding HexMapViewModel.ForageSelectedHexes}"
                           PathSelectionHexes="{Binding HexMapViewModel.PathSelectionHexes}"
-                          NewsReachedHexes="{Binding HexMapViewModel.NewsReachedHexes}"/>
+                          NewsReachedHexes="{Binding HexMapViewModel.NewsReachedHexes}"
+                          Navies="{Binding HexMapViewModel.Navies}"
+                          SelectedNavy="{Binding HexMapViewModel.SelectedNavy}"/>
 
         <!-- Row 1 Col 3: GridSplitter between map and right panel -->
         <GridSplitter Grid.Row="1" Grid.Column="3"
@@ -390,6 +395,34 @@
                         <!-- Detail panel for selected news item -->
                         <views:NewsItemDetail Grid.Row="2"
                                                DataContext="{Binding HexMapViewModel}"/>
+                    </Grid>
+                </TabItem>
+
+                <!-- Navies Tab -->
+                <TabItem Header="Navies">
+                    <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
+                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AddNavyCommand}"/>
+                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.DeleteNavyCommand}"
+                                    CommandParameter="{Binding HexMapViewModel.SelectedNavy}"/>
+                        </StackPanel>
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding HexMapViewModel.Navies}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedNavy}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  GridLinesVisibility="Horizontal"
+                                  SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Ships" Binding="{Binding Ships.Count}" Width="45"/>
+                                <DataGridTextColumn Header="Supply" Binding="{Binding DaysOfSupply, StringFormat='{}{0:F1}d'}" Width="55"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </Grid>
                 </TabItem>
 

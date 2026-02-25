@@ -107,7 +107,8 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
             new WeatherRules(6, new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>
             {
                 ["Clear"] = new() { ["Blizzard"] = 1.0 }  // target doesn't exist in seeded DB
-            }));
+            }),
+            GameRulesService.CreateDefaults().Ships);
         _mockGameRules.Setup(s => s.Rules).Returns(rulesWithNoMatch);
 
         var gameDate = new DateTime(1805, 6, 15);
@@ -130,7 +131,8 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
             {
                 ["Clear"] = new() { ["Overcast"] = 1.0 },
                 ["Rain"]  = new() { ["Fog"] = 1.0 }
-            }));
+            }),
+            GameRulesService.CreateDefaults().Ships);
         _mockGameRules.Setup(s => s.Rules).Returns(deterministicRules);
 
         // Assign some hexes Clear and some Rain

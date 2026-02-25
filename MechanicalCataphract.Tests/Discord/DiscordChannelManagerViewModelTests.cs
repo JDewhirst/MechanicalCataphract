@@ -341,7 +341,8 @@ public class DiscordChannelManagerViewModelTests
             botService.Object,
             _channelMgr.Object,
             new Mock<IDiscordMessageHandler>().Object,
-            newsService.Object);
+            newsService.Object,
+            new Mock<INavyService>().Object);
     }
 
     [Test]

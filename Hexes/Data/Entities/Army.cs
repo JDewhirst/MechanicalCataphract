@@ -71,6 +71,11 @@ public class Army : IPathMovable
         }
     }
 
+    // Embarkation (SetNull on delete)
+    public int? NavyId { get; set; }
+    public Navy? Navy { get; set; }
+    public bool IsEmbarked => NavyId.HasValue;
+
     // Navigation
     public ICollection<Brigade> Brigades { get; set; } = new List<Brigade>();
 

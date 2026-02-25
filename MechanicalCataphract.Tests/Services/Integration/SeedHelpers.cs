@@ -84,4 +84,31 @@ public static class SeedHelpers
         await ctx.SaveChangesAsync();
         return brigade;
     }
+
+    public static async Task<Navy> SeedNavyAsync(
+        WargameDbContext ctx, string name = "Test Navy", int? coordinateQ = null, int? coordinateR = null,
+        int? commanderId = null, int carriedSupply = 0)
+    {
+        var navy = new Navy
+        {
+            Name = name,
+            CoordinateQ = coordinateQ,
+            CoordinateR = coordinateR,
+            CommanderId = commanderId,
+            CarriedSupply = carriedSupply
+        };
+        ctx.Navies.Add(navy);
+        await ctx.SaveChangesAsync();
+        return navy;
+    }
+
+    public static async Task<Ship> SeedShipAsync(
+        WargameDbContext ctx, int navyId,
+        ShipType shipType = ShipType.Transport, int count = 1)
+    {
+        var ship = new Ship { NavyId = navyId, ShipType = shipType, Count = count };
+        ctx.Ships.Add(ship);
+        await ctx.SaveChangesAsync();
+        return ship;
+    }
 }

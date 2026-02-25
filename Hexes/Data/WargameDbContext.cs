@@ -27,6 +27,8 @@ public class WargameDbContext : DbContext
     public DbSet<WeatherUpdateRecord> WeatherUpdateRecords { get; set; }
     public DbSet<FactionRule> FactionRules { get; set; }
     public DbSet<NewsItem> NewsItems { get; set; }
+    public DbSet<Navy> Navies { get; set; }
+    public DbSet<Ship> Ships { get; set; }
 
     public WargameDbContext(DbContextOptions<WargameDbContext> options)
         : base(options) { }
@@ -238,6 +240,47 @@ public class WargameDbContext : DbContext
                 v => v == null ? null : JsonSerializer.Serialize(v, jsonOptions),
                 v => v == null ? null : JsonSerializer.Deserialize<List<int>>(v, jsonOptions))
             .Metadata.SetValueComparer(intListComparer);
+
+        // Navy -> MapHex (coordinate, Restrict on delete)
+        modelBuilder.Entity<Navy>()
+            .HasOne(n => n.MapHex)
+            .WithMany()
+            .HasForeignKey(n => new { n.CoordinateQ, n.CoordinateR })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Navy -> Commander (SetNull on delete)
+        modelBuilder.Entity<Navy>()
+            .HasOne(n => n.Commander)
+            .WithMany()
+            .HasForeignKey(n => n.CommanderId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Ship -> Navy (cascade delete)
+        modelBuilder.Entity<Ship>()
+            .HasOne(s => s.Navy)
+            .WithMany(n => n.Ships)
+            .HasForeignKey(s => s.NavyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Army -> Navy (SetNull on delete; CarriedArmy back-reference)
+        modelBuilder.Entity<Army>()
+            .HasOne(a => a.Navy)
+            .WithOne(n => n.CarriedArmy)
+            .HasForeignKey<Army>(a => a.NavyId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Computed properties on Navy not stored in DB
+        modelBuilder.Entity<Navy>()
+            .Ignore(n => n.TransportCount)
+            .Ignore(n => n.WarshipCount)
+            .Ignore(n => n.DailySupplyConsumption)
+            .Ignore(n => n.DaysOfSupply)
+            .Ignore(n => n.MaxCarryUnits)
+            .Ignore(n => n.TotalCarryUnits);
+
+        // Computed properties on Army not stored in DB
+        modelBuilder.Entity<Army>()
+            .Ignore(a => a.IsEmbarked);
 
         // Seed default faction
         modelBuilder.Entity<Faction>().HasData(

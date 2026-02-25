@@ -1,0 +1,143 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             xmlns:views="using:GUI.Views"
+             mc:Ignorable="d"
+             x:Class="GUI.Views.NavyDetail"
+             x:DataType="vm:NavyViewModel">
+
+    <StackPanel>
+        <!-- Name -->
+        <StackPanel>
+            <TextBlock Text="Name" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Name, Mode=TwoWay}" Watermark="Navy name"/>
+        </StackPanel>
+
+        <!-- Commander selection -->
+        <StackPanel Margin="0,5,0,0">
+            <TextBlock Text="Commander" FontWeight="SemiBold" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding AvailableCommanders}"
+                      SelectedItem="{Binding Commander, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Commander">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
+        <!-- Current Location -->
+        <StackPanel Spacing="2" Margin="0,5,0,0">
+            <TextBlock Text="Current Location" FontWeight="SemiBold" FontSize="11"/>
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Col" FontSize="10" Foreground="Gray"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Row" FontSize="10" Foreground="Gray"/>
+                <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding Col, Mode=TwoWay}" Margin="0,0,2,0"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Row, Mode=TwoWay}" Margin="2,0,0,0"/>
+            </Grid>
+        </StackPanel>
+
+        <!-- IsRowing -->
+        <CheckBox Content="Is Rowing"
+                  IsChecked="{Binding IsRowing, Mode=TwoWay}"
+                  Margin="0,5,0,0"/>
+
+        <!-- Crew Supply -->
+        <StackPanel Margin="0,5,0,0">
+            <TextBlock Text="Crew Supply" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding CarriedSupply, Mode=TwoWay}"/>
+        </StackPanel>
+
+        <!-- Stats grid -->
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="10" Margin="0,8,0,0">
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Text="Transports" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding TransportCount}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1">
+                <TextBlock Text="Warships" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding WarshipCount}"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Grid.Column="0">
+                <TextBlock Text="Daily Supply Use" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding DailySupplyConsumption}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1">
+                <TextBlock Text="Days of Supply" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding DaysOfSupply, StringFormat='{}{0:F1}'}"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Grid.Column="0">
+                <TextBlock Text="Total Carry Units" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding TotalCarryUnits, StringFormat='{}{0:F1}'}"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="1">
+                <TextBlock Text="Max Carry Units" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Text="{Binding MaxCarryUnits}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Embarked Army -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,8,0,0">
+            <StackPanel Spacing="5">
+                <TextBlock Text="Embarked Army" FontWeight="Bold" FontSize="12"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Carried:" FontSize="11"/>
+                    <TextBlock Text="{Binding CarriedArmyName}" FontSize="11" FontStyle="Italic"/>
+                </StackPanel>
+
+                <!-- Embark: shown when no army is aboard -->
+                <StackPanel IsVisible="{Binding !HasCarriedArmy}" Spacing="5">
+                    <TextBlock Text="Embark Army" FontWeight="SemiBold" FontSize="11"/>
+                    <ComboBox x:Name="EmbarkArmyComboBox"
+                              ItemsSource="{Binding AvailableArmies}"
+                              HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="entities:Army">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="Embark"
+                            Click="OnEmbarkClicked"
+                            FontSize="11" Padding="8,2"/>
+                </StackPanel>
+
+                <!-- Disembark: shown when an army is aboard -->
+                <Button Content="Disembark Army"
+                        Command="{Binding DisembarkArmyCommand}"
+                        IsVisible="{Binding HasCarriedArmy}"
+                        FontSize="11" Padding="8,2"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Ships section -->
+        <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,8,0,0">
+            <StackPanel Spacing="5">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="Ships" FontWeight="Bold" FontSize="12"/>
+                    <Button Content="+ Add" FontSize="11" Padding="8,2"
+                            Command="{Binding AddShipCommand}"/>
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding Ships}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="entities:Ship">
+                            <views:ShipDetail/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="(No ships)"
+                           IsVisible="{Binding !Ships.Count}"
+                           Foreground="Gray" FontStyle="Italic" FontSize="11"/>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

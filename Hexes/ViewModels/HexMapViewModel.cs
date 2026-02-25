@@ -36,6 +36,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly IDiscordChannelManager _discordChannelManager;
     private readonly IDiscordMessageHandler _discordMessageHandler;
     private readonly INewsService _newsService;
+    private readonly INavyService _navyService;
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -202,6 +203,13 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem> _newsItems = new();
 
+    // Navies
+    [ObservableProperty]
+    private ObservableCollection<Navy> _navies = new();
+
+    [ObservableProperty]
+    private Navy? _selectedNavy;
+
     [ObservableProperty]
     private MechanicalCataphract.Data.Entities.NewsItem? _selectedNewsItem;
 
@@ -225,7 +233,8 @@ public partial class HexMapViewModel : ObservableObject
         IDiscordBotService discordBotService,
         IDiscordChannelManager discordChannelManager,
         IDiscordMessageHandler discordMessageHandler,
-        INewsService newsService)
+        INewsService newsService,
+        INavyService navyService)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -242,6 +251,7 @@ public partial class HexMapViewModel : ObservableObject
         _discordChannelManager = discordChannelManager;
         _discordMessageHandler = discordMessageHandler;
         _newsService = newsService;
+        _navyService = navyService;
 
         _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
     }
@@ -362,6 +372,9 @@ public partial class HexMapViewModel : ObservableObject
 
         var newsItems = await _newsService.GetAllAsync();
         NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
+
+        var navies = await _navyService.GetAllAsync();
+        Navies = new ObservableCollection<Navy>(navies);
     }
 
     private async Task LoadDiscordConfigAsync()
@@ -463,6 +476,7 @@ public partial class HexMapViewModel : ObservableObject
         await RefreshOrdersAsync();              // Orders
         await RefreshCoLocationChannelsAsync();   // CoLocationChannels
         await RefreshNewsItemsAsync();             // NewsItems
+        await RefreshNaviesAsync();               // Navies
         //await RefreshGameStateAsync();  // GameTime, etc.
 
         // Clear selections (optional - entities may have changed)
@@ -470,6 +484,7 @@ public partial class HexMapViewModel : ObservableObject
         SelectedCommander = null;
         SelectedMessage = null;
         SelectedCoLocationChannel = null;
+        SelectedNavy = null;
         SelectedEntityViewModel = null;
 
         StatusMessage = "Data refreshed";
@@ -515,6 +530,12 @@ public partial class HexMapViewModel : ObservableObject
     {
         var newsItems = await _newsService.GetAllAsync();
         NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
+    }
+
+    public async Task RefreshNaviesAsync()
+    {
+        var navies = await _navyService.GetAllAsync();
+        Navies = new ObservableCollection<Navy>(navies);
     }
 
     private async Task LoadVisibleHexesAsync()
@@ -792,11 +813,11 @@ public partial class HexMapViewModel : ObservableObject
         await RefreshHexInCollection(startHex);
         await RefreshHexInCollection(clickedHex);
 
-        // Reset for next road
-        RoadStartHex = null;
+        // Advance chain: new start is the hex just painted to
+        RoadStartHex = clickedHex;
         StatusMessage = hasRoad
-            ? $"Removed road between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})"
-            : $"Added road between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})";
+            ? $"Removed road. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel"
+            : $"Added road. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel";
     }
 
     /// <summary>
@@ -884,11 +905,11 @@ public partial class HexMapViewModel : ObservableObject
         await RefreshHexInCollection(startHex);
         await RefreshHexInCollection(clickedHex);
 
-        // Reset for next river
-        RiverStartHex = null;
+        // Advance chain: new start is the hex just painted to
+        RiverStartHex = clickedHex;
         StatusMessage = hasRiver
-            ? $"Removed river between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})"
-            : $"Added river between ({startHex.q}, {startHex.r}) and ({clickedHex.q}, {clickedHex.r})";
+            ? $"Removed river. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel"
+            : $"Added river. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel";
     }
 
     [RelayCommand]
@@ -1042,6 +1063,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedCommander = null;
             SelectedOrder = null;
             SelectedMessage = null;
+            SelectedNavy = null;
             SelectedHex = null;
             SelectedMapHex = null;
             SelectedEntityViewModel = new FactionViewModel(value, _factionService, _factionRuleService, _discordChannelManager);
@@ -1059,6 +1081,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedCommander = null;
             SelectedOrder = null;
             SelectedMessage = null;
+            SelectedNavy = null;
             SelectedHex = null;
             SelectedMapHex = null;
 
@@ -1226,6 +1249,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedArmy = null;
             SelectedOrder = null;
             SelectedMessage = null;
+            SelectedNavy = null;
             SelectedHex = null;
             SelectedMapHex = null;
             var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
@@ -1248,6 +1272,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedArmy = null;
             SelectedCommander = null;
             SelectedMessage = null;
+            SelectedNavy = null;
             SelectedHex = null;
             SelectedMapHex = null;
             SelectedEntityViewModel = value;  // Already a ViewModel
@@ -1264,6 +1289,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedArmy = null;
             SelectedCommander = null;
             SelectedOrder = null;
+            SelectedNavy = null;
             SelectedHex = null;
             SelectedMapHex = null;
             var messageVm = new MessageViewModel(value, _messageService, Commanders, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
@@ -1286,6 +1312,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedCommander = null;
             SelectedOrder = null;
             SelectedMessage = null;
+            SelectedNavy = null;
             SelectedHex = null;
             SelectedMapHex = null;
             _ = LoadCoLocationChannelWithDetailsAsync(value.Id);
@@ -1304,6 +1331,34 @@ public partial class HexMapViewModel : ObservableObject
         }
     }
 
+    partial void OnSelectedNavyChanged(Navy? value)
+    {
+        if (_isSyncingCollection || value == null) return;
+        if (value != null)
+        {
+            SelectedFaction = null;
+            SelectedArmy = null;
+            SelectedCommander = null;
+            SelectedOrder = null;
+            SelectedMessage = null;
+            SelectedHex = null;
+            SelectedMapHex = null;
+            _ = LoadNavyWithDetailsAsync(value.Id);
+            StatusMessage = $"Selected navy: {value.Name}";
+        }
+    }
+
+    private async Task LoadNavyWithDetailsAsync(int navyId)
+    {
+        var navyWithDetails = await _navyService.GetNavyWithShipsAsync(navyId);
+        if (navyWithDetails != null)
+        {
+            var navyVm = new NavyViewModel(navyWithDetails, _navyService, Commanders, Armies, _mapRows, _mapColumns);
+            navyVm.Saved += () => SyncEntityInCollection(() => Navies, c => Navies = c, n => SelectedNavy = n, navyVm.Entity);
+            SelectedEntityViewModel = navyVm;
+        }
+    }
+
     partial void OnSelectedMapHexChanged(MapHex? value)
     {
         if (_isSyncingCollection || value == null) return;
@@ -1314,6 +1369,7 @@ public partial class HexMapViewModel : ObservableObject
             SelectedCommander = null;
             SelectedOrder = null;
             SelectedMessage = null;
+            SelectedNavy = null;
             SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions, LocationTypes, WeatherTypes);
             StatusMessage = $"Selected Hex: {value.LocationName}";
             _ = LoadHexWithDetailsAsync(value.Q, value.R);
@@ -1401,6 +1457,30 @@ public partial class HexMapViewModel : ObservableObject
         await _armyService.DeleteAsync(army.Id);
         await RefreshArmiesAsync();
         StatusMessage = $"Deleted army: {army.Name}";
+    }
+
+    [RelayCommand]
+    private async Task AddNavyAsync()
+    {
+        var navy = new Navy
+        {
+            Name = "New Navy",
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            CarriedSupply = 0
+        };
+        await _navyService.CreateAsync(navy);
+        await RefreshNaviesAsync();
+        StatusMessage = $"Created navy: {navy.Name}";
+    }
+
+    [RelayCommand]
+    private async Task DeleteNavyAsync(Navy navy)
+    {
+        if (navy == null) return;
+        await _navyService.DeleteAsync(navy.Id);
+        await RefreshNaviesAsync();
+        StatusMessage = $"Deleted navy: {navy.Name}";
     }
 
     [RelayCommand]

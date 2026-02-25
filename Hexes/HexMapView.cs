@@ -56,6 +56,12 @@ public class HexMapView : Control
     public static readonly StyledProperty<IList<Message>?> MessagesProperty =
         AvaloniaProperty.Register<HexMapView, IList<Message>?>(nameof(Messages));
 
+    public static readonly StyledProperty<IList<Navy>?> NaviesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<Navy>?>(nameof(Navies));
+
+    public static readonly StyledProperty<Navy?> SelectedNavyProperty =
+        AvaloniaProperty.Register<HexMapView, Navy?>(nameof(SelectedNavy));
+
     public static readonly StyledProperty<Army?> SelectedArmyProperty =
         AvaloniaProperty.Register<HexMapView, Army?>(nameof(SelectedArmy));
 
@@ -182,6 +188,18 @@ public class HexMapView : Control
         set => SetValue(SelectedMessageProperty, value);
     }
 
+    public IList<Navy>? Navies
+    {
+        get => GetValue(NaviesProperty);
+        set => SetValue(NaviesProperty, value);
+    }
+
+    public Navy? SelectedNavy
+    {
+        get => GetValue(SelectedNavyProperty);
+        set => SetValue(SelectedNavyProperty, value);
+    }
+
     #endregion
 
     #region Events
@@ -190,6 +208,7 @@ public class HexMapView : Control
     public event EventHandler<Army>? ArmyClicked;
     public event EventHandler<Commander>? CommanderClicked;
     public event EventHandler<Message>? MessageClicked;
+    public event EventHandler<Navy>? NavyClicked;
     public event EventHandler<Vector>? PanCompleted;
     public event EventHandler<(Hex hex, int terrainTypeId)>? TerrainPainted;
     public event EventHandler<Hex>? RoadPainted;
@@ -334,6 +353,8 @@ public class HexMapView : Control
             view.InvalidateVisual();
         });
         MessagesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        NaviesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        SelectedNavyProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         SelectedArmyProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         SelectedCommanderProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         ForageSelectedHexesProperty.Changed.AddClassHandler<HexMapView>((view, args) =>
@@ -497,6 +518,20 @@ public class HexMapView : Control
                 return;
             }
 
+            // Check for navy click (navies use triangle markers at center)
+            bool isNavyCycleClick = _lastClickedHex?.q == hex.q
+                                 && _lastClickedHex?.r == hex.r
+                                 && _lastClickedEntityType == typeof(Navy);
+            var clickedNavy = FindNavyAtPoint(point, layout, cycleSelection: isNavyCycleClick);
+            if (clickedNavy != null)
+            {
+                _lastClickedHex = (hex.q, hex.r);
+                _lastClickedEntityType = typeof(Navy);
+                NavyClicked?.Invoke(this, clickedNavy);
+                InvalidateVisual();
+                return;
+            }
+
             // Default to hex selection - reset cycling state
             _lastClickedHex = null;
             _lastClickedEntityType = null;
@@ -506,181 +541,33 @@ public class HexMapView : Control
         }
     }
 
-    /// <summary>
-    /// Finds an army at the given screen point, or null if none found.
-    /// Supports click-cycling through stacked armies at the same hex.
-    /// </summary>
     private Army? FindArmyAtPoint(AvaloniaPoint point, Layout layout, bool cycleSelection = false)
     {
         var armies = Armies;
         if (armies == null || armies.Count == 0) return null;
-
-        var armyGroups = GroupEntitiesByHex(armies, a => (a.CoordinateQ, a.CoordinateR));
-        var baseOffset = GetMarkerOffset(MarkerPosition.Center);
-        double hitRadius = Math.Max(10, HexRadius * 0.4);
-
-        foreach (var group in armyGroups)
-        {
-            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
-            var hexCenter = layout.HexToPixel(hex);
-
-            // Check if point is within the expanded hit area for the stack
-            double stackWidth = baseOffset.X + (group.Value.Count * StackOffsetX) + hitRadius;
-            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
-
-            // Quick bounds check for the stack area
-            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
-                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
-                continue;
-
-            // Check each marker in the stack (reverse order so top marker has priority)
-            for (int i = group.Value.Count - 1; i >= 0; i--)
-            {
-                var army = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
-                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
-
-                double distance = Math.Sqrt(
-                    Math.Pow(point.X - markerCenter.X, 2) +
-                    Math.Pow(point.Y - markerCenter.Y, 2));
-
-                if (distance <= hitRadius)
-                {
-                    // If cycling and we have multiple armies, cycle through them
-                    if (cycleSelection && group.Value.Count > 1)
-                    {
-                        var key = (group.Key.q, group.Key.r, typeof(Army));
-                        int lastIndex = _lastSelectedIndex.GetValueOrDefault(key, -1);
-                        int nextIndex = (lastIndex + 1) % group.Value.Count;
-                        _lastSelectedIndex[key] = nextIndex;
-                        return group.Value[nextIndex];
-                    }
-                    return army;
-                }
-            }
-        }
-
-        return null;
+        return FindEntityAtPoint(point, layout, armies,
+            a => (a.CoordinateQ, a.CoordinateR),
+            MarkerPosition.Center, Math.Max(10, HexRadius * 0.4), cycleSelection);
     }
 
-    /// <summary>
-    /// Finds a commander at the given screen point, or null if none found.
-    /// Supports click-cycling through stacked commanders at the same hex.
-    /// </summary>
     private Commander? FindCommanderAtPoint(AvaloniaPoint point, Layout layout, bool cycleSelection = false)
     {
         var commanders = Commanders;
         if (commanders == null || commanders.Count == 0) return null;
-
-        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.CoordinateQ, c.CoordinateR));
-        var baseOffset = GetMarkerOffset(MarkerPosition.TopRight);
-        double hitRadius = Math.Max(8, HexRadius * 0.3);
-
-        foreach (var group in commanderGroups)
-        {
-            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
-            var hexCenter = layout.HexToPixel(hex);
-
-            // Check if point is within the expanded hit area for the stack
-            double stackWidth = Math.Abs(baseOffset.X) + (group.Value.Count * StackOffsetX) + hitRadius;
-            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
-
-            // Quick bounds check for the stack area
-            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
-                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
-                continue;
-
-            // Check each marker in the stack (reverse order so top marker has priority)
-            for (int i = group.Value.Count - 1; i >= 0; i--)
-            {
-                var commander = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
-                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
-
-                double distance = Math.Sqrt(
-                    Math.Pow(point.X - markerCenter.X, 2) +
-                    Math.Pow(point.Y - markerCenter.Y, 2));
-
-                if (distance <= hitRadius)
-                {
-                    // If cycling and we have multiple commanders, cycle through them
-                    if (cycleSelection && group.Value.Count > 1)
-                    {
-                        var key = (group.Key.q, group.Key.r, typeof(Commander));
-                        int lastIndex = _lastSelectedIndex.GetValueOrDefault(key, -1);
-                        int nextIndex = (lastIndex + 1) % group.Value.Count;
-                        _lastSelectedIndex[key] = nextIndex;
-                        return group.Value[nextIndex];
-                    }
-                    return commander;
-                }
-            }
-        }
-
-        return null;
+        return FindEntityAtPoint(point, layout, commanders,
+            c => (c.CoordinateQ, c.CoordinateR),
+            MarkerPosition.TopRight, Math.Max(8, HexRadius * 0.3), cycleSelection);
     }
 
-    /// <summary>
-    /// Finds a message at the given screen point, or null if none found.
-    /// Supports click-cycling through stacked messages at the same hex.
-    /// </summary>
     private Message? FindMessageAtPoint(AvaloniaPoint point, Layout layout, bool cycleSelection = false)
     {
         var messages = Messages;
         if (messages == null || messages.Count == 0) return null;
-
-        var activeMessages = messages.Where(m => !m.Delivered).ToList();
-        if (activeMessages.Count == 0) return null;
-
-        var messageGroups = GroupEntitiesByHex(activeMessages, m => (m.CoordinateQ, m.CoordinateR));
-        var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
-        double hitRadius = Math.Max(6, HexRadius * 0.27);  // Matches smaller envelope size
-
-        foreach (var group in messageGroups)
-        {
-            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
-            var hexCenter = layout.HexToPixel(hex);
-
-            // Check if point is within the expanded hit area for the stack
-            double stackWidth = Math.Abs(baseOffset.X) + (group.Value.Count * StackOffsetX) + hitRadius;
-            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
-
-            // Quick bounds check for the stack area
-            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
-                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
-                continue;
-
-            // Check each marker in the stack (reverse order so top marker has priority)
-            for (int i = group.Value.Count - 1; i >= 0; i--)
-            {
-                var message = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
-                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
-
-                double distance = Math.Sqrt(
-                    Math.Pow(point.X - markerCenter.X, 2) +
-                    Math.Pow(point.Y - markerCenter.Y, 2));
-
-                if (distance <= hitRadius)
-                {
-                    // If cycling and we have multiple messages, cycle through them
-                    if (cycleSelection && group.Value.Count > 1)
-                    {
-                        var key = (group.Key.q, group.Key.r, typeof(Message));
-                        int lastIndex = _lastSelectedIndex.GetValueOrDefault(key, -1);
-                        int nextIndex = (lastIndex + 1) % group.Value.Count;
-                        _lastSelectedIndex[key] = nextIndex;
-                        return group.Value[nextIndex];
-                    }
-                    return message;
-                }
-            }
-        }
-
-        return null;
+        var active = messages.Where(m => !m.Delivered).ToList();
+        if (active.Count == 0) return null;
+        return FindEntityAtPoint(point, layout, active,
+            m => (m.CoordinateQ, m.CoordinateR),
+            MarkerPosition.BottomRight, Math.Max(6, HexRadius * 0.27), cycleSelection);
     }
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -747,6 +634,7 @@ public class HexMapView : Control
             }
 
             // Pass 4: Render entity markers and paths on top
+            RenderNavyMarkers(context, layout, viewport);
             RenderArmyMarkers(context, layout, viewport);
             RenderCommanderMarkers(context, layout, viewport);
             RenderMessageMarkers(context, layout, viewport);
@@ -1081,6 +969,167 @@ public class HexMapView : Control
         }
 
         context.DrawGeometry(factionBrush, CommanderOutlinePen, diamondGeom);
+    }
+
+    private void RenderNavyMarkers(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var navies = Navies;
+        if (navies == null || navies.Count == 0) return;
+
+        var navyGroups = GroupEntitiesByHex(navies, n => (n.CoordinateQ, n.CoordinateR));
+        var baseOffset = GetMarkerOffset(MarkerPosition.Center);
+
+        foreach (var group in navyGroups)
+        {
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
+
+            // Viewport culling
+            if (hexCenter.X < viewport.Left - 20 || hexCenter.X > viewport.Right + 20 ||
+                hexCenter.Y < viewport.Top - 20 || hexCenter.Y > viewport.Bottom + 20)
+                continue;
+
+            for (int i = 0; i < group.Value.Count; i++)
+            {
+                var navy = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);
+                double stackY = baseOffset.Y - (i * StackOffsetY);
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
+
+                RenderSingleNavyMarker(context, navy, markerCenter);
+            }
+        }
+    }
+
+    private void RenderSingleNavyMarker(DrawingContext context, Navy navy, AvaloniaPoint markerCenter)
+    {
+        var factionBrush = GetNavyMarkerBrush(navy);
+        double markerRadius = Math.Max(6, HexRadius * 0.35);
+
+        bool isSelected = SelectedNavy != null && SelectedNavy.Id == navy.Id;
+        if (isSelected)
+        {
+            double sr = markerRadius + 3;
+            var selGeom = new StreamGeometry();
+            using (var ctx = selGeom.Open())
+            {
+                ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - sr), true);
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X + sr, markerCenter.Y + sr));
+                ctx.LineTo(new AvaloniaPoint(markerCenter.X - sr, markerCenter.Y + sr));
+                ctx.EndFigure(true);
+            }
+            context.DrawGeometry(null, SelectionOutlinePen, selGeom);
+        }
+
+        var triGeom = new StreamGeometry();
+        using (var ctx = triGeom.Open())
+        {
+            ctx.BeginFigure(new AvaloniaPoint(markerCenter.X, markerCenter.Y - markerRadius), true);
+            ctx.LineTo(new AvaloniaPoint(markerCenter.X + markerRadius, markerCenter.Y + markerRadius));
+            ctx.LineTo(new AvaloniaPoint(markerCenter.X - markerRadius, markerCenter.Y + markerRadius));
+            ctx.EndFigure(true);
+        }
+        context.DrawGeometry(factionBrush, MarkerOutlinePen, triGeom);
+
+        if (!string.IsNullOrEmpty(navy.Name))
+        {
+            var initial = navy.Name[0].ToString().ToUpperInvariant();
+            var text = new FormattedText(
+                initial,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                Typeface.Default,
+                Math.Max(8, markerRadius * 1.0),
+                Brushes.White);
+            // Triangle centroid is 1/3 up from base; shift text down from markerCenter
+            context.DrawText(text, new AvaloniaPoint(
+                markerCenter.X - text.Width / 2,
+                markerCenter.Y + markerRadius / 3.0 - text.Height / 2));
+        }
+    }
+
+    private Navy? FindNavyAtPoint(AvaloniaPoint point, Layout layout, bool cycleSelection = false)
+    {
+        var navies = Navies;
+        if (navies == null || navies.Count == 0) return null;
+        return FindEntityAtPoint(point, layout, navies,
+            n => (n.CoordinateQ, n.CoordinateR),
+            MarkerPosition.Center, Math.Max(10, HexRadius * 0.4), cycleSelection);
+    }
+
+    private T? FindEntityAtPoint<T>(
+        AvaloniaPoint point,
+        Layout layout,
+        IList<T> entities,
+        Func<T, (int? q, int? r)> getLocation,
+        MarkerPosition position,
+        double hitRadius,
+        bool cycleSelection) where T : class
+    {
+        var groups = GroupEntitiesByHex(entities, getLocation);
+        var baseOffset = GetMarkerOffset(position);
+
+        foreach (var group in groups)
+        {
+            var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
+            var hexCenter = layout.HexToPixel(hex);
+
+            double stackWidth  = Math.Abs(baseOffset.X) + (group.Value.Count * StackOffsetX) + hitRadius;
+            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
+
+            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
+                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
+                continue;
+
+            for (int i = group.Value.Count - 1; i >= 0; i--)
+            {
+                var entity  = group.Value[i];
+                double stackX = baseOffset.X - (i * StackOffsetX);
+                double stackY = baseOffset.Y - (i * StackOffsetY);
+                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
+
+                double distance = Math.Sqrt(
+                    Math.Pow(point.X - markerCenter.X, 2) +
+                    Math.Pow(point.Y - markerCenter.Y, 2));
+
+                if (distance <= hitRadius)
+                {
+                    if (cycleSelection && group.Value.Count > 1)
+                    {
+                        var key = (group.Key.q, group.Key.r, typeof(T));
+                        int lastIndex = _lastSelectedIndex.GetValueOrDefault(key, -1);
+                        int nextIndex = (lastIndex + 1) % group.Value.Count;
+                        _lastSelectedIndex[key] = nextIndex;
+                        return group.Value[nextIndex];
+                    }
+                    return entity;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private ISolidColorBrush GetNavyMarkerBrush(Navy navy)
+    {
+        var faction = navy.Commander?.Faction;
+        if (faction == null)
+            return DefaultMarkerBrush;
+
+        int factionId = navy.Commander!.FactionId;
+        if (_factionColorCache.TryGetValue(factionId, out var brush))
+            return brush;
+
+        try
+        {
+            brush = new SolidColorBrush(Color.Parse(faction.ColorHex));
+            _factionColorCache[factionId] = brush;
+            return brush;
+        }
+        catch
+        {
+            return DefaultMarkerBrush;
+        }
     }
 
     /// <summary>
@@ -1531,7 +1580,7 @@ public class HexMapView : Control
     /// Returns semi-transparent faction color for overlay (~50% opacity).
     /// Uses cache for faction colors.
     /// </summary>
-    private ISolidColorBrush GetFactionBrushWithAlpha(MapHex mapHex)
+    private SolidColorBrush GetFactionBrushWithAlpha(MapHex mapHex)
     {
         if (!mapHex.ControllingFactionId.HasValue)
             return new SolidColorBrush(Color.FromArgb(191, 128, 128, 128)); // Semi-transparent gray
@@ -1565,7 +1614,7 @@ public class HexMapView : Control
     /// <summary>
     /// Semi-transparent heat map for population density overlay (~50% opacity).
     /// </summary>
-    private static ISolidColorBrush GetPopulationBrushWithAlpha(int density)
+    private static SolidColorBrush GetPopulationBrushWithAlpha(int density)
     {
         // Clamp to 0-100
         density = Math.Max(0, Math.Min(100, density));
@@ -1583,7 +1632,7 @@ public class HexMapView : Control
     /// <summary>
     /// Semi-transparent foraged gradient overlay (~50% opacity).
     /// </summary>
-    private static ISolidColorBrush GetForagedBrushWithAlpha(int timesForaged)
+    private static SolidColorBrush GetForagedBrushWithAlpha(int timesForaged)
     {
         // Clamp to 0-10
         timesForaged = Math.Max(0, Math.Min(10, timesForaged));
@@ -1601,7 +1650,7 @@ public class HexMapView : Control
     /// <summary>
     /// Returns semi-transparent weather color overlay (~50% opacity).
     /// </summary>
-    private static ISolidColorBrush GetWeatherBrushWithAlpha(MapHex mapHex)
+    private static SolidColorBrush GetWeatherBrushWithAlpha(MapHex mapHex)
     {
         if (!mapHex.WeatherId.HasValue || mapHex.Weather == null)
             return new SolidColorBrush(Color.FromArgb(128, 240, 240, 240)); // Semi-transparent off-white

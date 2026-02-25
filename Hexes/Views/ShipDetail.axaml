@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
+             mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="80"
+             x:Class="GUI.Views.ShipDetail"
+             x:DataType="entities:Ship">
+
+    <Border BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="8" Margin="2">
+        <Grid ColumnDefinitions="80,*,Auto" RowDefinitions="Auto" ColumnSpacing="8">
+            <!-- Count -->
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Count" FontWeight="SemiBold" FontSize="10"/>
+                <NumericUpDown Value="{Binding Count, Mode=TwoWay}"
+                               Minimum="0" Increment="1"
+                               FontSize="12"
+                               LostFocus="OnFieldLostFocus"/>
+            </StackPanel>
+
+            <!-- ShipType -->
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="Type" FontWeight="SemiBold" FontSize="10"/>
+                <ComboBox x:Name="ShipTypeComboBox"
+                          SelectedItem="{Binding ShipType, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch"
+                          SelectionChanged="OnComboBoxSelectionChanged"/>
+            </StackPanel>
+
+            <!-- Delete button -->
+            <Button Grid.Column="2"
+                    Content="Delete"
+                    Click="OnDeleteClicked"
+                    Foreground="DarkRed"
+                    FontSize="11"
+                    VerticalAlignment="Bottom"/>
+        </Grid>
+    </Border>
+</UserControl>

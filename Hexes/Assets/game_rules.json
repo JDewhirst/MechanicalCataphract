@@ -36,5 +36,16 @@
       "Rain":     { "Fog": 0.40, "Clear": 0.25, "Overcast": 0.20, "Rain": 0.15 },
       "Fog":      { "Fog": 0.40, "Clear": 0.25, "Overcast": 0.20, "Rain": 0.15 }
     }
+  },
+  "ships": {
+    "transportInfantryCapacity": 100,
+    "transportCavalryCapacity": 20,
+    "transportSupplyCapacity": 10000,
+    "transportWagonCapacity": 5,
+    "warshipCapacityMultiplier": 0.5,
+    "crewSupplyConsumptionPerShip": 20,
+    "seaOrDownriverHexesPerDay": 24,
+    "upriverMovementCostMultiplier": 2,
+    "rowingBonusHexesPerDay": 12
   }
 }

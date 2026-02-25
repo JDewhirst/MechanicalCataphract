@@ -77,7 +77,17 @@ public class GameRulesService : IGameRulesService
                 ["Overcast"] = new() { ["Overcast"]=0.40, ["Rain"]=0.25, ["Fog"]=0.20, ["Clear"]=0.15 },
                 ["Rain"]     = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 },
                 ["Fog"]      = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 }
-            }));
+            }),
+        Ships: new ShipRules(
+            TransportInfantryCapacity: 100,
+            TransportCavalryCapacity: 20,
+            TransportSupplyCapacity: 10000,
+            TransportWagonCapacity: 5,
+            WarshipCapacityMultiplier: 0.5,
+            CrewSupplyConsumptionPerShip: 20,
+            SeaOrDownriverHexesPerDay: 24,
+            UpriverMovementCostMultiplier: 2,
+            RowingBonusHexesPerDay: 12));
 
     private static GameRulesData FromDto(GameRulesDto dto)
     {
@@ -87,6 +97,7 @@ public class GameRulesService : IGameRulesService
         var us = dto.UnitStats ?? new UnitStatsDto();
         var n = dto.News ?? new NewsDto();
         var w = dto.Weather;
+        var sh = dto.Ships;
 
         var defaults = CreateDefaults();
 
@@ -117,8 +128,20 @@ public class GameRulesService : IGameRulesService
                 RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0),
             Weather: new WeatherRules(
                 DailyUpdateHour: w?.DailyUpdateHour ?? defaults.Weather.DailyUpdateHour,
-                Transitions: w?.Transitions ?? defaults.Weather.Transitions));
+                Transitions: w?.Transitions ?? defaults.Weather.Transitions),
+            Ships: FromShipsDto(sh, defaults.Ships));
     }
+
+    private static ShipRules FromShipsDto(ShipsDto? dto, ShipRules defaults) => dto == null ? defaults : new ShipRules(
+        TransportInfantryCapacity:    dto.TransportInfantryCapacity    ?? defaults.TransportInfantryCapacity,
+        TransportCavalryCapacity:     dto.TransportCavalryCapacity     ?? defaults.TransportCavalryCapacity,
+        TransportSupplyCapacity:      dto.TransportSupplyCapacity      ?? defaults.TransportSupplyCapacity,
+        TransportWagonCapacity:       dto.TransportWagonCapacity       ?? defaults.TransportWagonCapacity,
+        WarshipCapacityMultiplier:    dto.WarshipCapacityMultiplier    ?? defaults.WarshipCapacityMultiplier,
+        CrewSupplyConsumptionPerShip: dto.CrewSupplyConsumptionPerShip ?? defaults.CrewSupplyConsumptionPerShip,
+        SeaOrDownriverHexesPerDay:    dto.SeaOrDownriverHexesPerDay    ?? defaults.SeaOrDownriverHexesPerDay,
+        UpriverMovementCostMultiplier:dto.UpriverMovementCostMultiplier?? defaults.UpriverMovementCostMultiplier,
+        RowingBonusHexesPerDay:       dto.RowingBonusHexesPerDay       ?? defaults.RowingBonusHexesPerDay);
 
     private static UnitTypeStats FromUnitDto(UnitTypeStatsDto? dto) => dto == null
         ? new UnitTypeStats(1, 15, 1, 1, 5000, true)
@@ -149,6 +172,7 @@ public class GameRulesService : IGameRulesService
         public UnitStatsDto? UnitStats { get; set; }
         public NewsDto? News { get; set; }
         public WeatherDto? Weather { get; set; }
+        public ShipsDto? Ships { get; set; }
     }
 
     private class WeatherDto
@@ -204,5 +228,18 @@ public class GameRulesService : IGameRulesService
         public int? ScoutingRange { get; set; }
         public int? MarchingColumnCapacity { get; set; }
         public bool? CountsForFordingLength { get; set; }
+    }
+
+    private class ShipsDto
+    {
+        public int? TransportInfantryCapacity { get; set; }
+        public int? TransportCavalryCapacity { get; set; }
+        public int? TransportSupplyCapacity { get; set; }
+        public int? TransportWagonCapacity { get; set; }
+        public double? WarshipCapacityMultiplier { get; set; }
+        public int? CrewSupplyConsumptionPerShip { get; set; }
+        public int? SeaOrDownriverHexesPerDay { get; set; }
+        public int? UpriverMovementCostMultiplier { get; set; }
+        public int? RowingBonusHexesPerDay { get; set; }
     }
 }

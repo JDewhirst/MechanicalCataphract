@@ -43,10 +43,22 @@ public record WeatherRules(
     int DailyUpdateHour,
     Dictionary<string, Dictionary<string, double>> Transitions);
 
+public record ShipRules(
+    int TransportInfantryCapacity,
+    int TransportCavalryCapacity,
+    int TransportSupplyCapacity,
+    int TransportWagonCapacity,
+    double WarshipCapacityMultiplier,
+    int CrewSupplyConsumptionPerShip,
+    int SeaOrDownriverHexesPerDay,
+    int UpriverMovementCostMultiplier,
+    int RowingBonusHexesPerDay);
+
 public record GameRulesData(
     MovementRules Movement,
     MovementRateRules MovementRates,
     SupplyRules Supply,
     UnitStatsRules UnitStats,
     NewsRules News,
-    WeatherRules Weather);
+    WeatherRules Weather,
+    ShipRules Ships);
