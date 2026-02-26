@@ -1410,6 +1410,7 @@ public partial class HexMapViewModel : ObservableObject
     private async Task DeleteFactionAsync(Faction faction)
     {
         if (faction == null) return;
+        if (faction.Id == 1) { StatusMessage = "Cannot delete the No Faction sentinel."; return; }
 
         // 1. Discord cleanup — removes roles from commanders, moves their channels out
         await _discordChannelManager.OnFactionDeletedAsync(faction);

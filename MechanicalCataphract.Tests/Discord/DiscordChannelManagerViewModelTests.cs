@@ -403,6 +403,21 @@ public class DiscordChannelManagerViewModelTests
         _commanderService.Verify(s => s.UpdateAsync(cmd2), Times.Once);
     }
 
+    [Test]
+    public async Task HexMapViewModel_DeleteFaction_GuardsAgainstSentinelFaction()
+    {
+        var sentinel = new Faction { Id = 1, Name = "No Faction", ColorHex = "#808080" };
+        var vm = CreateHexMapVM();
+
+        await vm.DeleteFactionCommand.ExecuteAsync(sentinel);
+
+        _factionService.Verify(s => s.DeleteAsync(It.IsAny<int>()), Times.Never,
+            "Sentinel faction (Id=1) must never be deleted");
+        _channelMgr.Verify(m => m.OnFactionDeletedAsync(It.IsAny<Faction>()), Times.Never,
+            "Discord cleanup should not fire for the sentinel faction");
+        Assert.That(vm.StatusMessage, Does.Contain("Cannot delete"));
+    }
+
     #endregion
 
     #region HexMapViewModel — Commander CRUD Discord Integration
