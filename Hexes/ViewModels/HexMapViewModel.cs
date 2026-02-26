@@ -1423,10 +1423,28 @@ public partial class HexMapViewModel : ObservableObject
             await _commanderService.UpdateAsync(cmd);
         }
 
-        // 3. Delete the faction itself
+        // 3. Reassign all armies of this faction to "No Faction" (same Restrict constraint).
+        var armies = await _armyService.GetAllAsync();
+        foreach (var army in armies.Where(a => a.FactionId == faction.Id))
+        {
+            army.FactionId = 1;
+            await _armyService.UpdateAsync(army);
+        }
+
+        // 4. Reassign all navies of this faction to "No Faction" (same Restrict constraint).
+        var navies = await _navyService.GetAllAsync();
+        foreach (var navy in navies.Where(n => n.FactionId == faction.Id))
+        {
+            navy.FactionId = 1;
+            await _navyService.UpdateAsync(navy);
+        }
+
+        // 5. Delete the faction itself
         await _factionService.DeleteAsync(faction.Id);
         await RefreshFactionsAsync();
         await RefreshCommandersAsync();
+        await RefreshArmiesAsync();
+        await RefreshNaviesAsync();
         StatusMessage = $"Deleted faction: {faction.Name}";
     }
 

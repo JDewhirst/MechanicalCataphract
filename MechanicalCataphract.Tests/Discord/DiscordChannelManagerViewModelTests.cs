@@ -18,6 +18,7 @@ public class DiscordChannelManagerViewModelTests
     private Mock<IFactionService> _factionService = null!;
     private Mock<ICommanderService> _commanderService = null!;
     private Mock<ICoLocationChannelService> _coLocService = null!;
+    private Mock<INavyService> _navyService = null!;
 
     [SetUp]
     public void SetUp()
@@ -26,6 +27,7 @@ public class DiscordChannelManagerViewModelTests
         _factionService = new Mock<IFactionService>();
         _commanderService = new Mock<ICommanderService>();
         _coLocService = new Mock<ICoLocationChannelService>();
+        _navyService = new Mock<INavyService>();
     }
 
     #region FactionViewModel Tests
@@ -317,11 +319,12 @@ public class DiscordChannelManagerViewModelTests
         var botService = new Mock<IDiscordBotService>();
 
         // Make non-shared service calls return empty collections so refresh doesn't fail.
-        // Note: _factionService and _commanderService are shared — each test sets them up.
+        // Note: _factionService, _commanderService, and _navyService are shared — each test sets them up.
         armyService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Army>());
         orderService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Order>());
         messageService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Message>());
         _coLocService.Setup(s => s.GetAllWithCommandersAsync()).ReturnsAsync(new List<CoLocationChannel>());
+        _navyService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Navy>());
 
         var newsService = new Mock<INewsService>();
         newsService.Setup(s => s.GetAllActiveAsync()).ReturnsAsync(new List<MechanicalCataphract.Data.Entities.NewsItem>());
@@ -342,7 +345,7 @@ public class DiscordChannelManagerViewModelTests
             _channelMgr.Object,
             new Mock<IDiscordMessageHandler>().Object,
             newsService.Object,
-            new Mock<INavyService>().Object);
+            _navyService.Object);
     }
 
     [Test]
