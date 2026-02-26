@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord;
 using NetCord.Rest;
@@ -42,6 +43,48 @@ public class DiscordChannelManager : IDiscordChannelManager
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] EnsureSentinelFactionResources failed: {ex.Message}");
+        }
+    }
+
+    public async Task SyncExistingEntitiesAsync()
+    {
+        if (!_botService.IsConnected) return;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+
+            // 1. Sync all factions without Discord resources (includes the sentinel).
+            var unsyncedFactions = await db.Factions
+                .Where(f => f.DiscordCategoryId == null)
+                .ToListAsync();
+            foreach (var faction in unsyncedFactions)
+                await OnFactionCreatedAsync(faction);
+
+            // 2. Sync commanders who have a Discord user linked but no channel yet.
+            //    SetupCommanderDiscordAsync handles stale faction IDs via an internal reload.
+            var unsyncedCommanders = await db.Commanders
+                .Where(c => c.DiscordUserId != null && c.DiscordChannelId == null)
+                .Include(c => c.Faction)
+                .ToListAsync();
+            foreach (var cmd in unsyncedCommanders)
+                await OnCommanderCreatedAsync(cmd, cmd.Faction!);
+
+            // 3. Ensure the co-location category, then sync individual channels.
+            await EnsureCoLocationCategoryAsync();
+            var unsyncedCoLocs = await db.CoLocationChannels
+                .Where(c => c.DiscordChannelId == null)
+                .Include(c => c.Commanders)
+                .ToListAsync();
+            foreach (var ch in unsyncedCoLocs)
+                await OnCoLocationChannelCreatedAsync(ch);
+
+            System.Diagnostics.Debug.WriteLine("[DiscordChannelManager] SyncExistingEntitiesAsync complete.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SyncExistingEntitiesAsync failed: {ex.Message}");
         }
     }
 

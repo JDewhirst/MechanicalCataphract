@@ -143,8 +143,7 @@ public partial class App : Application
                 await botService.TryAutoStartAsync();
                 if (botService.IsConnected)
                 {
-                    await channelManager.EnsureSentinelFactionResourcesAsync();
-                    await channelManager.EnsureCoLocationCategoryAsync();
+                    await channelManager.SyncExistingEntitiesAsync();
                 }
             });
 

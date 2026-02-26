@@ -432,11 +432,10 @@ public partial class HexMapViewModel : ObservableObject
             IsDiscordConnected = _discordBotService.IsConnected;
             DiscordStatusMessage = _discordBotService.StatusMessage;
 
-            // Ensure the "No Faction" sentinel and Co-Location category have Discord resources
+            // Catch up any entities created before Discord was configured
             if (IsDiscordConnected)
             {
-                await _discordChannelManager.EnsureSentinelFactionResourcesAsync();
-                await _discordChannelManager.EnsureCoLocationCategoryAsync();
+                await _discordChannelManager.SyncExistingEntitiesAsync();
             }
         }
         catch (Exception ex)

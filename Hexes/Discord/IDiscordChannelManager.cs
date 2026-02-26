@@ -11,6 +11,12 @@ public interface IDiscordChannelManager
     /// Called on bot connection so all commanders can have channels regardless of faction.
     /// </summary>
     Task EnsureSentinelFactionResourcesAsync();
+
+    /// <summary>
+    /// Creates Discord resources for all entities that don't have them yet.
+    /// Call after connecting to catch up on entities created before Discord was configured.
+    /// </summary>
+    Task SyncExistingEntitiesAsync();
     Task OnFactionCreatedAsync(Faction faction);
     Task OnFactionDeletedAsync(Faction faction);
     Task OnCommanderCreatedAsync(Commander commander, Faction faction);
