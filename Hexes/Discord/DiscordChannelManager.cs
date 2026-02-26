@@ -52,31 +52,44 @@ public class DiscordChannelManager : IDiscordChannelManager
 
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            // Load all unsynced entities in a short-lived scope, then close it before processing.
+            // Keeping the outer scope open across the loop causes SaveFactionAsync (and friends)
+            // to hit a SQLite write-lock when they try to open their own write scope.
+            List<Faction> unsyncedFactions;
+            List<Commander> unsyncedCommanders;
+            List<CoLocationChannel> unsyncedCoLocs;
 
-            // 1. Sync all factions without Discord resources (includes the sentinel).
-            var unsyncedFactions = await db.Factions
-                .Where(f => f.DiscordCategoryId == null)
-                .ToListAsync();
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+
+                unsyncedFactions = await db.Factions
+                    .Where(f => f.DiscordCategoryId == null)
+                    .ToListAsync();
+
+                unsyncedCommanders = await db.Commanders
+                    .Where(c => c.DiscordUserId != null && c.DiscordChannelId == null)
+                    .Include(c => c.Faction)
+                    .ToListAsync();
+
+                unsyncedCoLocs = await db.CoLocationChannels
+                    .Where(c => c.DiscordChannelId == null)
+                    .Include(c => c.Commanders)
+                    .ToListAsync();
+            } // scope disposed — connection closed before any writes
+
+            // 1. Sync factions.
             foreach (var faction in unsyncedFactions)
                 await OnFactionCreatedAsync(faction);
 
-            // 2. Sync commanders who have a Discord user linked but no channel yet.
-            //    SetupCommanderDiscordAsync handles stale faction IDs via an internal reload.
-            var unsyncedCommanders = await db.Commanders
-                .Where(c => c.DiscordUserId != null && c.DiscordChannelId == null)
-                .Include(c => c.Faction)
-                .ToListAsync();
+            // 2. Sync commanders.
+            //    SetupCommanderDiscordAsync reloads faction from DB if DiscordCategoryId is null,
+            //    so it picks up IDs just saved in step 1.
             foreach (var cmd in unsyncedCommanders)
                 await OnCommanderCreatedAsync(cmd, cmd.Faction!);
 
             // 3. Ensure the co-location category, then sync individual channels.
             await EnsureCoLocationCategoryAsync();
-            var unsyncedCoLocs = await db.CoLocationChannels
-                .Where(c => c.DiscordChannelId == null)
-                .Include(c => c.Commanders)
-                .ToListAsync();
             foreach (var ch in unsyncedCoLocs)
                 await OnCoLocationChannelCreatedAsync(ch);
 
@@ -108,32 +121,17 @@ public class DiscordChannelManager : IDiscordChannelManager
             faction.DiscordRoleId = role.Id;
 
             // 2. Create channel category for the faction
-            var categoryOverwrites = new List<PermissionOverwriteProperties>
-            {
-                new(guildId.Value, PermissionOverwriteType.Role)
-                {
-                    Denied = Permissions.CreatePublicThreads
-                           | Permissions.CreatePrivateThreads
-                           | Permissions.SendMessagesInThreads,
-                },
-            };
             var category = await rest.CreateGuildChannelAsync(guildId.Value,
-                new GuildChannelProperties(faction.Name, ChannelType.CategoryChannel)
-                {
-                    PermissionOverwrites = categoryOverwrites,
-                });
+                new GuildChannelProperties(faction.Name, ChannelType.CategoryChannel));
             faction.DiscordCategoryId = category.Id;
 
             // 3. Create read-only text channel in the category
             var channelOverwrites = new List<PermissionOverwriteProperties>
             {
-                // Deny @everyone from seeing the channel or interacting with threads
+                // Deny @everyone from seeing the channel
                 new(guildId.Value, PermissionOverwriteType.Role)
                 {
-                    Denied = Permissions.ViewChannel
-                          | Permissions.CreatePublicThreads
-                          | Permissions.CreatePrivateThreads
-                          | Permissions.SendMessagesInThreads,
+                    Denied = Permissions.ViewChannel,
                 },
                 // Allow faction role to view but not send
                 new(role.Id, PermissionOverwriteType.Role)
@@ -158,7 +156,7 @@ public class DiscordChannelManager : IDiscordChannelManager
             }
 
             var channel = await rest.CreateGuildChannelAsync(guildId.Value,
-                new GuildChannelProperties($"{faction.Name.ToLowerInvariant()}-general", ChannelType.TextGuildChannel)
+                new GuildChannelProperties($"{faction.Name.ToLowerInvariant().Replace(' ', '-')}-general", ChannelType.TextGuildChannel)
                 {
                     ParentId = faction.DiscordCategoryId,
                     PermissionOverwrites = channelOverwrites,
@@ -283,10 +281,7 @@ public class DiscordChannelManager : IDiscordChannelManager
                 // Deny @everyone
                 new(guildId.Value, PermissionOverwriteType.Role)
                 {
-                    Denied = Permissions.ViewChannel
-                          | Permissions.CreatePublicThreads
-                          | Permissions.CreatePrivateThreads
-                          | Permissions.SendMessagesInThreads,
+                    Denied = Permissions.ViewChannel,
                 },
                 // Allow the commander's Discord user read+write
                 new(commander.DiscordUserId.Value, PermissionOverwriteType.User)
@@ -473,7 +468,7 @@ public class DiscordChannelManager : IDiscordChannelManager
             {
                 await rest.ModifyGuildChannelAsync(faction.DiscordChannelId.Value, o =>
                 {
-                    o.Name = $"{faction.Name.ToLowerInvariant()}-general";
+                    o.Name = $"{faction.Name.ToLowerInvariant().Replace(' ', '-')}-general";
                 });
                 System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Channel {faction.DiscordChannelId} updated.");
             }
@@ -502,20 +497,8 @@ public class DiscordChannelManager : IDiscordChannelManager
             var guildId = config.GuildId;
             if (guildId == null) return;
 
-            var coLocCategoryOverwrites = new List<PermissionOverwriteProperties>
-            {
-                new(guildId.Value, PermissionOverwriteType.Role)
-                {
-                    Denied = Permissions.CreatePublicThreads
-                           | Permissions.CreatePrivateThreads
-                           | Permissions.SendMessagesInThreads,
-                },
-            };
             var category = await rest.CreateGuildChannelAsync(guildId.Value,
-                new GuildChannelProperties("Co-Location", ChannelType.CategoryChannel)
-                {
-                    PermissionOverwrites = coLocCategoryOverwrites,
-                });
+                new GuildChannelProperties("Co-Location", ChannelType.CategoryChannel));
             config.CoLocationCategoryId = category.Id;
             await db.SaveChangesAsync();
 
@@ -544,10 +527,7 @@ public class DiscordChannelManager : IDiscordChannelManager
             {
                 new(guildId.Value, PermissionOverwriteType.Role)
                 {
-                    Denied = Permissions.ViewChannel
-                          | Permissions.CreatePublicThreads
-                          | Permissions.CreatePrivateThreads
-                          | Permissions.SendMessagesInThreads,
+                    Denied = Permissions.ViewChannel,
                 },
             };
 
