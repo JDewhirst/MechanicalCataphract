@@ -1112,18 +1112,16 @@ public class HexMapView : Control
 
     private ISolidColorBrush GetNavyMarkerBrush(Navy navy)
     {
-        var faction = navy.Commander?.Faction;
-        if (faction == null)
+        if (navy.Faction == null)
             return DefaultMarkerBrush;
 
-        int factionId = navy.Commander!.FactionId;
-        if (_factionColorCache.TryGetValue(factionId, out var brush))
+        if (_factionColorCache.TryGetValue(navy.FactionId, out var brush))
             return brush;
 
         try
         {
-            brush = new SolidColorBrush(Color.Parse(faction.ColorHex));
-            _factionColorCache[factionId] = brush;
+            brush = new SolidColorBrush(Color.Parse(navy.Faction.ColorHex));
+            _factionColorCache[navy.FactionId] = brush;
             return brush;
         }
         catch

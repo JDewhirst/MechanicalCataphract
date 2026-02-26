@@ -30,6 +30,19 @@
             </ComboBox>
         </StackPanel>
 
+        <!-- Faction selection -->
+        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+            <TextBlock Text="Faction:" FontWeight="SemiBold" FontSize="11"/>
+            <ComboBox ItemsSource="{Binding AvailableFactions}"
+                      SelectedItem="{Binding Faction, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Faction">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
         <!-- Current Location -->
         <StackPanel Spacing="2" Margin="0,5,0,0">
             <TextBlock Text="Current Location" FontWeight="SemiBold" FontSize="11"/>

@@ -248,6 +248,13 @@ public class WargameDbContext : DbContext
             .HasForeignKey(n => new { n.CoordinateQ, n.CoordinateR })
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Navy -> Faction
+        modelBuilder.Entity<Navy>()
+            .HasOne(n => n.Faction)
+            .WithMany()
+            .HasForeignKey(n => n.FactionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Navy -> Commander (SetNull on delete)
         modelBuilder.Entity<Navy>()
             .HasOne(n => n.Commander)

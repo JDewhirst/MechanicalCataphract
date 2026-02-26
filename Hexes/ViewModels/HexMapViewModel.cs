@@ -1353,7 +1353,7 @@ public partial class HexMapViewModel : ObservableObject
         var navyWithDetails = await _navyService.GetNavyWithShipsAsync(navyId);
         if (navyWithDetails != null)
         {
-            var navyVm = new NavyViewModel(navyWithDetails, _navyService, Commanders, Armies, _mapRows, _mapColumns);
+            var navyVm = new NavyViewModel(navyWithDetails, _navyService, Commanders, Armies, Factions, _mapRows, _mapColumns);
             navyVm.Saved += () => SyncEntityInCollection(() => Navies, c => Navies = c, n => SelectedNavy = n, navyVm.Entity);
             SelectedEntityViewModel = navyVm;
         }

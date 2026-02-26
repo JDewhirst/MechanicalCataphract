@@ -20,6 +20,7 @@ public class NavyService : INavyService
     public async Task<Navy?> GetByIdAsync(int id)
     {
         return await _context.Navies
+            .Include(n => n.Faction)
             .Include(n => n.Commander)
             .Include(n => n.MapHex)
             .Include(n => n.Ships)
@@ -29,6 +30,7 @@ public class NavyService : INavyService
     public async Task<IList<Navy>> GetAllAsync()
     {
         return await _context.Navies
+            .Include(n => n.Faction)
             .Include(n => n.Commander)
             .Include(n => n.Ships)
             .ToListAsync();
@@ -36,6 +38,8 @@ public class NavyService : INavyService
 
     public async Task<Navy> CreateAsync(Navy entity)
     {
+        if (entity.FactionId == 0)
+            entity.FactionId = 1;
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
         _context.Navies.Add(entity);
         await _context.SaveChangesAsync();
@@ -62,6 +66,7 @@ public class NavyService : INavyService
     public async Task<Navy?> GetNavyWithShipsAsync(int navyId)
     {
         return await _context.Navies
+            .Include(n => n.Faction)
             .Include(n => n.Ships)
             .Include(n => n.Commander)
             .Include(n => n.CarriedArmy)
@@ -73,6 +78,7 @@ public class NavyService : INavyService
     {
         return await _context.Navies
             .Where(n => n.CommanderId == commanderId)
+            .Include(n => n.Faction)
             .Include(n => n.Ships)
             .ToListAsync();
     }
@@ -81,6 +87,7 @@ public class NavyService : INavyService
     {
         return await _context.Navies
             .Where(n => n.CoordinateQ == hex.q && n.CoordinateR == hex.r)
+            .Include(n => n.Faction)
             .Include(n => n.Commander)
             .Include(n => n.Ships)
             .ToListAsync();

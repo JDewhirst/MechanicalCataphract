@@ -14,6 +14,10 @@ public class Navy
     public int? CoordinateR { get; set; }
     public MapHex? MapHex { get; set; }
 
+    // Ownership
+    public int FactionId { get; set; }
+    public Faction? Faction { get; set; }
+
     // Commander (SetNull on delete)
     public int? CommanderId { get; set; }
     public Commander? Commander { get; set; }

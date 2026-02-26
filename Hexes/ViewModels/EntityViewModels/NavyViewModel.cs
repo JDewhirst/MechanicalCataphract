@@ -30,6 +30,9 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     private readonly IEnumerable<Army> _availableArmies;
     public IEnumerable<Army> AvailableArmies => _availableArmies;
 
+    private readonly IEnumerable<Faction> _availableFactions;
+    public IEnumerable<Faction> AvailableFactions => _availableFactions;
+
     public string Name
     {
         get => _navy.Name;
@@ -82,6 +85,21 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     {
         get => _navy.Commander;
         set { if (_navy.Commander != value) { _navy.Commander = value; _navy.CommanderId = value?.Id; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
+    public Faction? Faction
+    {
+        get => _navy.Faction;
+        set
+        {
+            if (_navy.Faction != value)
+            {
+                _navy.Faction = value;
+                _navy.FactionId = value?.Id ?? 1;
+                OnPropertyChanged();
+                _ = SaveAsync();
+            }
+        }
     }
 
     public int CarriedSupply
@@ -190,6 +208,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         INavyService service,
         IEnumerable<Commander> availableCommanders,
         IEnumerable<Army> availableArmies,
+        IEnumerable<Faction> availableFactions,
         int mapRows = int.MaxValue,
         int mapCols = int.MaxValue)
     {
@@ -197,6 +216,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         _service = service;
         _availableCommanders = availableCommanders;
         _availableArmies = availableArmies;
+        _availableFactions = availableFactions;
         _mapRows = mapRows;
         _mapCols = mapCols;
         Ships = new ObservableCollection<Ship>(_navy.Ships);
