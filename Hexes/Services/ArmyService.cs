@@ -38,6 +38,11 @@ public class ArmyService : IArmyService
 
     public async Task<Army> CreateAsync(Army entity)
     {
+        if (entity.CoordinateQ == null && entity.CoordinateR == null)
+        {
+            entity.CoordinateQ = MapHex.SentinelQ;
+            entity.CoordinateR = MapHex.SentinelR;
+        }
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
         _context.Armies.Add(entity);

@@ -40,6 +40,11 @@ public class NavyService : INavyService
     {
         if (entity.FactionId == 0)
             entity.FactionId = 1;
+        if (entity.CoordinateQ == null && entity.CoordinateR == null)
+        {
+            entity.CoordinateQ = MapHex.SentinelQ;
+            entity.CoordinateR = MapHex.SentinelR;
+        }
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
         _context.Navies.Add(entity);
         await _context.SaveChangesAsync();

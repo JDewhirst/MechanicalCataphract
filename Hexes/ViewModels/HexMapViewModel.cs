@@ -1456,8 +1456,8 @@ public partial class HexMapViewModel : ObservableObject
         var army = new Army
         {
             Name = "New Army",
-            CoordinateQ = 0,
-            CoordinateR = 0,
+            CoordinateQ = MapHex.SentinelQ,
+            CoordinateR = MapHex.SentinelR,
             FactionId = defaultFaction?.Id ?? 1,
             Morale = 10,
             Wagons = 0,
@@ -1483,8 +1483,8 @@ public partial class HexMapViewModel : ObservableObject
         var navy = new Navy
         {
             Name = "New Navy",
-            CoordinateQ = 0,
-            CoordinateR = 0,
+            CoordinateQ = MapHex.SentinelQ,
+            CoordinateR = MapHex.SentinelR,
             CarriedSupply = 0
         };
         await _navyService.CreateAsync(navy);

@@ -35,6 +35,11 @@ public class CommanderService : ICommanderService
 
     public async Task<Commander> CreateAsync(Commander entity)
     {
+        if (entity.CoordinateQ == null && entity.CoordinateR == null)
+        {
+            entity.CoordinateQ = MapHex.SentinelQ;
+            entity.CoordinateR = MapHex.SentinelR;
+        }
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
         _context.Commanders.Add(entity);

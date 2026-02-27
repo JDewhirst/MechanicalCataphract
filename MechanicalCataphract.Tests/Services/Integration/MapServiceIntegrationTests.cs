@@ -22,7 +22,7 @@ public class MapServiceIntegrationTests : IntegrationTestBase
         await _service.InitializeMapAsync(3, 3);
 
         var all = await _service.GetAllHexesAsync();
-        Assert.That(all.Count, Is.EqualTo(9));
+        Assert.That(all.Count, Is.EqualTo(10)); // 9 grid hexes + 1 sentinel (Torment Hexagon)
     }
 
     [Test]
@@ -72,7 +72,7 @@ public class MapServiceIntegrationTests : IntegrationTestBase
         await _service.InitializeMapAsync(4, 4);
 
         var all = await _service.GetAllHexesAsync();
-        Assert.That(all.Count, Is.EqualTo(16));
+        Assert.That(all.Count, Is.EqualTo(17)); // 16 grid hexes + 1 sentinel (Torment Hexagon)
     }
 
     [Test]

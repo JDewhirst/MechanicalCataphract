@@ -15,8 +15,10 @@ public class MapService(WargameDbContext context) : IMapService
 
     public async Task InitializeMapAsync(int rows, int columns, int defaultTerrainTypeId = 1)
     {
-        // Clear existing hexes
-        _context.MapHexes.RemoveRange(_context.MapHexes);
+        // Clear existing hexes, preserving the off-board sentinel hex
+        var hexesToRemove = _context.MapHexes
+            .Where(h => !(h.Q == MapHex.SentinelQ && h.R == MapHex.SentinelR));
+        _context.MapHexes.RemoveRange(hexesToRemove);
 
         // Create hexes using odd-q offset coordinates
         for (int row = 0; row < rows; row++)
@@ -55,7 +57,8 @@ public class MapService(WargameDbContext context) : IMapService
 
     public async Task<bool> MapExistsAsync()
     {
-        return await _context.MapHexes.AnyAsync();
+        return await _context.MapHexes.AnyAsync(
+            h => !(h.Q == MapHex.SentinelQ && h.R == MapHex.SentinelR));
     }
 
     public async Task<(int rows, int columns)> GetMapDimensionsAsync()

@@ -315,5 +315,18 @@ public class WargameDbContext : DbContext
             new LocationType { Id = 4, Name = "Fortified Town", ColorHex = "#4B0082", IconPath = "avares://MechanicalCataphract/Assets/location-icons/fort.png", ScaleFactor = 0.64 },
             new LocationType { Id = 5, Name = "Town", ColorHex = "#DAA520", IconPath = "avares://MechanicalCataphract/Assets/location-icons/house.png", ScaleFactor = 0.64 }
         );
+
+        // Seed the off-board sentinel hex ("Torment Hexagon") — default location for unplaced entities
+        modelBuilder.Entity<MapHex>().HasData(
+            new MapHex
+            {
+                Q = MapHex.SentinelQ,
+                R = MapHex.SentinelR,
+                LocationTypeId = 1,
+                LocationName = "Torment Hexagon",
+                PopulationDensity = 0,
+                TimesForaged = 0
+            }
+        );
     }
 }

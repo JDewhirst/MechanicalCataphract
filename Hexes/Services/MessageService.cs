@@ -36,6 +36,11 @@ public class MessageService : IMessageService
 
     public async Task<Message> CreateAsync(Message entity)
     {
+        if (entity.CoordinateQ == null && entity.CoordinateR == null)
+        {
+            entity.CoordinateQ = MapHex.SentinelQ;
+            entity.CoordinateR = MapHex.SentinelR;
+        }
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.SenderCoordinateQ, entity.SenderCoordinateR, "SenderCoordinate");
         await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");

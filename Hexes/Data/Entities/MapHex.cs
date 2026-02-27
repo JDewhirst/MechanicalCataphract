@@ -6,6 +6,11 @@ namespace MechanicalCataphract.Data.Entities;
 
 public class MapHex
 {
+    // Sentinel coordinates for the off-board "Torment Hexagon" (entities not yet placed on map)
+    // These cube coords correspond to offset col=-5, row=-5 (just off the top-left of the real grid)
+    public const int SentinelQ = -5;
+    public const int SentinelR = -2;
+
     // Primary key: composite of Q, R (S is derived as -Q-R)
     public int Q { get; set; }
     public int R { get; set; }
