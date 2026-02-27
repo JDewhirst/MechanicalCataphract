@@ -43,8 +43,14 @@ public class PathfindingService : IPathfindingService
         if (startHex == null)
             return new PathResult { Success = false, FailureReason = "Start hex does not exist" };
 
+        if (startHex.Q == MapHex.SentinelQ && startHex.R == MapHex.SentinelR)
+            return new PathResult { Success = false, FailureReason = "Entity is off the map — assign a map location before pathfinding" };
+
         if (endHex == null)
             return new PathResult { Success = false, FailureReason = "Target hex does not exist" };
+
+        if (endHex.Q == MapHex.SentinelQ && endHex.R == MapHex.SentinelR)
+            return new PathResult { Success = false, FailureReason = "Cannot pathfind to the Torment Hexagon" };
 
         if (IsWaterHex(endHex))
             return new PathResult { Success = false, FailureReason = "Target hex is water (impassable)" };

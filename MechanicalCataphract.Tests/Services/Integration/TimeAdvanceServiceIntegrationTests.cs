@@ -68,7 +68,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     public async Task AdvanceTime_MovesMessages()
     {
         // Set up two adjacent hexes with a road between them
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var startHex = hexes[0];
         var endHex = hexes[1];
 
@@ -106,7 +106,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task AdvanceTime_MovesArmies()
     {
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var startHex = hexes[0];
         var endHex = hexes[1];
 
@@ -139,7 +139,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task AdvanceTime_MovesCommanders()
     {
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var startHex = hexes[0];
         var endHex = hexes[1];
 
@@ -170,7 +170,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task AdvanceTime_ProcessesSupplyAtCorrectHour()
     {
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var hex = hexes[0];
 
         var army = await _armyService.CreateAsync(new Army
@@ -198,7 +198,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task AdvanceTime_FollowingCommander_MovesWithArmy()
     {
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var startHex = hexes[0];
         var endHex = hexes[1];
 
@@ -249,7 +249,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task AdvanceTime_FollowingCommander_DoesNotUseOwnPath()
     {
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var startHex = hexes[0];
         var endHex = hexes[1];
         // Pick a third hex for the commander's (ignored) path

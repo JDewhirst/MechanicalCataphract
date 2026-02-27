@@ -40,7 +40,7 @@ public class PathfindingIntegrationTests : IntegrationTestBase
     [Test]
     public async Task FindPath_OnRealMap_ReturnsValidPath()
     {
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var start = hexes.First().ToHex();
         var end = hexes.Last().ToHex();
 
@@ -67,7 +67,7 @@ public class PathfindingIntegrationTests : IntegrationTestBase
         var water = await SeedHelpers.SeedWaterTerrainAsync(Context);
 
         // Get two hexes on opposite sides
-        var hexes = Context.MapHexes.OrderBy(h => h.Q).ThenBy(h => h.R).ToList();
+        var hexes = GridHexes.OrderBy(h => h.Q).ThenBy(h => h.R).ToList();
         var start = hexes.First().ToHex();
         var end = hexes.Last().ToHex();
 
@@ -93,7 +93,7 @@ public class PathfindingIntegrationTests : IntegrationTestBase
     [Test]
     public async Task MoveArmy_PersistsLocationChange()
     {
-        var hexes = Context.MapHexes.ToList();
+        var hexes = GridHexes.ToList();
         var startHex = hexes[0];
         var endHex = hexes[1];
 

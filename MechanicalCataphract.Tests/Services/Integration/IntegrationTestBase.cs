@@ -1,6 +1,8 @@
+using System.Linq;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MechanicalCataphract.Data;
+using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
 
 namespace MechanicalCataphract.Tests.Services.Integration;
@@ -8,6 +10,10 @@ namespace MechanicalCataphract.Tests.Services.Integration;
 public abstract class IntegrationTestBase
 {
     protected WargameDbContext Context { get; private set; } = null!;
+
+    /// <summary>Real on-map hexes, excluding the off-board sentinel (Torment Hexagon).</summary>
+    protected IQueryable<MapHex> GridHexes =>
+        Context.MapHexes.Where(h => !(h.Q == MapHex.SentinelQ && h.R == MapHex.SentinelR));
     private SqliteConnection _connection = null!;
 
     [SetUp]
