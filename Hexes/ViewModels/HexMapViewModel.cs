@@ -1223,9 +1223,19 @@ public partial class HexMapViewModel : ObservableObject
                 })
                 .ToList();
 
+            // Filter navies within scouting range
+            var naviesInRange = Navies
+                .Where(n => n.CoordinateQ.HasValue && n.CoordinateR.HasValue)
+                .Where(n =>
+                {
+                    var nHex = new Hex(n.CoordinateQ!.Value, n.CoordinateR!.Value, -n.CoordinateQ.Value - n.CoordinateR.Value);
+                    return centerHex.Distance(nHex) <= scoutingRange;
+                })
+                .ToList();
+
             // Render
             using var bitmap = ScoutingReportRenderer.RenderScoutingReport(
-                hexesInRange, terrainTypes, locationTypes, armiesInRange, centerHex, scoutingRange);
+                hexesInRange, terrainTypes, locationTypes, armiesInRange, naviesInRange, centerHex, scoutingRange);
 
             // Encode to PNG
             using var image = SKImage.FromBitmap(bitmap);

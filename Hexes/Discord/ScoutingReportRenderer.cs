@@ -18,6 +18,7 @@ public static class ScoutingReportRenderer
         IList<TerrainType> terrainTypes,
         IList<LocationType> locationTypes,
         IList<Army> armies,
+        IList<Navy> navies,
         Hex centerHex,
         int scoutingRange)
     {
@@ -175,6 +176,45 @@ public static class ScoutingReportRenderer
                 float drawY = cy + offsetY;
                 double scaleFactor = locationById.TryGetValue(mapHex.LocationTypeId.Value, out var lt) ? lt.ScaleFactor : 0.64;
                 DrawIcon(canvas, locIcon, drawX, drawY, scaleFactor);
+            }
+
+            // Pass 4a: Navy markers (triangles — rendered before armies, matching UI layer order)
+            float navyMarkerR = Math.Max(6, HexRadius * 0.35f);
+            foreach (var navy in navies)
+            {
+                if (!navy.CoordinateQ.HasValue || !navy.CoordinateR.HasValue) continue;
+
+                var navyHex = new Hex(navy.CoordinateQ.Value, navy.CoordinateR.Value,
+                    -navy.CoordinateQ.Value - navy.CoordinateR.Value);
+                var navyPixel = layout.HexToPixel(navyHex);
+                float nx = (float)navyPixel.X + offsetX;
+                float ny = (float)navyPixel.Y + offsetY;
+
+                var markerColor = navy.Faction != null ? ParseColor(navy.Faction.ColorHex) : SKColors.Gray;
+
+                float sin60 = (float)(Math.Sqrt(3) / 2.0);
+                var triPath = new SKPath();
+                triPath.MoveTo(nx, ny - navyMarkerR);                               // top
+                triPath.LineTo(nx + navyMarkerR * sin60, ny + navyMarkerR * 0.5f);  // bottom-right
+                triPath.LineTo(nx - navyMarkerR * sin60, ny + navyMarkerR * 0.5f);  // bottom-left
+                triPath.Close();
+
+                using var nFill   = new SKPaint { Color = markerColor, Style = SKPaintStyle.Fill,   IsAntialias = true };
+                using var nStroke = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, IsAntialias = true };
+                canvas.DrawPath(triPath, nFill);
+                canvas.DrawPath(triPath, nStroke);
+
+                if (!string.IsNullOrEmpty(navy.Name))
+                {
+                    string initial = navy.Name[0].ToString().ToUpperInvariant();
+                    float letterSize = Math.Max(8, navyMarkerR * 1.2f);
+                    using var letterFont  = new SKFont(SKTypeface.Default, letterSize);
+                    using var letterPaint = new SKPaint { Color = SKColors.White, IsAntialias = true };
+                    var metrics = letterFont.Metrics;
+                    float textOffsetY = -(metrics.Ascent + metrics.Descent) / 2;
+                    // Shift letter down slightly to visually center inside triangle
+                    canvas.DrawText(initial, nx, ny + navyMarkerR * 0.1f + textOffsetY, SKTextAlign.Center, letterFont, letterPaint);
+                }
             }
 
             // Pass 4: Army markers
