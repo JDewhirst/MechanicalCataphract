@@ -71,4 +71,10 @@ public interface IDiscordChannelManager
     /// Sends a scouting report PNG image to a commander's private Discord channel.
     /// </summary>
     Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName, string? weatherName);
+
+    /// <summary>
+    /// Renders and sends scouting report PNGs for all armies whose commanders have Discord channels.
+    /// Used by daily tick.
+    /// </summary>
+    Task SendAllScoutingReportsAsync();
 }

@@ -1191,6 +1191,7 @@ public partial class HexMapViewModel : ObservableObject
             armyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
             armyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
             armyVm.ScoutingReportRequested += OnScoutingReportRequested;
+            armyVm.ArmyReportRequested += OnArmyReportRequested;
             armyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, armyVm.Entity);
             SelectedEntityViewModel = armyVm;
         }
@@ -1320,6 +1321,42 @@ public partial class HexMapViewModel : ObservableObject
         }
     }
 
+    private async Task OnArmyReportRequested(Army army)
+    {
+        if (army.CommanderId == null)
+        {
+            StatusMessage = "Cannot send army report: army has no commander";
+            return;
+        }
+        try
+        {
+            await _discordChannelManager.SendArmyReportsToCommanderAsync(army.CommanderId.Value);
+            StatusMessage = $"Army report sent for {army.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to send army report: {ex.Message}";
+        }
+    }
+
+    private async Task OnNavyReportRequested(Navy navy)
+    {
+        if (navy.CommanderId == null)
+        {
+            StatusMessage = "Cannot send navy report: navy has no commander";
+            return;
+        }
+        try
+        {
+            await _discordChannelManager.SendNavyReportsToCommanderAsync(navy.CommanderId.Value);
+            StatusMessage = $"Navy report sent for {navy.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to send navy report: {ex.Message}";
+        }
+    }
+
     partial void OnSelectedCommanderChanged(Commander? value)
     {
         if (_isSyncingCollection || value == null) return;
@@ -1434,6 +1471,7 @@ public partial class HexMapViewModel : ObservableObject
         if (navyWithDetails != null)
         {
             var navyVm = new NavyViewModel(navyWithDetails, _navyService, Commanders, Armies, Factions, _mapRows, _mapColumns);
+            navyVm.NavyReportRequested += OnNavyReportRequested;
             navyVm.Saved += () => SyncEntityInCollection(() => Navies, c => Navies = c, n => SelectedNavy = n, navyVm.Entity);
             SelectedEntityViewModel = navyVm;
         }
@@ -1943,6 +1981,7 @@ public partial class HexMapViewModel : ObservableObject
                 refreshedArmyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
                 refreshedArmyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
                 refreshedArmyVm.ScoutingReportRequested += OnScoutingReportRequested;
+                refreshedArmyVm.ArmyReportRequested += OnArmyReportRequested;
                 refreshedArmyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, refreshedArmyVm.Entity);
                 SelectedEntityViewModel = refreshedArmyVm;
             }

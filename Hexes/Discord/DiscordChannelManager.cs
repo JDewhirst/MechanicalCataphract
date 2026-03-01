@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord;
 using NetCord.Rest;
+using SkiaSharp;
+using Hexes;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services.Calendar;
@@ -852,6 +854,99 @@ public class DiscordChannelManager : IDiscordChannelManager
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendScoutingReport failed: {ex.Message}");
+        }
+    }
+
+    public async Task SendAllScoutingReportsAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var mapService = scope.ServiceProvider.GetRequiredService<Services.IMapService>();
+            var armyService = scope.ServiceProvider.GetRequiredService<Services.IArmyService>();
+            var navyService = scope.ServiceProvider.GetRequiredService<Services.INavyService>();
+
+            if (!_botService.IsConnected) return;
+
+            // Load shared map data once for all reports
+            var allHexes = await mapService.GetAllHexesAsync();
+            var terrainTypes = await mapService.GetTerrainTypesAsync();
+            var locationTypes = await mapService.GetLocationTypesAsync();
+
+            // Load all armies/navies for the renderer (includes Faction for marker colors)
+            var allArmies = await armyService.GetAllAsync();
+            var allNavies = await navyService.GetAllAsync();
+
+            // Load commanders with Discord channels and their armies + brigades
+            var commanders = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .ToListAsync(db.Commanders
+                    .Where(c => c.DiscordChannelId != null)
+                    .Include(c => c.CommandedArmies)
+                        .ThenInclude(a => a.Brigades));
+
+            int reportsSent = 0;
+            foreach (var commander in commanders)
+            {
+                foreach (var army in commander.CommandedArmies)
+                {
+                    if (!army.CoordinateQ.HasValue || !army.CoordinateR.HasValue) continue;
+                    if (army.Brigades == null || army.Brigades.Count == 0) continue;
+
+                    try
+                    {
+                        int scoutingRange = army.Brigades.Max(b => b.ScoutingRange);
+                        var centerHex = new Hex(army.CoordinateQ.Value, army.CoordinateR.Value,
+                            -army.CoordinateQ.Value - army.CoordinateR.Value);
+
+                        var hexesInRange = allHexes
+                            .Where(h => centerHex.Distance(h.ToHex()) <= scoutingRange)
+                            .ToList();
+
+                        var armiesInRange = allArmies
+                            .Where(a => a.CoordinateQ.HasValue && a.CoordinateR.HasValue &&
+                                centerHex.Distance(new Hex(a.CoordinateQ.Value, a.CoordinateR.Value,
+                                    -a.CoordinateQ.Value - a.CoordinateR.Value)) <= scoutingRange)
+                            .ToList();
+
+                        var naviesInRange = allNavies
+                            .Where(n => n.CoordinateQ.HasValue && n.CoordinateR.HasValue &&
+                                centerHex.Distance(new Hex(n.CoordinateQ.Value, n.CoordinateR.Value,
+                                    -n.CoordinateQ.Value - n.CoordinateR.Value)) <= scoutingRange)
+                            .ToList();
+
+                        using var bitmap = ScoutingReportRenderer.RenderScoutingReport(
+                            hexesInRange, terrainTypes, locationTypes,
+                            armiesInRange, naviesInRange, centerHex, scoutingRange);
+
+                        using var image = SKImage.FromBitmap(bitmap);
+                        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                        using var stream = new System.IO.MemoryStream();
+                        data.SaveTo(stream);
+                        stream.Position = 0;
+
+                        var centerMapHex = hexesInRange
+                            .FirstOrDefault(h => h.Q == centerHex.q && h.R == centerHex.r);
+                        string? weatherName = centerMapHex?.Weather?.Name;
+
+                        await SendScoutingReportAsync(commander, stream, army.Name, weatherName);
+                        reportsSent++;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[DiscordChannelManager] Scouting report for '{army.Name}' failed: {ex.Message}");
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine(
+                $"[DiscordChannelManager] Daily scouting reports sent: {reportsSent}.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[DiscordChannelManager] SendAllScoutingReports failed: {ex.Message}");
         }
     }
 

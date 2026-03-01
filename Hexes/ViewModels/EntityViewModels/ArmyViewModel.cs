@@ -153,6 +153,11 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     public event Func<Army, Task>? ScoutingReportRequested;
 
     /// <summary>
+    /// Event raised when user requests an army status embed be sent to Discord.
+    /// </summary>
+    public event Func<Army, Task>? ArmyReportRequested;
+
+    /// <summary>
     /// Event raised when user wants to select a path for this army.
     /// HexMapViewModel subscribes to this to enter path selection mode.
     /// </summary>
@@ -192,6 +197,13 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     {
         if (ScoutingReportRequested != null)
             await ScoutingReportRequested.Invoke(_army);
+    }
+
+    [RelayCommand]
+    private async Task SendArmyReport()
+    {
+        if (ArmyReportRequested != null)
+            await ArmyReportRequested.Invoke(_army);
     }
 
     [RelayCommand]

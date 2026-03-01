@@ -132,6 +132,18 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
 
     public event Action? Saved;
 
+    /// <summary>
+    /// Event raised when user requests a navy status embed be sent to Discord.
+    /// </summary>
+    public event Func<Navy, Task>? NavyReportRequested;
+
+    [RelayCommand]
+    private async Task SendNavyReport()
+    {
+        if (NavyReportRequested != null)
+            await NavyReportRequested.Invoke(_navy);
+    }
+
     [RelayCommand(AllowConcurrentExecutions = false)]
     private async Task AddShipAsync()
     {

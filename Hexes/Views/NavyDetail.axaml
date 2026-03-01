@@ -59,6 +59,11 @@
                   IsChecked="{Binding IsRowing, Mode=TwoWay}"
                   Margin="0,5,0,0"/>
 
+        <Button Content="Send Navy Report"
+                Command="{Binding SendNavyReportCommand}"
+                ToolTip.Tip="Send navy status embed to commander's Discord channel"
+                FontSize="11" Padding="8,2" Margin="0,2,0,0"/>
+
         <!-- Crew Supply -->
         <StackPanel Margin="0,5,0,0">
             <TextBlock Text="Crew Supply" FontWeight="SemiBold" FontSize="11"/>

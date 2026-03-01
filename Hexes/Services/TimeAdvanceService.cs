@@ -82,11 +82,12 @@ namespace MechanicalCataphract.Services
                     armiesSupplied = await ProcessAllArmyDailySupplyConsumptionAsync();
                 }
 
-                // 6. Send daily army and navy reports
+                // 6. Send daily army, navy, and scouting reports
                 if (_calendarService.CrossedHourOfDay(oldWorldHour, newWorldHour, GameRules.Current.Armies.DailyReportHour))
                 {
                     await _discordChannelManager.SendAllArmyReportsAsync();
                     await _discordChannelManager.SendAllNavyReportsAsync();
+                    await _discordChannelManager.SendAllScoutingReportsAsync();
                 }
 
                 // 7. Process event deliveries (news/rumour spreading)
