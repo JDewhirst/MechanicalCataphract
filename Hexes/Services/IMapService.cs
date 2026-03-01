@@ -21,6 +21,7 @@ public interface IMapService
     // Terrain editing
     Task SetTerrainAsync(Hex hex, int terrainTypeId);
     Task SetPopulationDensityAsync(Hex hex, int density);
+    Task EnsureWaterPopulationDefaultsAsync();
     Task SetRoadAsync(Hex hex, int direction, bool hasRoad);
     Task SetRiverAsync(Hex hex, int edge, bool hasRiver);
     Task ClearRoadsAndRiversAsync(Hex hex);

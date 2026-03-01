@@ -82,6 +82,9 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<MechanicalCataphract.Data.Entities.Weather> _weatherTypes = new();
 
+    [ObservableProperty]
+    private MechanicalCataphract.Data.Entities.Weather? _selectedWeatherForPainting;
+
     // Overlay options for map visualization
     public ObservableCollection<string> OverlayOptions { get; } = new()
     {
@@ -343,6 +346,9 @@ public partial class HexMapViewModel : ObservableObject
 
         // Load all hexes (for small maps; for large maps would use viewport-based loading)
         await LoadVisibleHexesAsync();
+
+        // Seed water hexes with default population density
+        await _mapService.EnsureWaterPopulationDefaultsAsync();
 
         // Load all entities for admin panels
         await LoadAllEntitiesAsync();
@@ -669,6 +675,14 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void WeatherPaintTool()
+    {
+        CurrentTool = "WeatherPaint";
+        SelectedOverlay = "Weather";
+        StatusMessage = $"Tool: Weather Paint — {SelectedWeatherForPainting?.Name ?? "None"}";
+    }
+
+    [RelayCommand]
     private void SetPopulationDensity(string densityStr)
     {
         if (int.TryParse(densityStr, out var density))
@@ -733,8 +747,15 @@ public partial class HexMapViewModel : ObservableObject
         var existingCoords = new HashSet<(int q, int r)>(
             VisibleHexes.Select(h => (h.Q, h.R)));
 
+        var waterTerrainIds = new HashSet<int>(TerrainTypes.Where(t => t.IsWater).Select(t => t.Id));
+        var hexLookup = VisibleHexes.ToDictionary(h => (h.Q, h.R));
+
         var toPaint = GetHexesInRadius(hex, BrushSize)
             .Where(h => existingCoords.Contains((h.q, h.r)))
+            .Where(h => {
+                var mh = hexLookup[(h.q, h.r)];
+                return !mh.TerrainTypeId.HasValue || !waterTerrainIds.Contains(mh.TerrainTypeId.Value);
+            })
             .ToList();
 
         foreach (var h in toPaint)
@@ -1015,8 +1036,15 @@ public partial class HexMapViewModel : ObservableObject
         var existingCoords = new HashSet<(int q, int r)>(
             VisibleHexes.Select(h => (h.Q, h.R)));
 
+        var waterTerrainIds = new HashSet<int>(TerrainTypes.Where(t => t.IsWater).Select(t => t.Id));
+        var hexLookup = VisibleHexes.ToDictionary(h => (h.Q, h.R));
+
         var toPaint = GetHexesInRadius(hex, BrushSize)
             .Where(h => existingCoords.Contains((h.q, h.r)))
+            .Where(h => {
+                var mh = hexLookup[(h.q, h.r)];
+                return !mh.TerrainTypeId.HasValue || !waterTerrainIds.Contains(mh.TerrainTypeId.Value);
+            })
             .ToList();
 
         foreach (var h in toPaint)
@@ -1037,6 +1065,38 @@ public partial class HexMapViewModel : ObservableObject
         StatusMessage = BrushSize == 1
             ? $"Painted density {SelectedPopulationDensity} at ({hex.q}, {hex.r})"
             : $"Painted density {SelectedPopulationDensity} at ({hex.q}, {hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
+    }
+
+    [RelayCommand]
+    private async Task PaintWeatherAsync(Hex hex)
+    {
+        if (SelectedWeatherForPainting == null) return;
+
+        var existingCoords = new HashSet<(int q, int r)>(VisibleHexes.Select(h => (h.Q, h.R)));
+
+        var toPaint = GetHexesInRadius(hex, BrushSize)
+            .Where(h => existingCoords.Contains((h.q, h.r)))
+            .ToList();
+
+        foreach (var h in toPaint)
+            await _mapService.SetWeatherAsync(h, SelectedWeatherForPainting.Id);
+
+        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
+        var weather = SelectedWeatherForPainting;
+        for (int i = 0; i < VisibleHexes.Count; i++)
+        {
+            var mapHex = VisibleHexes[i];
+            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
+            {
+                mapHex.WeatherId = weather.Id;
+                mapHex.Weather = weather;
+                VisibleHexes[i] = mapHex;
+            }
+        }
+
+        StatusMessage = BrushSize == 1
+            ? $"Painted {weather.Name} at ({hex.q}, {hex.r})"
+            : $"Painted {weather.Name} at ({hex.q}, {hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
     }
 
     partial void OnSelectedTerrainTypeChanged(TerrainType? value)
@@ -1398,9 +1458,15 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadHexWithDetailsAsync(int Q, int R)
     {
-        var hexWithDetails = await _mapService.GetHexAsync(Q,R);
+        var hexWithDetails = await _mapService.GetHexAsync(Q, R);
         if (hexWithDetails != null)
         {
+            // Reconcile nav props to in-memory instances for ComboBox reference equality
+            hexWithDetails.ControllingFaction = Factions.FirstOrDefault(f => f.Id == hexWithDetails.ControllingFactionId);
+            hexWithDetails.LocationType = LocationTypes.FirstOrDefault(l => l.Id == hexWithDetails.LocationTypeId);
+            hexWithDetails.LocationFaction = Factions.FirstOrDefault(f => f.Id == hexWithDetails.LocationFactionId);
+            hexWithDetails.Weather = WeatherTypes.FirstOrDefault(w => w.Id == hexWithDetails.WeatherId);
+
             var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions, LocationTypes, WeatherTypes);
             hexVm.Saved += () => SyncEntityInCollection(() => VisibleHexes, c => VisibleHexes = c, null, hexVm.Entity);
 

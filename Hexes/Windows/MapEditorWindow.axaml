@@ -157,6 +157,28 @@
 
             <Separator/>
 
+            <!-- Weather Palette -->
+            <TextBlock Text="Weather" FontWeight="Bold" FontSize="14"/>
+            <ToggleButton Content="Weather Brush" Margin="2"
+                          Command="{Binding WeatherPaintToolCommand}"
+                          IsChecked="{Binding CurrentTool,
+                                      Converter={StaticResource EqualityConverter},
+                                      ConverterParameter=WeatherPaint,
+                                      Mode=OneWay}"/>
+            <ListBox ItemsSource="{Binding WeatherTypes}"
+                     SelectedItem="{Binding SelectedWeatherForPainting}"
+                     MaxHeight="120">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="{Binding SelectedWeatherForPainting.Name, StringFormat='Selected: {0}', FallbackValue='Selected: (none)'}"
+                       FontSize="11" Foreground="Gray"/>
+
+            <Separator/>
+
             <!-- Faction Palette -->
             <TextBlock Text="Factions" FontWeight="Bold" FontSize="14"/>
             <ListBox ItemsSource="{Binding Factions}"

@@ -217,6 +217,7 @@ public class HexMapView : Control
     public event EventHandler<(Hex hex, string? locationName)>? LocationPainted;
     public event EventHandler<Hex>? PopulationPainted;
     public event EventHandler<Hex>? FactionControlPainted;
+    public event EventHandler<Hex>? WeatherPainted;
     public event EventHandler<Hex>? NewsDropRequested;
     private void OnForageSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
@@ -465,6 +466,10 @@ public class HexMapView : Control
                     return;
                 case "FactionControlPaint":
                     FactionControlPainted?.Invoke(this, hex);
+                    InvalidateVisual();
+                    return;
+                case "WeatherPaint":
+                    WeatherPainted?.Invoke(this, hex);
                     InvalidateVisual();
                     return;
                 case "ForageSelect":

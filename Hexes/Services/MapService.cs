@@ -74,6 +74,8 @@ public class MapService(WargameDbContext context) : IMapService
             .Include(h => h.TerrainType)
             .Include(h => h.ControllingFaction)
             .Include(h => h.Weather)
+            .Include(h => h.LocationType)
+            .Include(h => h.LocationFaction)
             .FirstOrDefaultAsync(h => h.Q == q && h.R == r);
     }
 
@@ -113,6 +115,13 @@ public class MapService(WargameDbContext context) : IMapService
         await _context.MapHexes
             .Where(h => h.Q == hex.q && h.R == hex.r)
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.PopulationDensity, clamped));
+    }
+
+    public async Task EnsureWaterPopulationDefaultsAsync()
+    {
+        await _context.MapHexes
+            .Where(h => h.TerrainType != null && h.TerrainType.IsWater)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.PopulationDensity, 20));
     }
 
     public async Task SetRoadAsync(Hex hex, int direction, bool hasRoad)
