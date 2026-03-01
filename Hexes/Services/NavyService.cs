@@ -88,6 +88,16 @@ public class NavyService : INavyService
             .ToListAsync();
     }
 
+    public async Task<IList<Navy>> GetNaviesWithDetailsByCommanderAsync(int commanderId)
+    {
+        return await _context.Navies
+            .Where(n => n.CommanderId == commanderId)
+            .Include(n => n.Ships)
+            .Include(n => n.CarriedArmy)
+                .ThenInclude(a => a!.Brigades)
+            .ToListAsync();
+    }
+
     public async Task<IList<Navy>> GetNaviesAtHexAsync(Hex hex)
     {
         return await _context.Navies

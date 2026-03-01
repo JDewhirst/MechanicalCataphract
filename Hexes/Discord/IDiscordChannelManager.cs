@@ -56,6 +56,17 @@ public interface IDiscordChannelManager
     /// </summary>
     Task SendAllArmyReportsAsync();
 
+    // Navy status reports
+    /// <summary>
+    /// Sends navy status report embeds for all navies commanded by the given commander.
+    /// </summary>
+    Task SendNavyReportsToCommanderAsync(int commanderId);
+
+    /// <summary>
+    /// Sends navy status reports to all commanders who have Discord channels. Used by daily tick.
+    /// </summary>
+    Task SendAllNavyReportsAsync();
+
     /// <summary>
     /// Sends a scouting report PNG image to a commander's private Discord channel.
     /// </summary>

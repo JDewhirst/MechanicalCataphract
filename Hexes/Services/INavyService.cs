@@ -9,6 +9,7 @@ public interface INavyService : IEntityService<Navy>
 {
     Task<Navy?> GetNavyWithShipsAsync(int navyId);
     Task<IList<Navy>> GetNaviesByCommanderAsync(int commanderId);
+    Task<IList<Navy>> GetNaviesWithDetailsByCommanderAsync(int commanderId);
     Task<IList<Navy>> GetNaviesAtHexAsync(Hex hex);
     Task<Ship> AddShipAsync(Ship ship);
     Task DeleteShipAsync(int shipId);

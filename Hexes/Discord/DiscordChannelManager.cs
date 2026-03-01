@@ -765,6 +765,72 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
     }
 
+    public async Task SendNavyReportsToCommanderAsync(int commanderId)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var commanderService = scope.ServiceProvider.GetRequiredService<Services.ICommanderService>();
+            var navyService = scope.ServiceProvider.GetRequiredService<Services.INavyService>();
+            var gameStateService = scope.ServiceProvider.GetRequiredService<Services.IGameStateService>();
+            var calendarService = scope.ServiceProvider.GetRequiredService<ICalendarService>();
+
+            var commander = await commanderService.GetByIdAsync(commanderId);
+            if (commander == null || !commander.DiscordChannelId.HasValue) return;
+            if (!_botService.IsConnected) return;
+
+            var navies = await navyService.GetNaviesWithDetailsByCommanderAsync(commanderId);
+            if (navies.Count == 0) return;
+
+            var gameState = await gameStateService.GetGameStateAsync();
+            string formattedTime = calendarService.FormatDateTime(gameState.CurrentWorldHour);
+
+            var embeds = navies
+                .Select(navy => NavyReportEmbedBuilder.BuildNavyReport(navy, commander, formattedTime))
+                .ToList();
+
+            // Discord allows up to 10 embeds per message — batch all navy reports into one call
+            const int MaxEmbedsPerMessage = 10;
+            var rest = _botService.Client!.Rest;
+            for (int i = 0; i < embeds.Count; i += MaxEmbedsPerMessage)
+            {
+                var batch = embeds.GetRange(i, Math.Min(MaxEmbedsPerMessage, embeds.Count - i));
+                await rest.SendMessageAsync(commander.DiscordChannelId.Value,
+                    new NetCord.Rest.MessageProperties { Embeds = batch });
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Navy reports sent to '{commander.Name}': {embeds.Count} report(s).");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendNavyReportsToCommander failed: {ex.Message}");
+        }
+    }
+
+    public async Task SendAllNavyReportsAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var commanderIds = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .ToListAsync(db.Commanders
+                    .Where(c => c.DiscordChannelId != null)
+                    .Select(c => c.Id));
+
+            foreach (var id in commanderIds)
+            {
+                await SendNavyReportsToCommanderAsync(id);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Daily navy reports sent to {commanderIds.Count} commanders.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SendAllNavyReports failed: {ex.Message}");
+        }
+    }
+
     public async Task SendScoutingReportAsync(Commander target, Stream imageStream, string armyName, string? weatherName)
     {
         if (!_botService.IsConnected) return;
