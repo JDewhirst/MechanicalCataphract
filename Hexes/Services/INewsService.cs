@@ -14,7 +14,7 @@ public interface INewsService
     Task<NewsItem> CreateEventAsync(
         string title,
         int originQ, int originR,
-        DateTime createdAtGameTime,
+        long createdAtWorldHour,
         Dictionary<int, string> factionMessages);
 
     Task<IList<NewsItem>> GetAllActiveAsync();
@@ -27,7 +27,7 @@ public interface INewsService
     /// the wavefront has now reached, and records deliveries.
     /// Returns the total number of deliveries made.
     /// </summary>
-    Task<int> ProcessEventDeliveriesAsync(DateTime currentGameTime);
+    Task<int> ProcessEventDeliveriesAsync(long currentWorldHour);
 
     Task DeactivateEventAsync(int eventId);
     Task DeleteEventAsync(int eventId);

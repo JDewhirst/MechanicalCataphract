@@ -1,0 +1,17 @@
+{
+  "name": "Imperial Reckoning",
+  "hoursPerDay": 24,
+  "weekdayNames": ["Firstday","Secondday","Thirdday","Fourthday","Fifthday","Sixthday","Seventhday"],
+  "months": [
+    {"name":"Dawnmarch","days":30},
+    {"name":"Rainfall","days":30},
+    {"name":"Highsun","days":30},
+    {"name":"Harvest","days":30},
+    {"name":"Frostwane","days":30},
+    {"name":"Yearsend","days":30}
+  ],
+  "epochYear": 1000,
+  "epochMonth": 1,
+  "epochDay": 1,
+  "epochWeekday": 0
+}

@@ -2,6 +2,7 @@ using Moq;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Services.Calendar;
 using GUI.ViewModels;
 using GUI.ViewModels.EntityViewModels;
 
@@ -329,6 +330,11 @@ public class DiscordChannelManagerViewModelTests
         var newsService = new Mock<INewsService>();
         newsService.Setup(s => s.GetAllActiveAsync()).ReturnsAsync(new List<MechanicalCataphract.Data.Entities.NewsItem>());
 
+        var calDef = CalendarDefinitionService.CreateHardcodedDefault();
+        var mockCalDef = new Mock<ICalendarDefinitionService>();
+        mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
+        var calendarService = new CalendarService(mockCalDef.Object);
+
         return new HexMapViewModel(
             mapService.Object,
             _factionService.Object,
@@ -345,7 +351,8 @@ public class DiscordChannelManagerViewModelTests
             _channelMgr.Object,
             new Mock<IDiscordMessageHandler>().Object,
             newsService.Object,
-            _navyService.Object);
+            _navyService.Object,
+            calendarService);
     }
 
     [Test]

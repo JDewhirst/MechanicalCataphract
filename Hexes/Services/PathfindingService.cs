@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Services.Calendar;
 
 namespace MechanicalCataphract.Services;
 
@@ -15,6 +16,7 @@ public class PathfindingService : IPathfindingService
     private readonly ICommanderService _commanderService;
     private readonly IGameRulesService _gameRulesService;
     private readonly IFactionRuleService _factionRuleService;
+    private readonly ICalendarService _calendarService;
 
     public PathfindingService(
         IMapService mapService,
@@ -22,7 +24,8 @@ public class PathfindingService : IPathfindingService
         IArmyService armyService,
         ICommanderService commanderService,
         IGameRulesService gameRulesService,
-        IFactionRuleService factionRuleService)
+        IFactionRuleService factionRuleService,
+        ICalendarService calendarService)
     {
         _mapService = mapService;
         _messageService = messageService;
@@ -30,6 +33,7 @@ public class PathfindingService : IPathfindingService
         _commanderService = commanderService;
         _gameRulesService = gameRulesService;
         _factionRuleService = factionRuleService;
+        _calendarService = calendarService;
     }
 
     public async Task<PathResult> FindPathAsync(Hex start, Hex end,
@@ -238,14 +242,15 @@ public class PathfindingService : IPathfindingService
         return await MoveEntity(message, hours, () => _messageService.UpdateAsync(message), effectiveRate);
     }
 
-    public async Task<int> MoveArmy(Army army, int hours, DateTime currentGameTime)
+    public async Task<int> MoveArmy(Army army, int hours, long worldHour)
     {
         var rules = _gameRulesService.Rules;
 
         // Daytime restriction: armies only march during configured hours unless night marching
+        int hourOfDay = _calendarService.GetHourOfDay(worldHour);
         if (!army.IsNightMarching &&
-            (currentGameTime.Hour < rules.Movement.MarchDayStartHour ||
-             currentGameTime.Hour >= rules.Movement.MarchDayEndHour))
+            (hourOfDay < rules.Movement.MarchDayStartHour ||
+             hourOfDay >= rules.Movement.MarchDayEndHour))
             return 0;
 
         if (army.CoordinateQ == null || army.CoordinateR == null)

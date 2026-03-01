@@ -20,7 +20,11 @@ public record MovementRateRules(
 
 public record SupplyRules(
     int WagonSupplyMultiplier,
-    int ForageMultiplierPerDensity);
+    int ForageMultiplierPerDensity,
+    int DailyUsageHour);
+
+public record ArmiesRules(
+    int DailyReportHour);
 
 public record UnitTypeStats(
     int SupplyConsumptionPerMan,
@@ -58,6 +62,7 @@ public record GameRulesData(
     MovementRules Movement,
     MovementRateRules MovementRates,
     SupplyRules Supply,
+    ArmiesRules Armies,
     UnitStatsRules UnitStats,
     NewsRules News,
     WeatherRules Weather,

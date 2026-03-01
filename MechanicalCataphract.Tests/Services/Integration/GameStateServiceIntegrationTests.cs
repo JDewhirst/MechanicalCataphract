@@ -32,32 +32,32 @@ public class GameStateServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
-    public async Task GetCurrentGameTimeAsync_ReturnsTime()
+    public async Task GetCurrentWorldHourAsync_ReturnsZeroByDefault()
     {
-        var time = await _service.GetCurrentGameTimeAsync();
+        var hour = await _service.GetCurrentWorldHourAsync();
 
-        Assert.That(time, Is.Not.EqualTo(default(DateTime)));
+        Assert.That(hour, Is.EqualTo(0));
     }
 
     [Test]
-    public async Task AdvanceGameTimeAsync_AddsTimeSpan()
+    public async Task AdvanceWorldHourAsync_AddsHours()
     {
-        var before = await _service.GetCurrentGameTimeAsync();
+        var before = await _service.GetCurrentWorldHourAsync();
 
-        await _service.AdvanceGameTimeAsync(TimeSpan.FromHours(6));
+        await _service.AdvanceWorldHourAsync(6);
 
-        var after = await _service.GetCurrentGameTimeAsync();
-        Assert.That(after, Is.EqualTo(before.AddHours(6)));
+        var after = await _service.GetCurrentWorldHourAsync();
+        Assert.That(after, Is.EqualTo(before + 6));
     }
 
     [Test]
-    public async Task SetGameTimeAsync_SetsAbsoluteTime()
+    public async Task SetCurrentWorldHourAsync_SetsAbsoluteHour()
     {
-        var target = new DateTime(1805, 12, 2, 8, 0, 0);
+        long target = 720; // 30 days * 24 hours
 
-        await _service.SetGameTimeAsync(target);
+        await _service.SetCurrentWorldHourAsync(target);
 
-        var result = await _service.GetCurrentGameTimeAsync();
+        var result = await _service.GetCurrentWorldHourAsync();
         Assert.That(result, Is.EqualTo(target));
     }
 }

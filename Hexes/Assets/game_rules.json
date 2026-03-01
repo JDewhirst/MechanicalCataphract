@@ -17,7 +17,11 @@
   },
   "supply": {
     "wagonSupplyMultiplier": 10,
-    "forageMultiplierPerDensity": 500
+    "forageMultiplierPerDensity": 500,
+    "dailyUsageHour": 21
+  },
+  "armies": {
+    "dailyReportHour": 6
   },
   "unitStats": {
     "infantry":    { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },

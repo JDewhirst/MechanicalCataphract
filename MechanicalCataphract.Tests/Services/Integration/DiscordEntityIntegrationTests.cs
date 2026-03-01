@@ -64,11 +64,11 @@ public class DiscordEntityIntegrationTests : IntegrationTestBase
     // --- WeatherUpdateRecord ---
 
     [Test]
-    public async Task WeatherUpdateRecord_CreateAndRead_PersistsDate()
+    public async Task WeatherUpdateRecord_CreateAndRead_PersistsDayIndex()
     {
         var record = new WeatherUpdateRecord
         {
-            UpdateDate = new DateTime(1805, 12, 2) // Austerlitz
+            AbsoluteDayIndex = 36525L // ~100 years of days
         };
         Context.WeatherUpdateRecords.Add(record);
         await Context.SaveChangesAsync();
@@ -76,31 +76,30 @@ public class DiscordEntityIntegrationTests : IntegrationTestBase
         var loaded = await Context.WeatherUpdateRecords.FindAsync(record.Id);
 
         Assert.That(loaded, Is.Not.Null);
-        Assert.That(loaded!.UpdateDate, Is.EqualTo(new DateTime(1805, 12, 2)));
+        Assert.That(loaded!.AbsoluteDayIndex, Is.EqualTo(36525L));
     }
 
     [Test]
-    public async Task WeatherUpdateRecord_QueryMostRecent_ReturnsLatestDate()
+    public async Task WeatherUpdateRecord_QueryMostRecent_ReturnsLatestDayIndex()
     {
-        Context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { UpdateDate = new DateTime(1805, 1, 1) });
-        Context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { UpdateDate = new DateTime(1805, 6, 15) });
-        Context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { UpdateDate = new DateTime(1805, 3, 10) });
+        Context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { AbsoluteDayIndex = 1L });
+        Context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { AbsoluteDayIndex = 166L });
+        Context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { AbsoluteDayIndex = 69L });
         await Context.SaveChangesAsync();
 
-        // This is the query pattern WeatherUpdateService will use
         var mostRecent = Context.WeatherUpdateRecords
-            .OrderByDescending(r => r.UpdateDate)
+            .OrderByDescending(r => r.AbsoluteDayIndex)
             .FirstOrDefault();
 
         Assert.That(mostRecent, Is.Not.Null);
-        Assert.That(mostRecent!.UpdateDate, Is.EqualTo(new DateTime(1805, 6, 15)));
+        Assert.That(mostRecent!.AbsoluteDayIndex, Is.EqualTo(166L));
     }
 
     [Test]
     public async Task WeatherUpdateRecord_EmptyTable_QueryReturnsNull()
     {
         var mostRecent = Context.WeatherUpdateRecords
-            .OrderByDescending(r => r.UpdateDate)
+            .OrderByDescending(r => r.AbsoluteDayIndex)
             .FirstOrDefault();
 
         Assert.That(mostRecent, Is.Null);

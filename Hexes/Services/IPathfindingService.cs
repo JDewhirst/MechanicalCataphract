@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Services.Calendar;
 
 namespace MechanicalCataphract.Services;
 
@@ -23,7 +24,7 @@ public interface IPathfindingService
     Task<int> MoveMessage(Message message, int hours);
 
     /// <summary>Moves an army along its path for the given hours. Respects daytime restriction unless night marching.</summary>
-    Task<int> MoveArmy(Army army, int hours, DateTime currentGameTime);
+    Task<int> MoveArmy(Army army, int hours, long worldHour);
 
     /// <summary>Moves a commander along their path for the given hours.</summary>
     Task<int> MoveCommander(Commander commander, int hours);

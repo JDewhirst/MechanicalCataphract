@@ -18,7 +18,7 @@ public class NewsService(
     public async Task<NewsItem> CreateEventAsync(
         string title,
         int originQ, int originR,
-        DateTime createdAtGameTime,
+        long createdAtWorldHour,
         Dictionary<int, string> factionMessages)
     {
         // Load all hexes and build adjacency lookup
@@ -69,7 +69,7 @@ public class NewsService(
             Title = title,
             OriginQ = originQ,
             OriginR = originR,
-            CreatedAtGameTime = createdAtGameTime,
+            CreatedAtWorldHour = createdAtWorldHour,
             IsActive = true,
             FactionMessages = factionMessages,
             HexArrivals = dist.Select(kv => new HexArrivalData(kv.Key.q, kv.Key.r, kv.Value)).ToList(),
@@ -85,11 +85,11 @@ public class NewsService(
     {
         return await context.NewsItems
             .Where(e => e.IsActive)
-            .OrderByDescending(e => e.CreatedAtGameTime)
+            .OrderByDescending(e => e.CreatedAtWorldHour)
             .ToListAsync();
     }
 
-    public async Task<int> ProcessEventDeliveriesAsync(DateTime currentGameTime)
+    public async Task<int> ProcessEventDeliveriesAsync(long currentWorldHour)
     {
         var activeEvents = await context.NewsItems
             .Where(e => e.IsActive)
@@ -102,7 +102,7 @@ public class NewsService(
             if (newsItem.HexArrivals == null || newsItem.FactionMessages == null)
                 continue;
 
-            double elapsedHours = (currentGameTime - newsItem.CreatedAtGameTime).TotalHours;
+            long elapsedHours = currentWorldHour - newsItem.CreatedAtWorldHour;
             if (elapsedHours < 0) continue;
 
             var reachedCoords = newsItem.HexArrivals
@@ -157,7 +157,7 @@ public class NewsService(
     public async Task<IList<NewsItem>> GetAllAsync()
     {
         return await context.NewsItems
-            .OrderByDescending(e => e.CreatedAtGameTime)
+            .OrderByDescending(e => e.CreatedAtWorldHour)
             .ToListAsync();
     }
 

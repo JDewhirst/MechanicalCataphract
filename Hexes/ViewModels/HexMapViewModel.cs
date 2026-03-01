@@ -15,6 +15,7 @@ using MechanicalCataphract.Data;
 using MechanicalCataphract.Discord;
 using Avalonia.Threading;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Services.Calendar;
 using SkiaSharp;
 
 namespace GUI.ViewModels;
@@ -37,10 +38,14 @@ public partial class HexMapViewModel : ObservableObject
     private readonly IDiscordMessageHandler _discordMessageHandler;
     private readonly INewsService _newsService;
     private readonly INavyService _navyService;
+    private readonly ICalendarService _calendarService;
 
     // Database-backed gamestate data
     [ObservableProperty]
-    private DateTime _gameTime = new();
+    private long _currentWorldHour;
+
+    [ObservableProperty]
+    private string _currentCalendarDateText = string.Empty;
 
     // Discord bot config
     [ObservableProperty]
@@ -116,9 +121,9 @@ public partial class HexMapViewModel : ObservableObject
     // when we replace items in collections during Saved-event sync.
     private bool _isSyncingCollection;
 
-    // Map dimensions
-    private int _mapRows;
-    private int _mapColumns;
+    // Map dimensions — int.MaxValue means "unbounded" (no map loaded yet)
+    private int _mapRows = int.MaxValue;
+    private int _mapColumns = int.MaxValue;
 
     [ObservableProperty]
     private double _hexRadius = 20.0;
@@ -234,7 +239,8 @@ public partial class HexMapViewModel : ObservableObject
         IDiscordChannelManager discordChannelManager,
         IDiscordMessageHandler discordMessageHandler,
         INewsService newsService,
-        INavyService navyService)
+        INavyService navyService,
+        ICalendarService calendarService)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -252,6 +258,7 @@ public partial class HexMapViewModel : ObservableObject
         _discordMessageHandler = discordMessageHandler;
         _newsService = newsService;
         _navyService = navyService;
+        _calendarService = calendarService;
 
         _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
     }
@@ -329,10 +336,10 @@ public partial class HexMapViewModel : ObservableObject
             await _mapService.InitializeMapAsync(newRows, newCols, TerrainTypes.Count > 0 ? TerrainTypes[0].Id : 1);
         }
 
-        // Get map dimensions
+        // Get map dimensions (0 means "no map yet" — keep int.MaxValue so bounds check is skipped)
         var (rows, cols) = await _mapService.GetMapDimensionsAsync();
-        _mapRows = rows;
-        _mapColumns = cols;
+        if (rows > 0) _mapRows = rows;
+        if (cols > 0) _mapColumns = cols;
 
         // Load all hexes (for small maps; for large maps would use viewport-based loading)
         await LoadVisibleHexesAsync();
@@ -368,7 +375,8 @@ public partial class HexMapViewModel : ObservableObject
         CoLocationChannels = new ObservableCollection<CoLocationChannel>(coLocationChannels);
 
         var gameState = await _gameStateService.GetGameStateAsync();
-        GameTime = gameState.CurrentGameTime;
+        CurrentWorldHour = gameState.CurrentWorldHour;
+        CurrentCalendarDateText = _calendarService.FormatDateTime(CurrentWorldHour);
 
         var newsItems = await _newsService.GetAllAsync();
         NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
@@ -436,6 +444,8 @@ public partial class HexMapViewModel : ObservableObject
             if (IsDiscordConnected)
             {
                 await _discordChannelManager.SyncExistingEntitiesAsync();
+                await RefreshCommandersAsync();
+                await RefreshArmiesAsync();
             }
         }
         catch (Exception ex)
@@ -574,11 +584,12 @@ public partial class HexMapViewModel : ObservableObject
     [RelayCommand]
     async Task AdvanceTimeAsync()
     {
-        var result = await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+        var result = await _timeAdvanceService.AdvanceTimeAsync(1);
         if (result.Success)
         {
-            GameTime = result.NewGameTime;
-            StatusMessage = $"Advanced to {result.NewGameTime:g}. " +
+            CurrentWorldHour++;
+            CurrentCalendarDateText = result.FormattedTime;
+            StatusMessage = $"Advanced to {result.FormattedTime}. " +
                             $"{result.MessagesDelivered} messages delivered.";
         }
         else
@@ -1934,7 +1945,7 @@ public partial class HexMapViewModel : ObservableObject
 
         if (result == null || result.Count == 0) return;
 
-        await _newsService.CreateEventAsync(dialog.ResultTitle ?? string.Empty, hex.q, hex.r, gameState.CurrentGameTime, result);
+        await _newsService.CreateEventAsync(dialog.ResultTitle ?? string.Empty, hex.q, hex.r, gameState.CurrentWorldHour, result);
         await RefreshNewsItemsAsync();
         StatusMessage = $"Event dropped at ({hex.q}, {hex.r})";
     }
@@ -1996,7 +2007,7 @@ public partial class HexMapViewModel : ObservableObject
             return;
         }
 
-        double elapsedHours = (GameTime - value.CreatedAtGameTime).TotalHours;
+        double elapsedHours = CurrentWorldHour - value.CreatedAtWorldHour;
 
         var reached = value.HexArrivals
             .Where(a => a.Hours <= elapsedHours)

@@ -28,7 +28,7 @@
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Created:"
                        FontSize="11" Foreground="Gray" Margin="0,0,8,0"/>
             <TextBlock Grid.Row="1" Grid.Column="1"
-                       Text="{Binding SelectedNewsItem.CreatedAtGameTime, StringFormat='{}{0:g}'}"
+                       Text="{Binding SelectedNewsItem.CreatedAtWorldHour, StringFormat='Hour {0}'}"
                        FontSize="11"/>
         </Grid>
 

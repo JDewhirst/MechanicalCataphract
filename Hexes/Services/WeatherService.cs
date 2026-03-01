@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Services.Calendar;
 using Microsoft.EntityFrameworkCore;
 
 namespace MechanicalCataphract.Services;
@@ -12,21 +13,23 @@ public class WeatherService : IWeatherService
 {
     private readonly WargameDbContext _context;
     private readonly IGameRulesService _gameRulesService;
+    private readonly ICalendarService _calendarService;
     private readonly Random _random = new();
 
-    public WeatherService(WargameDbContext context, IGameRulesService gameRulesService)
+    public WeatherService(WargameDbContext context, IGameRulesService gameRulesService, ICalendarService calendarService)
     {
         _context = context;
         _gameRulesService = gameRulesService;
+        _calendarService = calendarService;
     }
 
-    public async Task<int> UpdateDailyWeatherAsync(DateTime gameDate)
+    public async Task<int> UpdateDailyWeatherAsync(long worldHour)
     {
-        var updateDate = gameDate.Date;
+        long dayIndex = _calendarService.GetAbsoluteDayIndex(worldHour);
 
-        // Gate: skip if already updated for this game date
+        // Gate: skip if already updated for this calendar day
         bool alreadyUpdated = await _context.WeatherUpdateRecords
-            .AnyAsync(r => r.UpdateDate == updateDate);
+            .AnyAsync(r => r.AbsoluteDayIndex == dayIndex);
         if (alreadyUpdated)
             return 0;
 
@@ -68,7 +71,7 @@ public class WeatherService : IWeatherService
             hex.WeatherId = PickWeightedRandom(row, totalWeight).Id;
         }
 
-        _context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { UpdateDate = updateDate });
+        _context.WeatherUpdateRecords.Add(new WeatherUpdateRecord { AbsoluteDayIndex = dayIndex });
         await _context.SaveChangesAsync();
 
         return hexes.Count;

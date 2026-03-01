@@ -1,6 +1,7 @@
 using Moq;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Services.Calendar;
 
 namespace MechanicalCataphract.Tests.Services.Integration;
 
@@ -9,6 +10,10 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
 {
     private WeatherService _weatherService = null!;
     private Mock<IGameRulesService> _mockGameRules = null!;
+    private ICalendarService _calendarService = null!;
+
+    // H=24, so worldHour/24 = day index. Day 0 = worldHour 0..23, day 1 = 24..47, etc.
+    private const int H = 24;
 
     [SetUp]
     public async Task SetUp()
@@ -18,15 +23,20 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
         _mockGameRules = new Mock<IGameRulesService>();
         _mockGameRules.Setup(s => s.Rules).Returns(GameRulesService.CreateDefaults());
 
-        _weatherService = new WeatherService(Context, _mockGameRules.Object);
+        var calDef = CalendarDefinitionService.CreateHardcodedDefault();
+        var mockCalDef = new Mock<ICalendarDefinitionService>();
+        mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
+        _calendarService = new CalendarService(mockCalDef.Object);
+
+        _weatherService = new WeatherService(Context, _mockGameRules.Object, _calendarService);
     }
 
     [Test]
     public async Task UpdateDailyWeather_AssignsWeatherToAllHexes()
     {
-        var gameDate = new DateTime(1805, 6, 15, 6, 0, 0);
+        long worldHour = 6; // hour 6 on day 0
 
-        int updated = await _weatherService.UpdateDailyWeatherAsync(gameDate);
+        int updated = await _weatherService.UpdateDailyWeatherAsync(worldHour);
 
         Assert.That(updated, Is.GreaterThan(0));
 
@@ -39,16 +49,14 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task UpdateDailyWeather_OnlyUsesWeatherTypesInTransitions()
     {
-        // Default transitions only target Clear, Rain, Overcast, Fog (ids 1,2,5,6)
-        // Storm (3) and Snow (4) are excluded from all transition rows
-        // Seed hexes with Clear weather so the Clear transition row is used
+        // Default transitions only target Clear, Rain, Overcast, Fog
+        // Storm and Snow are excluded from all transition rows
         var clearId = Context.WeatherTypes.Single(w => w.Name == "Clear").Id;
         foreach (var hex in Context.MapHexes.ToList())
             hex.WeatherId = clearId;
         await Context.SaveChangesAsync();
 
-        var gameDate = new DateTime(1805, 6, 15);
-        await _weatherService.UpdateDailyWeatherAsync(gameDate);
+        await _weatherService.UpdateDailyWeatherAsync(0L);
 
         var hexes = Context.MapHexes.ToList();
         var assignedIds = hexes.Select(h => h.WeatherId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
@@ -63,15 +71,16 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
-    public async Task UpdateDailyWeather_IdempotentForSameDate()
+    public async Task UpdateDailyWeather_IdempotentForSameDay()
     {
-        var gameDate = new DateTime(1805, 6, 15, 6, 0, 0);
+        long worldHour1 = 6L;   // hour 6, day 0
+        long worldHour2 = 20L;  // hour 20, day 0 (same day)
 
-        int firstUpdate = await _weatherService.UpdateDailyWeatherAsync(gameDate);
-        int secondUpdate = await _weatherService.UpdateDailyWeatherAsync(gameDate);
+        int firstUpdate = await _weatherService.UpdateDailyWeatherAsync(worldHour1);
+        int secondUpdate = await _weatherService.UpdateDailyWeatherAsync(worldHour2);
 
         Assert.That(firstUpdate, Is.GreaterThan(0), "First call should update hexes");
-        Assert.That(secondUpdate, Is.EqualTo(0), "Second call on same date should be skipped (gate)");
+        Assert.That(secondUpdate, Is.EqualTo(0), "Second call on same day should be skipped (gate)");
 
         // Only one WeatherUpdateRecord should exist
         var recordCount = Context.WeatherUpdateRecords.Count();
@@ -79,16 +88,16 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
-    public async Task UpdateDailyWeather_RunsAgainOnNewDate()
+    public async Task UpdateDailyWeather_RunsAgainOnNewDay()
     {
-        var day1 = new DateTime(1805, 6, 15, 6, 0, 0);
-        var day2 = new DateTime(1805, 6, 16, 6, 0, 0);
+        long day1Hour = 6L;      // day 0
+        long day2Hour = 24 + 6L; // day 1
 
-        int day1Update = await _weatherService.UpdateDailyWeatherAsync(day1);
-        int day2Update = await _weatherService.UpdateDailyWeatherAsync(day2);
+        int day1Update = await _weatherService.UpdateDailyWeatherAsync(day1Hour);
+        int day2Update = await _weatherService.UpdateDailyWeatherAsync(day2Hour);
 
         Assert.That(day1Update, Is.GreaterThan(0));
-        Assert.That(day2Update, Is.GreaterThan(0), "A new date should trigger a fresh weather update");
+        Assert.That(day2Update, Is.GreaterThan(0), "A new day should trigger a fresh weather update");
 
         var recordCount = Context.WeatherUpdateRecords.Count();
         Assert.That(recordCount, Is.EqualTo(2));
@@ -97,11 +106,11 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task UpdateDailyWeather_ReturnsZero_WhenNoTransitionsMatchDb()
     {
-        // Override rules with transitions whose target names don't exist in the DB
         var rulesWithNoMatch = new GameRulesData(
             GameRulesService.CreateDefaults().Movement,
             GameRulesService.CreateDefaults().MovementRates,
             GameRulesService.CreateDefaults().Supply,
+            GameRulesService.CreateDefaults().Armies,
             GameRulesService.CreateDefaults().UnitStats,
             GameRulesService.CreateDefaults().News,
             new WeatherRules(6, new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>
@@ -111,8 +120,7 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
             GameRulesService.CreateDefaults().Ships);
         _mockGameRules.Setup(s => s.Rules).Returns(rulesWithNoMatch);
 
-        var gameDate = new DateTime(1805, 6, 15);
-        int updated = await _weatherService.UpdateDailyWeatherAsync(gameDate);
+        int updated = await _weatherService.UpdateDailyWeatherAsync(0L);
 
         Assert.That(updated, Is.EqualTo(0), "No update when no DB weather types match transition targets");
     }
@@ -120,11 +128,12 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task UpdateDailyWeather_UsesCurrentWeatherForTransition()
     {
-        // Use deterministic transitions: Clear->Overcast (100%), Rain->Fog (100%)
+        // Deterministic transitions: Clear->Overcast (100%), Rain->Fog (100%)
         var deterministicRules = new GameRulesData(
             GameRulesService.CreateDefaults().Movement,
             GameRulesService.CreateDefaults().MovementRates,
             GameRulesService.CreateDefaults().Supply,
+            GameRulesService.CreateDefaults().Armies,
             GameRulesService.CreateDefaults().UnitStats,
             GameRulesService.CreateDefaults().News,
             new WeatherRules(6, new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>
@@ -135,7 +144,6 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
             GameRulesService.CreateDefaults().Ships);
         _mockGameRules.Setup(s => s.Rules).Returns(deterministicRules);
 
-        // Assign some hexes Clear and some Rain
         var weatherTypes = Context.WeatherTypes.ToList();
         var clearId = weatherTypes.Single(w => w.Name == "Clear").Id;
         var rainId  = weatherTypes.Single(w => w.Name == "Rain").Id;
@@ -147,9 +155,8 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
             hexes[i].WeatherId = i % 2 == 0 ? clearId : rainId;
         await Context.SaveChangesAsync();
 
-        await _weatherService.UpdateDailyWeatherAsync(new DateTime(1805, 6, 15));
+        await _weatherService.UpdateDailyWeatherAsync(0L);
 
-        // Reload hexes
         var updated = Context.MapHexes.ToList();
         for (int i = 0; i < updated.Count; i++)
         {
@@ -163,16 +170,16 @@ public class WeatherServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
-    public async Task UpdateDailyWeather_UsesDatePart_NotTime()
+    public async Task UpdateDailyWeather_UsesDayIndex_NotTimeOfDay()
     {
-        // Two calls on the same calendar day but different times → second should be skipped
-        var morning = new DateTime(1805, 6, 15, 6, 0, 0);
-        var evening = new DateTime(1805, 6, 15, 20, 0, 0);
+        // Two calls on the same calendar day but different hours → second should be skipped
+        long morningHour = 6L;  // day 0
+        long eveningHour = 20L; // day 0
 
-        int morningUpdate = await _weatherService.UpdateDailyWeatherAsync(morning);
-        int eveningUpdate = await _weatherService.UpdateDailyWeatherAsync(evening);
+        int morningUpdate = await _weatherService.UpdateDailyWeatherAsync(morningHour);
+        int eveningUpdate = await _weatherService.UpdateDailyWeatherAsync(eveningHour);
 
         Assert.That(morningUpdate, Is.GreaterThan(0));
-        Assert.That(eveningUpdate, Is.EqualTo(0), "Same calendar date regardless of time should be skipped");
+        Assert.That(eveningUpdate, Is.EqualTo(0), "Same calendar day regardless of hour should be skipped");
     }
 }

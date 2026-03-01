@@ -2,6 +2,7 @@ using System;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Services.Calendar;
 using Moq;
 
 namespace MechanicalCataphract.Tests.Services.Integration;
@@ -32,9 +33,14 @@ public class PathfindingIntegrationTests : IntegrationTestBase
         mockFactionRules.Setup(s => s.GetCachedRuleValue(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<double>()))
             .Returns((int _, string _, double d) => d);
 
+        var calDef = CalendarDefinitionService.CreateHardcodedDefault();
+        var mockCalDef = new Mock<ICalendarDefinitionService>();
+        mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
+        var calendarService = new CalendarService(mockCalDef.Object);
+
         _pathfindingService = new PathfindingService(
             _mapService, _messageService, _armyService, _commanderService,
-            mockGameRules.Object, mockFactionRules.Object);
+            mockGameRules.Object, mockFactionRules.Object, calendarService);
     }
 
     [Test]
@@ -112,11 +118,12 @@ public class PathfindingIntegrationTests : IntegrationTestBase
         });
 
         // Army rate 1.0, road cost 6 → need 6 hours
-        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
+        // worldHour 12 = hour 12 of day 0, which is within the march window (8..20)
+        long noonWorldHour = 12L;
         int totalMoved = 0;
         for (int i = 0; i < 6; i++)
         {
-            totalMoved += await _pathfindingService.MoveArmy(army, 1, noon);
+            totalMoved += await _pathfindingService.MoveArmy(army, 1, noonWorldHour);
         }
 
         // Reload from DB to verify persistence

@@ -58,7 +58,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            int row = Row ?? 0;
+            int row = Row is int r && r >= 0 ? r : 0;
             if (!IsOffsetInBounds(value.Value, row)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             CoordinateQ = hex.q; CoordinateR = hex.r;
@@ -73,7 +73,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            int col = Col ?? 0;
+            int col = Col is int c && c >= 0 ? c : 0;
             if (!IsOffsetInBounds(col, value.Value)) return;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             CoordinateQ = hex.q; CoordinateR = hex.r;

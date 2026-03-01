@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using MechanicalCataphract.Data.Entities;
 
@@ -7,8 +6,8 @@ namespace MechanicalCataphract.Services;
 public interface IGameStateService
 {
     Task<GameState> GetGameStateAsync();
-    Task<DateTime> GetCurrentGameTimeAsync();
-    Task AdvanceGameTimeAsync(TimeSpan amount);
-    Task SetGameTimeAsync(DateTime gameTime);
+    Task<long> GetCurrentWorldHourAsync();
+    Task SetCurrentWorldHourAsync(long worldHour);
+    Task AdvanceWorldHourAsync(int hours);
     Task UpdateGameStateAsync(GameState gameState);
 }

@@ -131,7 +131,7 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
         set
         {
             if (value == null) { FollowingHexQ = null; FollowingHexR = null; return; }
-            int row = FollowingRow ?? 0;
+            int row = FollowingRow is int r && r >= 0 ? r : 0;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
             FollowingHexQ = hex.q; FollowingHexR = hex.r;
             OnPropertyChanged();
@@ -145,7 +145,7 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
         set
         {
             if (value == null) { FollowingHexQ = null; FollowingHexR = null; return; }
-            int col = FollowingCol ?? 0;
+            int col = FollowingCol is int c && c >= 0 ? c : 0;
             var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
             FollowingHexQ = hex.q; FollowingHexR = hex.r;
             OnPropertyChanged();

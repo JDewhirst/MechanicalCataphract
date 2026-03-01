@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using System.Text;
 using Hexes;
@@ -9,13 +8,13 @@ namespace MechanicalCataphract.Discord;
 
 public static class ArmyReportEmbedBuilder
 {
-    public static EmbedProperties BuildArmyReport(Army army, Commander commander, DateTime gameTime)
+    public static EmbedProperties BuildArmyReport(Army army, Commander commander, string formattedGameTime)
     {
         var embed = new EmbedProperties
         {
             Title = $"Army Report: {army.Name}",
             Description = $"Commander: **{commander.Name}**",
-            Footer = new EmbedFooterProperties { Text = $"Game Time: {gameTime:yyyy-MM-dd HH:mm}" },
+            Footer = new EmbedFooterProperties { Text = $"Game Time: {formattedGameTime}" },
         };
 
         var fields = new System.Collections.Generic.List<EmbedFieldProperties>();
@@ -40,6 +39,9 @@ public static class ArmyReportEmbedBuilder
 
         // Combat Strength
         fields.Add(new EmbedFieldProperties { Name = "Combat Strength", Value = army.CombatStrength.ToString(), Inline = true });
+
+        // Max Carry Capacity
+        fields.Add(new EmbedFieldProperties { Name = "Carry Capacity", Value = army.CarryCapacity.ToString(), Inline = true });
 
         // Supply
         fields.Add(new EmbedFieldProperties

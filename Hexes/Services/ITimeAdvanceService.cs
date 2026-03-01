@@ -1,20 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MechanicalCataphract.Services
 {
     public interface ITimeAdvanceService
     {
-        Task<TimeAdvanceResult> AdvanceTimeAsync(TimeSpan amount);
+        Task<TimeAdvanceResult> AdvanceTimeAsync(int hours);
     }
 
     public class TimeAdvanceResult
     {
         public bool Success { get; init; }
-        public DateTime NewGameTime { get; init; }
+        public string FormattedTime { get; init; } = string.Empty;
         public string? Error { get; init; }
 
         // Summary of what happened (for UI feedback)

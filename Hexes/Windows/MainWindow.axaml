@@ -115,7 +115,7 @@
 
                 <!-- Game Time Control -->
                 <TextBlock Text="Game Time:"/>
-                <TextBlock Text="{Binding HexMapViewModel.GameTime}"/>
+                <TextBlock Text="{Binding HexMapViewModel.CurrentCalendarDateText}"/>
                 <Button Content="Advance Time" FontSize="11" Padding="8,3"
                         Command="{Binding HexMapViewModel.AdvanceTimeCommand}"/> 
             </StackPanel>
@@ -386,7 +386,7 @@
                                                        Text="{Binding OriginR, StringFormat='R={0}'}"/>
                                         </StackPanel>
                                         <TextBlock FontSize="10" Foreground="Gray"
-                                                   Text="{Binding CreatedAtGameTime, StringFormat='{}{0:g}'}"/>
+                                                   Text="{Binding CreatedAtWorldHour, StringFormat='Hour {0}'}"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

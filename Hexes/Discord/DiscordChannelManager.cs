@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +10,7 @@ using NetCord;
 using NetCord.Rest;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Services.Calendar;
 
 namespace MechanicalCataphract.Discord;
 
@@ -16,6 +18,7 @@ public class DiscordChannelManager : IDiscordChannelManager
 {
     private readonly IDiscordBotService _botService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly SemaphoreSlim _syncLock = new(1, 1);
 
     public DiscordChannelManager(IDiscordBotService botService, IServiceProvider serviceProvider)
     {
@@ -49,6 +52,13 @@ public class DiscordChannelManager : IDiscordChannelManager
     public async Task SyncExistingEntitiesAsync()
     {
         if (!_botService.IsConnected) return;
+
+        // Skip if a sync is already running (e.g. auto-start and manual connect racing).
+        if (!await _syncLock.WaitAsync(0))
+        {
+            System.Diagnostics.Debug.WriteLine("[DiscordChannelManager] SyncExistingEntitiesAsync skipped — already in progress.");
+            return;
+        }
 
         try
         {
@@ -99,6 +109,10 @@ public class DiscordChannelManager : IDiscordChannelManager
         {
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SyncExistingEntitiesAsync failed: {ex.Message}");
         }
+        finally
+        {
+            _syncLock.Release();
+        }
     }
 
     public async Task OnFactionCreatedAsync(Faction faction)
@@ -133,11 +147,12 @@ public class DiscordChannelManager : IDiscordChannelManager
                 {
                     Denied = Permissions.ViewChannel,
                 },
-                // Allow faction role to view but not send
+                // Allow faction role to view but not send or create threads
                 new(role.Id, PermissionOverwriteType.Role)
                 {
                     Allowed = Permissions.ViewChannel | Permissions.ReadMessageHistory,
-                    Denied = Permissions.SendMessages,
+                    Denied = Permissions.SendMessages | Permissions.CreatePublicThreads
+                           | Permissions.CreatePrivateThreads | Permissions.SendMessagesInThreads,
                 },
             };
 
@@ -283,11 +298,12 @@ public class DiscordChannelManager : IDiscordChannelManager
                 {
                     Denied = Permissions.ViewChannel,
                 },
-                // Allow the commander's Discord user read+write
+                // Allow the commander's Discord user read+write, but deny thread creation
                 new(commander.DiscordUserId.Value, PermissionOverwriteType.User)
                 {
                     Allowed = Permissions.ViewChannel | Permissions.SendMessages
                             | Permissions.ReadMessageHistory,
+                    Denied = Permissions.CreatePublicThreads | Permissions.CreatePrivateThreads,
                 },
             };
 
@@ -313,14 +329,22 @@ public class DiscordChannelManager : IDiscordChannelManager
                 });
             commander.DiscordChannelId = channel.Id;
 
-            // 2. Assign faction role to Discord user
+            // 2. Persist channel ID immediately — before any further Discord calls that could throw
+            await SaveCommanderAsync(commander);
+
+            // 3. Assign faction role
             if (faction.DiscordRoleId.HasValue)
             {
-                await rest.AddGuildUserRoleAsync(guildId.Value, commander.DiscordUserId.Value, faction.DiscordRoleId.Value);
+                try
+                {
+                    await rest.AddGuildUserRoleAsync(guildId.Value, commander.DiscordUserId.Value, faction.DiscordRoleId.Value);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[DiscordChannelManager] Role assignment for '{commander.Name}' failed (non-fatal): {ex.Message}");
+                }
             }
-
-            // Save Discord channel ID back to commander
-            await SaveCommanderAsync(commander);
 
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Commander '{commander.Name}' — channel {commander.DiscordChannelId}");
         }
@@ -610,8 +634,9 @@ public class DiscordChannelManager : IDiscordChannelManager
             await rest.ModifyGuildChannelPermissionsAsync(channel.DiscordChannelId.Value,
                 new PermissionOverwriteProperties(commander.DiscordUserId.Value, PermissionOverwriteType.User)
                 {
-                    Allowed = Permissions.ViewChannel | Permissions.SendMessages
-                            | Permissions.ReadMessageHistory,
+                    Allowed = Permissions.ViewChannel | Permissions.SendMessages,
+                    Denied = Permissions.CreatePublicThreads | Permissions.ReadMessageHistory
+                           | Permissions.CreatePrivateThreads | Permissions.SendMessagesInThreads
                 });
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Commander '{commander.Name}' added to co-location '{channel.Name}'.");
         }
@@ -682,17 +707,33 @@ public class DiscordChannelManager : IDiscordChannelManager
             using var scope = _serviceProvider.CreateScope();
             var commanderService = scope.ServiceProvider.GetRequiredService<Services.ICommanderService>();
             var gameStateService = scope.ServiceProvider.GetRequiredService<Services.IGameStateService>();
+            var calendarService = scope.ServiceProvider.GetRequiredService<ICalendarService>();
 
             var commander = await commanderService.GetCommanderWithArmiesAsync(commanderId);
             if (commander == null || !commander.DiscordChannelId.HasValue) return;
+            if (!_botService.IsConnected) return;
 
             var gameState = await gameStateService.GetGameStateAsync();
+            string formattedTime = calendarService.FormatDateTime(gameState.CurrentWorldHour);
 
-            foreach (var army in commander.CommandedArmies)
+            var embeds = commander.CommandedArmies
+                .Select(army => ArmyReportEmbedBuilder.BuildArmyReport(army, commander, formattedTime))
+                .ToList();
+
+            if (embeds.Count == 0) return;
+
+            // Discord allows up to 10 embeds per message — batch all army reports into one call
+            // instead of one API call per army, reducing message API usage as armies scale.
+            const int MaxEmbedsPerMessage = 10;
+            var rest = _botService.Client!.Rest;
+            for (int i = 0; i < embeds.Count; i += MaxEmbedsPerMessage)
             {
-                var embed = ArmyReportEmbedBuilder.BuildArmyReport(army, commander, gameState.CurrentGameTime);
-                await SendEmbedToCommanderChannelAsync(commander, embed);
+                var batch = embeds.GetRange(i, Math.Min(MaxEmbedsPerMessage, embeds.Count - i));
+                await rest.SendMessageAsync(commander.DiscordChannelId.Value,
+                    new NetCord.Rest.MessageProperties { Embeds = batch });
             }
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Army reports sent to '{commander.Name}': {embeds.Count} report(s).");
         }
         catch (Exception ex)
         {
@@ -760,9 +801,9 @@ public class DiscordChannelManager : IDiscordChannelManager
     {
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
-        db.CoLocationChannels.Attach(channel);
-        db.Entry(channel).Property(c => c.DiscordChannelId).IsModified = true;
-        await db.SaveChangesAsync();
+        await db.CoLocationChannels
+            .Where(c => c.Id == channel.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.DiscordChannelId, channel.DiscordChannelId));
     }
 
     /// <summary>
@@ -776,7 +817,9 @@ public class DiscordChannelManager : IDiscordChannelManager
         overwrites.Add(new(_botService.Client.Id, PermissionOverwriteType.User)
         {
             Allowed = Permissions.ViewChannel | Permissions.SendMessages
-                    | Permissions.ReadMessageHistory | Permissions.ManageChannels,
+                    | Permissions.ReadMessageHistory | Permissions.ManageChannels
+                    | Permissions.CreatePublicThreads | Permissions.CreatePrivateThreads
+                    | Permissions.SendMessagesInThreads,
         });
     }
 
@@ -808,20 +851,21 @@ public class DiscordChannelManager : IDiscordChannelManager
     {
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
-        db.Factions.Attach(faction);
-        db.Entry(faction).Property(f => f.DiscordRoleId).IsModified = true;
-        db.Entry(faction).Property(f => f.DiscordCategoryId).IsModified = true;
-        db.Entry(faction).Property(f => f.DiscordChannelId).IsModified = true;
-        await db.SaveChangesAsync();
+        await db.Factions
+            .Where(f => f.Id == faction.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(f => f.DiscordRoleId, faction.DiscordRoleId)
+                .SetProperty(f => f.DiscordCategoryId, faction.DiscordCategoryId)
+                .SetProperty(f => f.DiscordChannelId, faction.DiscordChannelId));
     }
 
     private async Task SaveCommanderAsync(Commander commander)
     {
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
-        db.Commanders.Attach(commander);
-        db.Entry(commander).Property(c => c.DiscordChannelId).IsModified = true;
-        await db.SaveChangesAsync();
+        await db.Commanders
+            .Where(c => c.Id == commander.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.DiscordChannelId, commander.DiscordChannelId));
     }
 
     /// <summary>

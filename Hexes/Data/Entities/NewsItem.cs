@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace MechanicalCataphract.Data.Entities;
@@ -21,8 +20,8 @@ public class NewsItem
     public int OriginQ { get; set; }
     public int OriginR { get; set; }
 
-    /// <summary>Game-clock time when the event was dropped.</summary>
-    public DateTime CreatedAtGameTime { get; set; }
+    /// <summary>World-hour at which the event was dropped (hours since campaign epoch).</summary>
+    public long CreatedAtWorldHour { get; set; }
 
     /// <summary>Referee can archive/stop an event to prevent further deliveries.</summary>
     public bool IsActive { get; set; } = true;

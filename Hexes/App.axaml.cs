@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Services.Calendar;
 using MechanicalCataphract.Discord;
 using GUI.ViewModels;
 
@@ -46,6 +47,26 @@ public partial class App : Application
         // Resolve GameRulesService immediately so GameRules.Current is set
         // before any entity computed properties run (they use the static accessor).
         Services.GetRequiredService<IGameRulesService>();
+
+        // Resolve CalendarDefinitionService (singleton) — validates and caches calendar JSON.
+        // If the JSON is malformed this will call Environment.Exit(1).
+        Services.GetRequiredService<ICalendarDefinitionService>();
+
+        // Cross-config validation: march window hours must be within HoursPerDay
+        {
+            var calDef = Services.GetRequiredService<ICalendarDefinitionService>().GetCalendarDefinition();
+            var rules = Services.GetRequiredService<IGameRulesService>().Rules;
+            if (rules.Movement.MarchDayStartHour >= calDef.HoursPerDay ||
+                rules.Movement.MarchDayEndHour >= calDef.HoursPerDay)
+            {
+                var msg = $"game_rules.json validation failed: marchDayStartHour ({rules.Movement.MarchDayStartHour}) " +
+                          $"or marchDayEndHour ({rules.Movement.MarchDayEndHour}) " +
+                          $">= calendar hoursPerDay ({calDef.HoursPerDay}).";
+                Console.Error.WriteLine($"[App] FATAL: {msg}");
+                System.Diagnostics.Debug.WriteLine($"[App] FATAL: {msg}");
+                Environment.Exit(1);
+            }
+        }
 
         // Ensure database is created and seed terrain types from assets
         using (var scope = Services.CreateScope())
@@ -135,7 +156,9 @@ public partial class App : Application
             MainWindow = mainWindow;
             desktop.MainWindow = mainWindow;
 
-            // Auto-start Discord bot if previously configured (fire-and-forget)
+            // Auto-start Discord bot if previously configured (fire-and-forget).
+            // After completion, dispatch a UI update so the Connect button reflects the real state
+            // (the ViewModel was initialized before the async gateway handshake finished).
             var botService = Services.GetRequiredService<IDiscordBotService>();
             var channelManager = Services.GetRequiredService<IDiscordChannelManager>();
             _ = Task.Run(async () =>
@@ -145,6 +168,16 @@ public partial class App : Application
                 {
                     await channelManager.SyncExistingEntitiesAsync();
                 }
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    mainWindowViewModel.HexMapViewModel.IsDiscordConnected = botService.IsConnected;
+                    mainWindowViewModel.HexMapViewModel.DiscordStatusMessage = botService.StatusMessage;
+                    if (botService.IsConnected)
+                    {
+                        await mainWindowViewModel.HexMapViewModel.RefreshCommandersAsync();
+                        await mainWindowViewModel.HexMapViewModel.RefreshArmiesAsync();
+                    }
+                });
             });
 
             desktop.ShutdownRequested += (_, e) =>
@@ -161,6 +194,10 @@ public partial class App : Application
     {
         // Game rules (singleton — loaded from game_rules.json, sets GameRules.Current)
         services.AddSingleton<IGameRulesService, GameRulesService>();
+
+        // Calendar (singleton for definition, scoped for computation)
+        services.AddSingleton<ICalendarDefinitionService, CalendarDefinitionService>();
+        services.AddScoped<ICalendarService, CalendarService>();
 
         // Database
         services.AddDbContext<WargameDbContext>(options =>

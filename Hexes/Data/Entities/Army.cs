@@ -84,4 +84,7 @@ public class Army : IPathMovable
     public int DailySupplyConsumption => (Brigades?.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan()) ?? 0)
         + NonCombatants + (int)(Wagons * GameRules.Current.Supply.WagonSupplyMultiplier);
     public double DaysOfSupply => DailySupplyConsumption > 0 ? (double)CarriedSupply / DailySupplyConsumption : 0;
+    public int CarryCapacity => Brigades.Sum(b => b.Number * b.UnitType.CarryCapacityPerMan())
+                + (UnitType.Infantry.CarryCapacityPerMan() * NonCombatants)
+                + Wagons * 1000;
 }

@@ -1,10 +1,10 @@
-﻿using MechanicalCataphract.Data;
+using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
+using MechanicalCataphract.Services.Calendar;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MechanicalCataphract.Services
@@ -22,6 +22,7 @@ namespace MechanicalCataphract.Services
         private readonly IDiscordChannelManager _discordChannelManager;
         private readonly INewsService _newsService;
         private readonly IWeatherService _weatherService;
+        private readonly ICalendarService _calendarService;
 
         public TimeAdvanceService(
             WargameDbContext context,
@@ -34,7 +35,8 @@ namespace MechanicalCataphract.Services
             ICoLocationChannelService coLocationChannelService,
             IDiscordChannelManager discordChannelManager,
             INewsService newsService,
-            IWeatherService weatherService)
+            IWeatherService weatherService,
+            ICalendarService calendarService)
         {
             _context = context;
             _gameStateService = gameStateService;
@@ -47,51 +49,54 @@ namespace MechanicalCataphract.Services
             _discordChannelManager = discordChannelManager;
             _newsService = newsService;
             _weatherService = weatherService;
+            _calendarService = calendarService;
         }
 
-        public async Task<TimeAdvanceResult> AdvanceTimeAsync(TimeSpan amount)
+        public async Task<TimeAdvanceResult> AdvanceTimeAsync(int hours)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // 1. Update game time
+                // 1. Read and advance world-hour
                 var gameState = await _gameStateService.GetGameStateAsync();
-                var oldTime = gameState.CurrentGameTime;
-                var newTime = oldTime.Add(amount);
-                gameState.CurrentGameTime = newTime;
+                long oldWorldHour = gameState.CurrentWorldHour;
+                long newWorldHour = oldWorldHour + hours;
+                gameState.CurrentWorldHour = newWorldHour;
 
-                // 2. Process message movement (in order)
+                // 2. Process message movement
                 var messagesMoved = await ProcessMessageMovementAsync();
 
                 // 3. Process army movement
-                var armiesMoved = await ProcessArmyMovementAsync(oldTime);
+                var armiesMoved = await ProcessArmyMovementAsync(oldWorldHour);
 
                 // 4. Process commander movement
                 var commandersMoved = await ProcessCommanderMovementAsync();
 
-                // 4b. Enforce co-location proximity (remove commanders who moved away)
+                // 4b. Enforce co-location proximity
                 var coLocationRemovals = await EnforceCoLocationProximityAsync();
 
                 // 5. Process supply consumption
                 int armiesSupplied = 0;
-                if (newTime.Hour == gameState.SupplyUsageTime.Hours + 1)
+                if (_calendarService.CrossedHourOfDay(oldWorldHour, newWorldHour, GameRules.Current.Supply.DailyUsageHour))
                 {
                     armiesSupplied = await ProcessAllArmyDailySupplyConsumptionAsync();
                 }
 
                 // 6. Send daily army reports
-                if (newTime.Hour == gameState.ArmyReportTime.Hours + 1)
+                if (_calendarService.CrossedHourOfDay(oldWorldHour, newWorldHour, GameRules.Current.Armies.DailyReportHour))
                 {
                     await _discordChannelManager.SendAllArmyReportsAsync();
                 }
 
                 // 7. Process event deliveries (news/rumour spreading)
-                int newsProcessed = await _newsService.ProcessEventDeliveriesAsync(newTime);
+                int newsProcessed = await _newsService.ProcessEventDeliveriesAsync(newWorldHour);
 
-                // 8. Update weather on day change
+                // 8. Update weather when daily trigger is crossed
                 int weatherUpdated = 0;
-                if (newTime.Date > oldTime.Date)
-                    weatherUpdated = await _weatherService.UpdateDailyWeatherAsync(newTime);
+                if (_calendarService.CrossedHourOfDay(oldWorldHour, newWorldHour, GameRules.Current.Weather.DailyUpdateHour))
+                {
+                    weatherUpdated = await _weatherService.UpdateDailyWeatherAsync(newWorldHour);
+                }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -99,7 +104,7 @@ namespace MechanicalCataphract.Services
                 return new TimeAdvanceResult
                 {
                     Success = true,
-                    NewGameTime = newTime,
+                    FormattedTime = _calendarService.FormatDateTime(newWorldHour),
                     MessagesDelivered = messagesMoved,
                     ArmiesMoved = armiesMoved,
                     CommandersMoved = commandersMoved,
@@ -119,7 +124,7 @@ namespace MechanicalCataphract.Services
                 };
             }
         }
-        
+
         private async Task<int> ProcessAllArmyDailySupplyConsumptionAsync()
         {
             int armiesSupplied = 0;
@@ -144,13 +149,13 @@ namespace MechanicalCataphract.Services
             return messagesMoved;
         }
 
-        private async Task<int> ProcessArmyMovementAsync(DateTime currentGameTime)
+        private async Task<int> ProcessArmyMovementAsync(long worldHour)
         {
             int armiesMoved = 0;
             var armies = await _armyService.GetAllAsync();
             foreach (Army army in armies)
             {
-                armiesMoved += await _pathfindingService.MoveArmy(army, 1, currentGameTime);
+                armiesMoved += await _pathfindingService.MoveArmy(army, 1, worldHour);
             }
             return armiesMoved;
         }
@@ -196,6 +201,5 @@ namespace MechanicalCataphract.Services
             }
             return totalRemovals;
         }
-
     }
 }

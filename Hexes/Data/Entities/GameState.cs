@@ -1,5 +1,3 @@
-using System;
-
 namespace MechanicalCataphract.Data.Entities;
 
 public class GameState
@@ -9,13 +7,8 @@ public class GameState
     // Referees (comma-separated discord handles)
     public string? Referees { get; set; }
 
-    // Current game time (to hour precision)
-    public DateTime CurrentGameTime { get; set; } = DateTime.UtcNow;
-
-    // Scheduled times for automated events
-    public TimeSpan SupplyUsageTime { get; set; } = new TimeSpan(21, 0, 0); // 9 PM
-    public TimeSpan WeatherUpdateTime { get; set; } = new TimeSpan(0, 0, 0); // Midnight
-    public TimeSpan ArmyReportTime { get; set; } = new TimeSpan(6, 0, 0); // 6 AM
+    // Current world-hour since campaign epoch (hour 0 = epoch start)
+    public long CurrentWorldHour { get; set; } = 0;
 
     // Map dimensions
     public int MapRows { get; set; }

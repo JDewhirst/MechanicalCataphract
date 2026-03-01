@@ -21,6 +21,7 @@ public class DiscordBotService : IDiscordBotService
     private ApplicationCommandService<ApplicationCommandContext>? _commandService;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private bool _isReady;
+    private bool _commandsRegistered;
     private TaskCompletionSource? _readyTcs;
     private CancellationTokenSource? _connectCts;
     private string _statusMessage = "Not configured";
@@ -173,22 +174,32 @@ public class DiscordBotService : IDiscordBotService
                 throw new TimeoutException("Gateway handshake timed out after 15 seconds");
             }
 
-            // Now safe to register slash commands — bot is confirmed online
-            try
+            // Register slash commands once per process session.
+            // Global commands persist in Discord between app restarts, so re-registering
+            // on every connect wastes the 200/day write quota and can trigger Cloudflare bans.
+            if (!_commandsRegistered)
             {
-                await _commandService.CreateCommandsAsync(_client.Rest, _client.Id);
+                try
+                {
+                    await _commandService.CreateCommandsAsync(_client.Rest, _client.Id);
 
-                // Register /report manually (handled inline, not via a command module)
-                await _client.Rest.CreateGlobalApplicationCommandAsync(
-                    _client.Id,
-                    new SlashCommandProperties("report", "Get a status report for all your armies"));
+                    // Register /report manually (handled inline, not via a command module)
+                    await _client.Rest.CreateGlobalApplicationCommandAsync(
+                        _client.Id,
+                        new SlashCommandProperties("report", "Get a status report for all your armies"));
 
-                System.Diagnostics.Debug.WriteLine($"[DiscordBot] Commands registered. Guild: {guildId}");
+                    _commandsRegistered = true;
+                    System.Diagnostics.Debug.WriteLine($"[DiscordBot] Commands registered. Guild: {guildId}");
+                }
+                catch (Exception ex)
+                {
+                    // Command registration failure is non-fatal — bot is still connected
+                    System.Diagnostics.Debug.WriteLine($"[DiscordBot] Command registration failed (non-fatal): {ex.Message}");
+                }
             }
-            catch (Exception ex)
+            else
             {
-                // Command registration failure is non-fatal — bot is still connected
-                System.Diagnostics.Debug.WriteLine($"[DiscordBot] Command registration failed (non-fatal): {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("[DiscordBot] Skipping command registration (already registered this session).");
             }
         }
         catch (OperationCanceledException)

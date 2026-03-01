@@ -3,6 +3,7 @@ using Moq;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Services.Calendar;
 
 namespace MechanicalCataphract.Tests.Services.Integration;
 
@@ -17,6 +18,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     private CommanderService _commanderService = null!;
     private PathfindingService _pathfindingService = null!;
     private CoLocationChannelService _coLocationChannelService = null!;
+    private ICalendarService _calendarService = null!;
 
     [SetUp]
     public async Task SetUp()
@@ -34,51 +36,65 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         mockFactionRules.Setup(s => s.PreloadForFactionAsync(It.IsAny<int>())).Returns(Task.CompletedTask);
         mockFactionRules.Setup(s => s.GetCachedRuleValue(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<double>()))
             .Returns((int _, string _, double d) => d);
+
+        var calDef = CalendarDefinitionService.CreateHardcodedDefault();
+        var mockCalDef = new Mock<ICalendarDefinitionService>();
+        mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
+        _calendarService = new CalendarService(mockCalDef.Object);
+
         _pathfindingService = new PathfindingService(_mapService, _messageService, _armyService, _commanderService,
-            mockGameRules.Object, mockFactionRules.Object);
+            mockGameRules.Object, mockFactionRules.Object, _calendarService);
         _coLocationChannelService = new CoLocationChannelService(Context);
         var discordChannelManager = new Mock<IDiscordChannelManager>();
         var newsService = new Mock<INewsService>();
-        newsService.Setup(s => s.ProcessEventDeliveriesAsync(It.IsAny<DateTime>())).ReturnsAsync(0);
+        newsService.Setup(s => s.ProcessEventDeliveriesAsync(It.IsAny<long>())).ReturnsAsync(0);
         var weatherService = new Mock<IWeatherService>();
-        weatherService.Setup(s => s.UpdateDailyWeatherAsync(It.IsAny<DateTime>())).ReturnsAsync(0);
+        weatherService.Setup(s => s.UpdateDailyWeatherAsync(It.IsAny<long>())).ReturnsAsync(0);
         _timeAdvanceService = new TimeAdvanceService(
             Context, _gameStateService, _armyService, _messageService,
             _mapService, _pathfindingService, _commanderService,
             _coLocationChannelService, discordChannelManager.Object, newsService.Object,
-            weatherService.Object);
+            weatherService.Object, _calendarService);
 
-        // Pin game time to a deterministic daytime value so movement tests are not
-        // dependent on the wall clock. 08:00 gives 12 consecutive valid march hours.
-        await _gameStateService.SetGameTimeAsync(new DateTime(1805, 1, 1, 8, 0, 0));
+        // Pin game time to worldHour 8 (hour 8 of day 0 = within march window 8..20)
+        await _gameStateService.SetCurrentWorldHourAsync(8);
     }
 
     [Test]
-    public async Task AdvanceTime_UpdatesGameTime()
+    public async Task AdvanceTime_UpdatesWorldHour()
     {
-        var before = await _gameStateService.GetCurrentGameTimeAsync();
+        var before = await _gameStateService.GetCurrentWorldHourAsync();
 
-        var result = await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+        var result = await _timeAdvanceService.AdvanceTimeAsync(1);
 
         Assert.That(result.Success, Is.True);
-        Assert.That(result.NewGameTime, Is.EqualTo(before.AddHours(1)));
+        var after = await _gameStateService.GetCurrentWorldHourAsync();
+        Assert.That(after, Is.EqualTo(before + 1));
+    }
+
+    [Test]
+    public async Task AdvanceTime_ReturnsFormattedTime()
+    {
+        var result = await _timeAdvanceService.AdvanceTimeAsync(1);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FormattedTime, Is.Not.Empty);
+        // Default calendar: "Year 1000, Dawnmarch 1, Firstday, 09:00"
+        Assert.That(result.FormattedTime, Does.StartWith("Year 1000"));
     }
 
     [Test]
     public async Task AdvanceTime_MovesMessages()
     {
-        // Set up two adjacent hexes with a road between them
         var hexes = GridHexes.ToList();
         var startHex = hexes[0];
         var endHex = hexes[1];
 
-        // Add road so message can move in 1 tick (cost = 6, rate = 2, need 3 hours)
         await _mapService.SetRoadAsync(startHex.ToHex(), MapService.GetNeighborDirection(startHex.ToHex(), endHex.ToHex()) ?? 0, true);
 
         var sender = await SeedHelpers.SeedCommanderAsync(Context, "Sender", 1, startHex.Q, startHex.R);
         var target = await SeedHelpers.SeedCommanderAsync(Context, "Target", 1, endHex.Q, endHex.R);
 
-        // Create message with a path (just 1 hop)
         var msg = await _messageService.CreateAsync(new Message
         {
             SenderCommanderId = sender.Id,
@@ -89,15 +105,14 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             Path = new List<Hex> { endHex.ToHex() }
         });
 
-        // Advance enough time for the message to move (cost/rate = 6/2 = 3 hours)
+        // Road cost 6, messenger rate 2 → needs 3 hours
         TimeAdvanceResult result = null!;
         for (int i = 0; i < 3; i++)
         {
-            result = await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+            result = await _timeAdvanceService.AdvanceTimeAsync(1);
         }
 
         Assert.That(result!.Success, Is.True);
-        // At least one advance should have moved the message
         var reloaded = await _messageService.GetByIdAsync(msg.Id);
         Assert.That(reloaded!.CoordinateQ, Is.EqualTo(endHex.Q));
         Assert.That(reloaded.CoordinateR, Is.EqualTo(endHex.R));
@@ -110,7 +125,6 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         var startHex = hexes[0];
         var endHex = hexes[1];
 
-        // Road between them
         var dir = MapService.GetNeighborDirection(startHex.ToHex(), endHex.ToHex());
         if (dir != null)
             await _mapService.SetRoadAsync(startHex.ToHex(), dir.Value, true);
@@ -124,11 +138,11 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             Path = new List<Hex> { endHex.ToHex() }
         });
 
-        // Empty army: MarchingColumnLength=0, isLongColumn=false, rate=1.0
-        // Need RoadCost(6)/rate(1.0)=6 valid march hours. Running 12 hours ensures margin.
+        // Empty army: rate=1.0, road cost=6 → needs 6 valid march hours
+        // Starting at worldHour 8, march window is 8..19 (20 exclusive), so 12 ticks covers it
         for (int i = 0; i < 12; i++)
         {
-            await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+            await _timeAdvanceService.AdvanceTimeAsync(1);
         }
 
         var reloaded = await _armyService.GetByIdAsync(army.Id);
@@ -156,10 +170,10 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             Path = new List<Hex> { endHex.ToHex() }
         });
 
-        // Commander rate is 2, road cost 6, need 6/2 = 3 hours
+        // Commander rate 2, road cost 6 → needs 3 hours
         for (int i = 0; i < 3; i++)
         {
-            await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+            await _timeAdvanceService.AdvanceTimeAsync(1);
         }
 
         var reloaded = await _commanderService.GetByIdAsync(commander.Id);
@@ -183,11 +197,10 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         });
         await SeedHelpers.SeedBrigadeAsync(Context, army.Id, "Inf", 100, UnitType.Infantry);
 
-        // SupplyUsageTime default is 21:00, fires at hour 22
-        // Set game time to 21:00 so advancing 1 hour hits 22:00
-        await _gameStateService.SetGameTimeAsync(new DateTime(1805, 1, 1, 21, 0, 0));
+        // Supply trigger is at hour 21. Set worldHour to 20 so advancing 1 hour crosses it.
+        await _gameStateService.SetCurrentWorldHourAsync(20);
 
-        var result = await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+        var result = await _timeAdvanceService.AdvanceTimeAsync(1);
 
         Assert.That(result.Success, Is.True);
         Assert.That(result.ArmiesSupplied, Is.GreaterThan(0));
@@ -202,12 +215,10 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         var startHex = hexes[0];
         var endHex = hexes[1];
 
-        // Road between them
         var dir = MapService.GetNeighborDirection(startHex.ToHex(), endHex.ToHex());
         if (dir != null)
             await _mapService.SetRoadAsync(startHex.ToHex(), dir.Value, true);
 
-        // Create army with a path
         var army = await _armyService.CreateAsync(new Army
         {
             Name = "Marching",
@@ -217,7 +228,6 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             Path = new List<Hex> { endHex.ToHex() }
         });
 
-        // Create commander following that army (no independent path)
         var commander = await _commanderService.CreateAsync(new Commander
         {
             Name = "Follower",
@@ -227,21 +237,16 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             FollowingArmyId = army.Id
         });
 
-        // Empty army: MarchingColumnLength=0, isLongColumn=false, rate=1.0
-        // Need RoadCost(6)/rate(1.0)=6 valid march hours. Running 12 hours ensures margin.
         for (int i = 0; i < 12; i++)
         {
-            await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+            await _timeAdvanceService.AdvanceTimeAsync(1);
         }
 
         var reloadedArmy = await _armyService.GetByIdAsync(army.Id);
         var reloadedCommander = await _commanderService.GetByIdAsync(commander.Id);
 
-        // Army should have moved
         Assert.That(reloadedArmy!.CoordinateQ, Is.EqualTo(endHex.Q));
         Assert.That(reloadedArmy.CoordinateR, Is.EqualTo(endHex.R));
-
-        // Commander should have snapped to army's new position
         Assert.That(reloadedCommander!.CoordinateQ, Is.EqualTo(endHex.Q));
         Assert.That(reloadedCommander.CoordinateR, Is.EqualTo(endHex.R));
     }
@@ -251,11 +256,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     {
         var hexes = GridHexes.ToList();
         var startHex = hexes[0];
-        var endHex = hexes[1];
-        // Pick a third hex for the commander's (ignored) path
         var otherHex = hexes.Count > 2 ? hexes[2] : hexes[1];
 
-        // Create a stationary army (no path)
         var army = await _armyService.CreateAsync(new Army
         {
             Name = "Stationary",
@@ -264,7 +266,6 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             CoordinateR = startHex.R
         });
 
-        // Commander follows army but also has a path set (shouldn't be used)
         var commander = await _commanderService.CreateAsync(new Commander
         {
             Name = "FollowerWithPath",
@@ -275,15 +276,12 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
             Path = new List<Hex> { otherHex.ToHex() }
         });
 
-        // Advance time — commander should NOT move along own path
         for (int i = 0; i < 6; i++)
         {
-            await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+            await _timeAdvanceService.AdvanceTimeAsync(1);
         }
 
         var reloadedCommander = await _commanderService.GetByIdAsync(commander.Id);
-
-        // Commander should still be at army's position (start hex)
         Assert.That(reloadedCommander!.CoordinateQ, Is.EqualTo(startHex.Q));
         Assert.That(reloadedCommander.CoordinateR, Is.EqualTo(startHex.R));
     }
@@ -291,14 +289,12 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task AdvanceTime_TransactionRollsBackOnError()
     {
-        // Verify basic success case works - the transaction mechanism itself
-        // is tested implicitly by all the above tests succeeding
-        var before = await _gameStateService.GetCurrentGameTimeAsync();
+        var before = await _gameStateService.GetCurrentWorldHourAsync();
 
-        var result = await _timeAdvanceService.AdvanceTimeAsync(TimeSpan.FromHours(1));
+        var result = await _timeAdvanceService.AdvanceTimeAsync(1);
 
         Assert.That(result.Success, Is.True);
-        var after = await _gameStateService.GetCurrentGameTimeAsync();
-        Assert.That(after, Is.EqualTo(before.AddHours(1)));
+        var after = await _gameStateService.GetCurrentWorldHourAsync();
+        Assert.That(after, Is.EqualTo(before + 1));
     }
 }

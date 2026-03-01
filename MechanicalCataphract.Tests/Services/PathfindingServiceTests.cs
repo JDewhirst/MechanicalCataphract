@@ -2,6 +2,7 @@ using System;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using MechanicalCataphract.Services.Calendar;
 using MechanicalCataphract.Tests.Helpers;
 using Moq;
 
@@ -15,6 +16,10 @@ public class PathfindingServiceTests
     private Mock<ICommanderService> _mockCommanderService = null!;
     private Mock<IGameRulesService> _mockGameRulesService = null!;
     private Mock<IFactionRuleService> _mockFactionRuleService = null!;
+    private ICalendarService _calendarService = null!;
+
+    // worldHour 12 = hour 12 of day 0, within default march window (8..20)
+    private const long NoonWorldHour = 12L;
 
     [SetUp]
     public void Setup()
@@ -36,6 +41,11 @@ public class PathfindingServiceTests
         _mockFactionRuleService
             .Setup(s => s.GetCachedRuleValue(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<double>()))
             .Returns((int _, string _, double d) => d);
+
+        var calDef = CalendarDefinitionService.CreateHardcodedDefault();
+        var mockCalDef = new Mock<ICalendarDefinitionService>();
+        mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
+        _calendarService = new CalendarService(mockCalDef.Object);
     }
 
     private PathfindingService CreateService(Mock<IMapService> mockMapService)
@@ -46,7 +56,8 @@ public class PathfindingServiceTests
             _mockArmyService.Object,
             _mockCommanderService.Object,
             _mockGameRulesService.Object,
-            _mockFactionRuleService.Object);
+            _mockFactionRuleService.Object,
+            _calendarService);
     }
 
     #region FindPathAsync Tests
@@ -389,7 +400,7 @@ public class PathfindingServiceTests
     {
         var builder = new TestMapBuilder();
         var service = CreateService(builder.BuildMockMapService());
-        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
+        long noon = NoonWorldHour;
 
         var army = new Army { CoordinateQ = null, CoordinateR = null };
         var result = await service.MoveArmy(army, 1, noon);
@@ -401,7 +412,7 @@ public class PathfindingServiceTests
     {
         var builder = new TestMapBuilder();
         var service = CreateService(builder.BuildMockMapService());
-        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
+        long noon = NoonWorldHour;
 
         var army = new Army
         {
@@ -424,7 +435,7 @@ public class PathfindingServiceTests
         mockMap.Setup(m => m.HasRoadBetweenAsync(It.IsAny<Hex>(), It.IsAny<Hex>()))
             .ReturnsAsync(false);
         var service = CreateService(mockMap);
-        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
+        long noon = NoonWorldHour;
 
         var nextHex = new Hex(1, 0, -1);
 
@@ -459,7 +470,7 @@ public class PathfindingServiceTests
         mockMap.Setup(m => m.HasRoadBetweenAsync(It.IsAny<Hex>(), It.IsAny<Hex>()))
             .ReturnsAsync(false);
         var service = CreateService(mockMap);
-        var noon = new DateTime(2024, 1, 1, 12, 0, 0);
+        long noon = NoonWorldHour;
 
         var nextHex = new Hex(1, 0, -1);
         var army = new Army

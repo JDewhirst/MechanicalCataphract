@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using MechanicalCataphract.Data;
@@ -27,23 +26,23 @@ public class GameStateService : IGameStateService
         return gameState;
     }
 
-    public async Task<DateTime> GetCurrentGameTimeAsync()
+    public async Task<long> GetCurrentWorldHourAsync()
     {
         var gameState = await GetGameStateAsync();
-        return gameState.CurrentGameTime;
+        return gameState.CurrentWorldHour;
     }
 
-    public async Task AdvanceGameTimeAsync(TimeSpan amount)
+    public async Task SetCurrentWorldHourAsync(long worldHour)
     {
         var gameState = await GetGameStateAsync();
-        gameState.CurrentGameTime = gameState.CurrentGameTime.Add(amount);
+        gameState.CurrentWorldHour = worldHour;
         await _context.SaveChangesAsync();
     }
 
-    public async Task SetGameTimeAsync(DateTime gameTime)
+    public async Task AdvanceWorldHourAsync(int hours)
     {
         var gameState = await GetGameStateAsync();
-        gameState.CurrentGameTime = gameTime;
+        gameState.CurrentWorldHour += hours;
         await _context.SaveChangesAsync();
     }
 

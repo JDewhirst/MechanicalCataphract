@@ -63,7 +63,10 @@ public class GameRulesService : IGameRulesService
             CommanderBaseRate: 2.0),
         Supply: new SupplyRules(
             WagonSupplyMultiplier: 10,
-            ForageMultiplierPerDensity: 500),
+            ForageMultiplierPerDensity: 500,
+            DailyUsageHour: 21),
+        Armies: new ArmiesRules(
+            DailyReportHour: 6),
         UnitStats: new UnitStatsRules(
             Infantry: new UnitTypeStats(1, 15, 1, 1, 5000, true),
             Skirmishers: new UnitTypeStats(1, 15, 1, 1, 5000, true),
@@ -94,6 +97,7 @@ public class GameRulesService : IGameRulesService
         var m = dto.Movement ?? new MovementDto();
         var mr = dto.MovementRates ?? new MovementRatesDto();
         var s = dto.Supply ?? new SupplyDto();
+        var ar = dto.Armies ?? new ArmiesDto();
         var us = dto.UnitStats ?? new UnitStatsDto();
         var n = dto.News ?? new NewsDto();
         var w = dto.Weather;
@@ -118,7 +122,10 @@ public class GameRulesService : IGameRulesService
                 CommanderBaseRate: mr.CommanderBaseRate ?? 2.0),
             Supply: new SupplyRules(
                 WagonSupplyMultiplier: s.WagonSupplyMultiplier ?? 10,
-                ForageMultiplierPerDensity: s.ForageMultiplierPerDensity ?? 500),
+                ForageMultiplierPerDensity: s.ForageMultiplierPerDensity ?? 500,
+                DailyUsageHour: s.DailyUsageHour ?? defaults.Supply.DailyUsageHour),
+            Armies: new ArmiesRules(
+                DailyReportHour: ar.DailyReportHour ?? defaults.Armies.DailyReportHour),
             UnitStats: new UnitStatsRules(
                 Infantry: FromUnitDto(us.Infantry),
                 Skirmishers: FromUnitDto(us.Skirmishers),
@@ -169,6 +176,7 @@ public class GameRulesService : IGameRulesService
         public MovementDto? Movement { get; set; }
         public MovementRatesDto? MovementRates { get; set; }
         public SupplyDto? Supply { get; set; }
+        public ArmiesDto? Armies { get; set; }
         public UnitStatsDto? UnitStats { get; set; }
         public NewsDto? News { get; set; }
         public WeatherDto? Weather { get; set; }
@@ -211,6 +219,12 @@ public class GameRulesService : IGameRulesService
     {
         public int? WagonSupplyMultiplier { get; set; }
         public int? ForageMultiplierPerDensity { get; set; }
+        public int? DailyUsageHour { get; set; }
+    }
+
+    private class ArmiesDto
+    {
+        public int? DailyReportHour { get; set; }
     }
 
     private class UnitStatsDto
