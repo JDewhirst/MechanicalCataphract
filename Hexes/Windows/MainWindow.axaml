@@ -278,6 +278,9 @@
                             <Button Content="Delete" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteOrderCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedOrder}"/>
+                            <CheckBox Content="Hide Done" FontSize="11"
+                                      IsChecked="{Binding HexMapViewModel.HideProcessedOrders, Mode=TwoWay}"
+                                      VerticalAlignment="Center"/>
                         </StackPanel>
                         <DataGrid Grid.Row="1" x:Name="OrdersGrid"
                                   ItemsSource="{Binding HexMapViewModel.Orders}"
@@ -306,6 +309,9 @@
                             <Button Content="Delete" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteMessageCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedMessage}"/>
+                            <CheckBox Content="Hide Dlvd" FontSize="11"
+                                      IsChecked="{Binding HexMapViewModel.HideDeliveredMessages, Mode=TwoWay}"
+                                      VerticalAlignment="Center"/>
                         </StackPanel>
                         <DataGrid Grid.Row="1" x:Name="MessagesGrid"
                                   ItemsSource="{Binding HexMapViewModel.Messages}"

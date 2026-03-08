@@ -211,6 +211,18 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem> _newsItems = new();
 
+    // Order filtering
+    [ObservableProperty]
+    private bool _hideProcessedOrders;
+
+    private IList<OrderViewModel> _allOrders = new List<OrderViewModel>();
+
+    // Message filtering
+    [ObservableProperty]
+    private bool _hideDeliveredMessages;
+
+    private IList<Message> _allMessages = new List<Message>();
+
     // Navies
     [ObservableProperty]
     private ObservableCollection<Navy> _navies = new();
@@ -371,11 +383,17 @@ public partial class HexMapViewModel : ObservableObject
         Commanders = new ObservableCollection<Commander>(commanders);
 
         var orders = await _orderService.GetAllAsync();
-        Orders = new ObservableCollection<OrderViewModel>(
-            orders.Select(o => new OrderViewModel(o, _orderService)));
+        _allOrders = orders.Select(o =>
+        {
+            var vm = new OrderViewModel(o, _orderService);
+            vm.Saved += () => Dispatcher.UIThread.Post(ApplyOrderFilter);
+            return vm;
+        }).ToList();
+        ApplyOrderFilter();
 
         var messages = await _messageService.GetAllAsync();
-        Messages = new ObservableCollection<Message>(messages);
+        _allMessages = messages.ToList();
+        ApplyMessageFilter();
 
         var coLocationChannels = await _coLocationChannelService.GetAllWithCommandersAsync();
         CoLocationChannels = new ObservableCollection<CoLocationChannel>(coLocationChannels);
@@ -525,14 +543,40 @@ public partial class HexMapViewModel : ObservableObject
     public async Task RefreshOrdersAsync()
     {
         var orders = await _orderService.GetAllAsync();
-        Orders = new ObservableCollection<OrderViewModel>(
-            orders.Select(o => new OrderViewModel(o, _orderService)));
+        _allOrders = orders.Select(o =>
+        {
+            var vm = new OrderViewModel(o, _orderService);
+            vm.Saved += () => Dispatcher.UIThread.Post(ApplyOrderFilter);
+            return vm;
+        }).ToList();
+        ApplyOrderFilter();
+    }
+
+    partial void OnHideProcessedOrdersChanged(bool value) => ApplyOrderFilter();
+
+    private void ApplyOrderFilter()
+    {
+        var filtered = HideProcessedOrders
+            ? _allOrders.Where(o => !o.Processed)
+            : _allOrders;
+        Orders = new ObservableCollection<OrderViewModel>(filtered);
     }
 
     public async Task RefreshMessagesAsync()
     {
         var messages = await _messageService.GetAllAsync();
-        Messages = new ObservableCollection<Message>(messages);
+        _allMessages = messages.ToList();
+        ApplyMessageFilter();
+    }
+
+    partial void OnHideDeliveredMessagesChanged(bool value) => ApplyMessageFilter();
+
+    private void ApplyMessageFilter()
+    {
+        var filtered = HideDeliveredMessages
+            ? _allMessages.Where(m => !m.Delivered)
+            : _allMessages;
+        Messages = new ObservableCollection<Message>(filtered);
     }
 
     public async Task RefreshCoLocationChannelsAsync()
