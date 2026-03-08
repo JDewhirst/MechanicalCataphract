@@ -95,6 +95,15 @@
             </ComboBox>
         </StackPanel>
 
+        <!-- Notes -->
+        <StackPanel>
+            <TextBlock Text="Notes" FontWeight="SemiBold" FontSize="11"/>
+            <TextBox Text="{Binding Notes, Mode=TwoWay}"
+                     AcceptsReturn="True" TextWrapping="Wrap"
+                     MinHeight="60" MaxHeight="150"
+                     Watermark="Free-text notes..."/>
+        </StackPanel>
+
         <!-- Roads/Rivers info -->
         <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,5,0,0">
             <StackPanel Spacing="3">

@@ -45,6 +45,9 @@ public class MapHex
     public int? LocationFactionId { get; set; }
     public Faction? LocationFaction { get; set; }
 
+    // Free-text notes
+    public string? Notes { get; set; }
+
     // Navigation
     public ICollection<Army> Armies { get; set; } = new List<Army>();
     public ICollection<Commander> Commanders { get; set; } = new List<Commander>();

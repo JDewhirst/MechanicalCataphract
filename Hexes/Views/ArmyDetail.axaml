@@ -223,7 +223,15 @@
                       Content="Forced March"
                       IsChecked="{Binding IsForcedMarch, Mode=TwoWay}"/>
 
-            
+            <!-- Row 11: Siege Engines -->
+            <StackPanel Grid.Row="11" Grid.Column="0">
+                <TextBlock Text="Siege Engines" FontWeight="SemiBold" FontSize="11"/>
+                <TextBox Text="{Binding SiegeEngines, Mode=TwoWay}"/>
+            </StackPanel>
+            <CheckBox Grid.Row="11" Grid.Column="1"
+                      Content="Loaded"
+                      IsChecked="{Binding IsSiegeEnginesLoaded, Mode=TwoWay}"
+                      VerticalAlignment="Center"/>
         </Grid>
 
         <!-- Brigades section -->

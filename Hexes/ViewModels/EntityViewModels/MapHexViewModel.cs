@@ -114,6 +114,12 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
         set { if (_mapHex.TimesForaged != value) { _mapHex.TimesForaged = value; OnPropertyChanged(); _ = SaveAsync(); } }
     }
 
+    public string? Notes
+    {
+        get => _mapHex.Notes;
+        set { if (_mapHex.Notes != value) { _mapHex.Notes = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
     private async Task SaveAsync()
     {
         await _service.UpdateHexAsync(_mapHex);

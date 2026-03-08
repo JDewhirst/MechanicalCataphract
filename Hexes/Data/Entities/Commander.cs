@@ -14,6 +14,9 @@ public class Commander : IPathMovable
     public ulong? DiscordUserId { get; set; }
     public ulong? DiscordChannelId { get; set; }
 
+    // Free-text notes
+    public string? Notes { get; set; }
+
     // Traits stored as comma-separated trait IDs
     public string? TraitIds { get; set; }
 

@@ -56,6 +56,12 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel
         }
     }
 
+    public string? Notes
+    {
+        get => _commander.Notes;
+        set { if (_commander.Notes != value) { _commander.Notes = value; OnPropertyChanged(); _ = SaveAsync(); } }
+    }
+
     public int? Age
     {
         get => _commander.Age;

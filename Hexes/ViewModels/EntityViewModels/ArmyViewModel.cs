@@ -359,6 +359,18 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         set { if (_army.IsForcedMarch != value) { _army.IsForcedMarch = value; OnPropertyChanged(); _ = SaveAsync(); } }
     }
 
+    public int SiegeEngines
+    {
+        get => _army.SiegeEngines;
+        set { if (_army.SiegeEngines != value) { _army.SiegeEngines = value; OnPropertyChanged(); OnPropertyChanged(nameof(MaxCarry)); _ = SaveAsync(); } }
+    }
+
+    public bool IsSiegeEnginesLoaded
+    {
+        get => _army.IsSiegeEnginesLoaded;
+        set { if (_army.IsSiegeEnginesLoaded != value) { _army.IsSiegeEnginesLoaded = value; OnPropertyChanged(); OnPropertyChanged(nameof(MaxCarry)); _ = SaveAsync(); } }
+    }
+
     public double ForcedMarchDays
     {
         get => _army.ForcedMarchHours / 24.0;

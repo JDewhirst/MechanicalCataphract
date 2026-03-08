@@ -47,6 +47,10 @@ public class Army : IPathMovable
     public bool IsForcedMarch { get; set; }
     public int ForcedMarchHours { get; set; }
 
+    // Siege engines
+    public int SiegeEngines { get; set; }
+    public bool IsSiegeEnginesLoaded { get; set; }
+
     // Computed: total marching column length in abstract units
     public int MarchingColumnLength
     {
@@ -84,7 +88,16 @@ public class Army : IPathMovable
     public int DailySupplyConsumption => (Brigades?.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan()) ?? 0)
         + NonCombatants + (int)(Wagons * GameRules.Current.Supply.WagonSupplyMultiplier);
     public double DaysOfSupply => DailySupplyConsumption > 0 ? (double)CarriedSupply / DailySupplyConsumption : 0;
-    public int CarryCapacity => Brigades.Sum(b => b.Number * b.UnitType.CarryCapacityPerMan())
+    public int CarryCapacity
+    {
+        get
+        {
+            int baseCapacity = Brigades.Sum(b => b.Number * b.UnitType.CarryCapacityPerMan())
                 + (UnitType.Infantry.CarryCapacityPerMan() * NonCombatants)
                 + Wagons * 1000;
+            if (IsSiegeEnginesLoaded)
+                baseCapacity -= SiegeEngines * 1000;
+            return baseCapacity;
+        }
+    }
 }
