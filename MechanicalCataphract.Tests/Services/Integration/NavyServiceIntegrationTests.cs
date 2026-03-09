@@ -17,7 +17,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     {
         await SeedHelpers.SeedMapAsync(Context, 3, 3);
         _service = new NavyService(Context);
-        _armyService = new ArmyService(Context);
+        _armyService = new ArmyService(Context, new FactionRuleService(Context));
         var hex = Context.MapHexes.First();
         _hexQ = hex.Q;
         _hexR = hex.R;

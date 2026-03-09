@@ -17,7 +17,7 @@ public class ArmyCoordinateValidationTests : IntegrationTestBase
     {
         await SeedHelpers.SeedMapAsync(Context, 3, 3);
         _faction = await SeedHelpers.SeedFactionAsync(Context);
-        _service = new ArmyService(Context);
+        _service = new ArmyService(Context, new FactionRuleService(Context));
         var hex = Context.MapHexes.First();
         _hexQ = hex.Q;
         _hexR = hex.R;

@@ -21,7 +21,7 @@ public class PathfindingIntegrationTests : IntegrationTestBase
     {
         await SeedHelpers.SeedMapAsync(Context, 5, 5);
         _mapService = new MapService(Context);
-        _armyService = new ArmyService(Context);
+        _armyService = new ArmyService(Context, new FactionRuleService(Context));
         _messageService = new MessageService(Context);
         _commanderService = new CommanderService(Context);
 

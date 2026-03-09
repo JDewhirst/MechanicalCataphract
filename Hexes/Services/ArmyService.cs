@@ -12,10 +12,12 @@ namespace MechanicalCataphract.Services;
 public class ArmyService : IArmyService
 {
     private readonly WargameDbContext _context;
+    private readonly IFactionRuleService _factionRuleService;
 
-    public ArmyService(WargameDbContext context)
+    public ArmyService(WargameDbContext context, IFactionRuleService factionRuleService)
     {
         _context = context;
+        _factionRuleService = factionRuleService;
     }
 
     public async Task<Army?> GetByIdAsync(int id)
@@ -162,9 +164,13 @@ public class ArmyService : IArmyService
     public async Task<int> GetDailySupplyConsumptionAsync(int armyId)
     {
         var army = await GetArmyWithBrigadesAsync(armyId);
+        var wagonMultiplier = await _factionRuleService.GetRuleValueAsync(
+            army.FactionId,
+            FactionRuleKeys.WagonSupplyMultiplier,
+            GameRules.Current.Supply.WagonSupplyMultiplier);
         return army.Brigades.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan())
             + (UnitType.Infantry.SupplyConsumptionPerMan() * army.NonCombatants)
-            + (int)(GameRules.Current.Supply.WagonSupplyMultiplier * army.Wagons);
+            + (int)(wagonMultiplier * army.Wagons);
     }
 
 

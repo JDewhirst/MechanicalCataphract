@@ -11,14 +11,19 @@ public static class FactionRuleKeys
     /// <summary>Messenger speed multiplier when travelling through own-controlled hexes (e.g. 1.5 = 50% faster).</summary>
     public const string OwnTerritoryMessengerMultiplier = "OwnTerritoryMessengerMultiplier";
 
+    /// <summary>Supply consumed per wagon per day. Overrides the global SupplyRules.WagonSupplyMultiplier.</summary>
+    public const string WagonSupplyMultiplier = "WagonSupplyMultiplier";
+
     /// <summary>All defined keys, used to populate the ComboBox in FactionDetail.</summary>
     public static readonly IReadOnlyList<string> AllKeys = new[]
     {
-        OwnTerritoryMessengerMultiplier
+        OwnTerritoryMessengerMultiplier,
+        WagonSupplyMultiplier
     };
 
     public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>
     {
-        [OwnTerritoryMessengerMultiplier] = "Messenger speed multiplier in own-controlled hexes (e.g. 1.5 = 50% faster)"
+        [OwnTerritoryMessengerMultiplier] = "Messenger speed multiplier in own-controlled hexes (e.g. 1.5 = 50% faster)",
+        [WagonSupplyMultiplier] = "Supply consumed per wagon per day (overrides global default of 10)"
     };
 }

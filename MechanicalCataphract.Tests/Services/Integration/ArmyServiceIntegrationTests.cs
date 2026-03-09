@@ -15,7 +15,7 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     public async Task SetUp()
     {
         await SeedHelpers.SeedMapAsync(Context, 3, 3);
-        _service = new ArmyService(Context);
+        _service = new ArmyService(Context, new FactionRuleService(Context));
         var hex = Context.MapHexes.First();
         _hexQ = hex.Q;
         _hexR = hex.R;
