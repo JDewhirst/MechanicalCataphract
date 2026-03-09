@@ -19,16 +19,14 @@ public class CommanderService : ICommanderService
     public async Task<Commander?> GetByIdAsync(int id)
     {
         return await _context.Commanders
-            .Include(c => c.Faction)
-            .Include(c => c.FollowingArmy)
+            .WithStandardIncludes()
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
     public async Task<IList<Commander>> GetAllAsync()
     {
         return await _context.Commanders
-            .Include(c => c.Faction)
-            .Include(c => c.FollowingArmy)
+            .WithStandardIncludes()
             .Include(c => c.CommandedArmies)
             .ToListAsync();
     }
@@ -40,8 +38,7 @@ public class CommanderService : ICommanderService
             entity.CoordinateQ = MapHex.SentinelQ;
             entity.CoordinateR = MapHex.SentinelR;
         }
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
+        await entity.ValidateCoordinatesAsync(_context);
         _context.Commanders.Add(entity);
         await _context.SaveChangesAsync();
         return entity;
@@ -49,8 +46,7 @@ public class CommanderService : ICommanderService
 
     public async Task UpdateAsync(Commander entity)
     {
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
+        await entity.ValidateCoordinatesAsync(_context);
         _context.Commanders.Update(entity);
         await _context.SaveChangesAsync();
     }
@@ -82,10 +78,9 @@ public class CommanderService : ICommanderService
     public async Task<Commander?> GetCommanderWithArmiesAsync(int commanderId)
     {
         return await _context.Commanders
+            .WithStandardIncludes()
             .Include(c => c.CommandedArmies)
-            .ThenInclude(a => a.Brigades)
-            .Include(c => c.Faction)
-            .Include(c => c.FollowingArmy)
+                .ThenInclude(a => a.Brigades)
             .FirstOrDefaultAsync(c => c.Id == commanderId);
     }
 

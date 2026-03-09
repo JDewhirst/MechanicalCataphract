@@ -1649,11 +1649,13 @@ public partial class HexMapViewModel : ObservableObject
     [RelayCommand]
     private async Task AddNavyAsync()
     {
+        var defaultFaction = Factions.FirstOrDefault();
         var navy = new Navy
         {
             Name = "New Navy",
             CoordinateQ = MapHex.SentinelQ,
             CoordinateR = MapHex.SentinelR,
+            FactionId = defaultFaction?.Id ?? 1,
             CarriedSupply = 0
         };
         await _navyService.CreateAsync(navy);

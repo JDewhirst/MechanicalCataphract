@@ -23,17 +23,14 @@ public class ArmyService : IArmyService
     public async Task<Army?> GetByIdAsync(int id)
     {
         return await _context.Armies
-            .Include(a => a.Faction)
-            .Include(a => a.Commander)
-            .Include(a => a.MapHex)
+            .WithDetailIncludes()
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
     public async Task<IList<Army>> GetAllAsync()
     {
         return await _context.Armies
-            .Include(a => a.Faction)
-            .Include(a => a.Commander)
+            .WithStandardIncludes()
             .Include(a => a.Brigades)
             .ToListAsync();
     }
@@ -45,8 +42,7 @@ public class ArmyService : IArmyService
             entity.CoordinateQ = MapHex.SentinelQ;
             entity.CoordinateR = MapHex.SentinelR;
         }
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
+        await entity.ValidateCoordinatesAsync(_context);
         _context.Armies.Add(entity);
         await _context.SaveChangesAsync();
         return entity;
@@ -54,8 +50,7 @@ public class ArmyService : IArmyService
 
     public async Task UpdateAsync(Army entity)
     {
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
+        await entity.ValidateCoordinatesAsync(_context);
         _context.Armies.Update(entity);
         await _context.SaveChangesAsync();
     }
@@ -73,8 +68,7 @@ public class ArmyService : IArmyService
     public async Task<IList<Army>> GetArmiesAtHexAsync(Hex hex)
     {
         return await _context.Armies
-            .Include(a => a.Faction)
-            .Include(a => a.Commander)
+            .WithStandardIncludes()
             .Where(a => a.CoordinateQ == hex.q && a.CoordinateR == hex.r)
             .ToListAsync();
     }
@@ -91,9 +85,8 @@ public class ArmyService : IArmyService
     public async Task<Army?> GetArmyWithBrigadesAsync(int armyId)
     {
         return await _context.Armies
+            .WithStandardIncludes()
             .Include(a => a.Brigades)
-            .Include(a => a.Faction)
-            .Include(a => a.Commander)
             .FirstOrDefaultAsync(a => a.Id == armyId);
     }
 

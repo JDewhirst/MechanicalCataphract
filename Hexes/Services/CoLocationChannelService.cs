@@ -19,16 +19,14 @@ public class CoLocationChannelService : ICoLocationChannelService
     public async Task<CoLocationChannel?> GetByIdAsync(int id)
     {
         return await _context.CoLocationChannels
-            .Include(c => c.FollowingArmy)
-            .Include(c => c.FollowingHex)
+            .WithStandardIncludes()
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
     public async Task<IList<CoLocationChannel>> GetAllAsync()
     {
         return await _context.CoLocationChannels
-            .Include(c => c.FollowingArmy)
-            .Include(c => c.Commanders)
+            .WithStandardIncludes()
             .ToListAsync();
     }
 
@@ -58,27 +56,21 @@ public class CoLocationChannelService : ICoLocationChannelService
     public async Task<CoLocationChannel?> GetWithCommandersAsync(int id)
     {
         return await _context.CoLocationChannels
-            .Include(c => c.Commanders)
-            .Include(c => c.FollowingArmy)
-            .Include(c => c.FollowingHex)
+            .WithStandardIncludes()
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
     public async Task<IList<CoLocationChannel>> GetAllWithCommandersAsync()
     {
         return await _context.CoLocationChannels
-            .Include(c => c.Commanders)
-            .Include(c => c.FollowingArmy)
-            .Include(c => c.FollowingHex)
+            .WithStandardIncludes()
             .ToListAsync();
     }
 
     public async Task<IList<CoLocationChannel>> GetChannelsForCommanderAsync(int commanderId)
     {
         return await _context.CoLocationChannels
-            .Include(c => c.Commanders)
-            .Include(c => c.FollowingArmy)
-            .Include(c => c.FollowingHex)
+            .WithStandardIncludes()
             .Where(c => c.Commanders.Any(cmd => cmd.Id == commanderId))
             .ToListAsync();
     }

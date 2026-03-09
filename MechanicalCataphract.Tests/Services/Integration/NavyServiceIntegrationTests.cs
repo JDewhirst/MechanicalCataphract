@@ -33,6 +33,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
         var navy = await _service.CreateAsync(new Navy
         {
             Name = "Home Fleet",
+            FactionId = 1,
             CoordinateQ = _hexQ,
             CoordinateR = _hexR
         });
@@ -49,8 +50,8 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task GetAllAsync_ReturnsAll()
     {
-        await _service.CreateAsync(new Navy { Name = "A", CoordinateQ = _hexQ, CoordinateR = _hexR });
-        await _service.CreateAsync(new Navy { Name = "B", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        await _service.CreateAsync(new Navy { Name = "A", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        await _service.CreateAsync(new Navy { Name = "B", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         var all = await _service.GetAllAsync();
         Assert.That(all.Count, Is.EqualTo(2));
@@ -59,7 +60,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task UpdateAsync_PersistsChanges()
     {
-        var navy = await _service.CreateAsync(new Navy { Name = "Old Name", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Old Name", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         navy.Name = "New Name";
         await _service.UpdateAsync(navy);
 
@@ -70,7 +71,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task DeleteAsync_CascadesDeleteShips()
     {
-        var navy = await _service.CreateAsync(new Navy { Name = "Doomed", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Doomed", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         await SeedHelpers.SeedShipAsync(Context, navy.Id);
         await SeedHelpers.SeedShipAsync(Context, navy.Id);
 
@@ -90,8 +91,8 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
         var allHexes = Context.MapHexes.ToList();
         var hex2 = allHexes.First(h => h.Q != _hexQ || h.R != _hexR);
 
-        await _service.CreateAsync(new Navy { Name = "Here", CoordinateQ = _hexQ, CoordinateR = _hexR });
-        await _service.CreateAsync(new Navy { Name = "There", CoordinateQ = hex2.Q, CoordinateR = hex2.R });
+        await _service.CreateAsync(new Navy { Name = "Here", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        await _service.CreateAsync(new Navy { Name = "There", FactionId = 1, CoordinateQ = hex2.Q, CoordinateR = hex2.R });
 
         var result = await _service.GetNaviesAtHexAsync(new Hex(_hexQ, _hexR, -_hexQ - _hexR));
         Assert.That(result.Count, Is.EqualTo(1));
@@ -102,8 +103,8 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     public async Task GetNaviesByCommanderAsync_FiltersByCommander()
     {
         var cmd = await SeedHelpers.SeedCommanderAsync(Context, "Admiral", factionId: 1);
-        await _service.CreateAsync(new Navy { Name = "Fleet A", CoordinateQ = _hexQ, CoordinateR = _hexR, CommanderId = cmd.Id });
-        await _service.CreateAsync(new Navy { Name = "Fleet B", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        await _service.CreateAsync(new Navy { Name = "Fleet A", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR, CommanderId = cmd.Id });
+        await _service.CreateAsync(new Navy { Name = "Fleet B", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         var result = await _service.GetNaviesByCommanderAsync(cmd.Id);
         Assert.That(result.Count, Is.EqualTo(1));
@@ -113,7 +114,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task GetNavyWithShipsAsync_IncludesCarriedArmy()
     {
-        var navy = await _service.CreateAsync(new Navy { Name = "Carrier", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Carrier", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var army = await _armyService.CreateAsync(new Army { Name = "Embarked", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         await _service.EmbarkArmyAsync(navy.Id, army.Id);
@@ -130,7 +131,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task AddShipAsync_AddsShipAndReturnsWithId()
     {
-        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         var ship = await _service.AddShipAsync(new Ship { NavyId = navy.Id, ShipType = ShipType.Transport, Count = 1 });
 
@@ -141,7 +142,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task DeleteShipAsync_RemovesShip()
     {
-        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var ship = await SeedHelpers.SeedShipAsync(Context, navy.Id, ShipType.Transport);
 
         await _service.DeleteShipAsync(ship.Id);
@@ -156,7 +157,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task EmbarkArmyAsync_SetsArmyNavyId()
     {
-        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var army = await _armyService.CreateAsync(new Army { Name = "Legion", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
 
         await _service.EmbarkArmyAsync(navy.Id, army.Id);
@@ -169,7 +170,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     [Test]
     public async Task DisembarkArmyAsync_ClearsArmyNavyId()
     {
-        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var army = await _armyService.CreateAsync(new Army { Name = "Legion", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         await _service.EmbarkArmyAsync(navy.Id, army.Id);
 
@@ -184,7 +185,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     public async Task DeleteNavyAsync_SetsArmyNavyIdNull()
     {
         // Army.NavyId FK is SetNull on Navy delete
-        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var navy = await _service.CreateAsync(new Navy { Name = "Fleet", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var army = await _armyService.CreateAsync(new Army { Name = "Legion", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         await _service.EmbarkArmyAsync(navy.Id, army.Id);
 

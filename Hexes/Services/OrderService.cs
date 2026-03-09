@@ -20,14 +20,14 @@ public class OrderService : IOrderService
     public async Task<Order?> GetByIdAsync(int id)
     {
         return await _context.Orders
-            .Include(o => o.Commander)
+            .WithStandardIncludes()
             .FirstOrDefaultAsync(o => o.Id == id);
     }
 
     public async Task<IList<Order>> GetAllAsync()
     {
         return await _context.Orders
-            .Include(o => o.Commander)
+            .WithStandardIncludes()
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
     }
@@ -59,7 +59,7 @@ public class OrderService : IOrderService
     public async Task<IList<Order>> GetOrdersByCommanderAsync(int commanderId)
     {
         return await _context.Orders
-            .Include(o => o.Commander)
+            .WithStandardIncludes()
             .Where(o => o.CommanderId == commanderId)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
@@ -68,7 +68,7 @@ public class OrderService : IOrderService
     public async Task<IList<Order>> GetUnprocessedOrdersAsync()
     {
         return await _context.Orders
-            .Include(o => o.Commander)
+            .WithStandardIncludes()
             .Where(o => !o.Processed)
             .OrderBy(o => o.CreatedAt)
             .ToListAsync();

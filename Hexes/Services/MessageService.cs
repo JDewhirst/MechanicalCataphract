@@ -20,16 +20,14 @@ public class MessageService : IMessageService
     public async Task<Message?> GetByIdAsync(int id)
     {
         return await _context.Messages
-            .Include(m => m.SenderCommander)
-            .Include(m => m.TargetCommander)
+            .WithStandardIncludes()
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
     public async Task<IList<Message>> GetAllAsync()
     {
         return await _context.Messages
-            .Include(m => m.SenderCommander)
-            .Include(m => m.TargetCommander)
+            .WithStandardIncludes()
             .OrderByDescending(m => m.CreatedAt)
             .ToListAsync();
     }
@@ -41,9 +39,7 @@ public class MessageService : IMessageService
             entity.CoordinateQ = MapHex.SentinelQ;
             entity.CoordinateR = MapHex.SentinelR;
         }
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.SenderCoordinateQ, entity.SenderCoordinateR, "SenderCoordinate");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
+        await entity.ValidateCoordinatesAsync(_context);
         entity.CreatedAt = DateTime.UtcNow;
         _context.Messages.Add(entity);
         await _context.SaveChangesAsync();
@@ -52,9 +48,7 @@ public class MessageService : IMessageService
 
     public async Task UpdateAsync(Message entity)
     {
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.CoordinateQ, entity.CoordinateR, "Location");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.SenderCoordinateQ, entity.SenderCoordinateR, "SenderCoordinate");
-        await CoordinateValidator.ValidateCoordinatesAsync(_context, entity.TargetCoordinateQ, entity.TargetCoordinateR, "TargetCoordinate");
+        await entity.ValidateCoordinatesAsync(_context);
         _context.Messages.Update(entity);
         await _context.SaveChangesAsync();
     }
@@ -72,8 +66,7 @@ public class MessageService : IMessageService
     public async Task<IList<Message>> GetMessagesBySenderAsync(int commanderId)
     {
         return await _context.Messages
-            .Include(m => m.SenderCommander)
-            .Include(m => m.TargetCommander)
+            .WithStandardIncludes()
             .Where(m => m.SenderCommanderId == commanderId)
             .OrderByDescending(m => m.CreatedAt)
             .ToListAsync();
@@ -82,8 +75,7 @@ public class MessageService : IMessageService
     public async Task<IList<Message>> GetMessagesByTargetAsync(int commanderId)
     {
         return await _context.Messages
-            .Include(m => m.SenderCommander)
-            .Include(m => m.TargetCommander)
+            .WithStandardIncludes()
             .Where(m => m.TargetCommanderId == commanderId)
             .OrderByDescending(m => m.CreatedAt)
             .ToListAsync();
@@ -92,8 +84,7 @@ public class MessageService : IMessageService
     public async Task<IList<Message>> GetUndeliveredMessagesAsync()
     {
         return await _context.Messages
-            .Include(m => m.SenderCommander)
-            .Include(m => m.TargetCommander)
+            .WithStandardIncludes()
             .Where(m => !m.Delivered)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync();
