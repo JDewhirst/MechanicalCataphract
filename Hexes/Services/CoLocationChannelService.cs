@@ -53,20 +53,6 @@ public class CoLocationChannelService : ICoLocationChannelService
         }
     }
 
-    public async Task<CoLocationChannel?> GetWithCommandersAsync(int id)
-    {
-        return await _context.CoLocationChannels
-            .WithStandardIncludes()
-            .FirstOrDefaultAsync(c => c.Id == id);
-    }
-
-    public async Task<IList<CoLocationChannel>> GetAllWithCommandersAsync()
-    {
-        return await _context.CoLocationChannels
-            .WithStandardIncludes()
-            .ToListAsync();
-    }
-
     public async Task<IList<CoLocationChannel>> GetChannelsForCommanderAsync(int commanderId)
     {
         return await _context.CoLocationChannels

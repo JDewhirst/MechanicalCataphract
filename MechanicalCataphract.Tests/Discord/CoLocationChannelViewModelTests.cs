@@ -205,7 +205,7 @@ public class CoLocationChannelViewModelTests
         messageService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Message>());
         _factionService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Faction>());
         _commanderService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Commander>());
-        _coLocService.Setup(s => s.GetAllWithCommandersAsync()).ReturnsAsync(new List<CoLocationChannel>());
+        _coLocService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<CoLocationChannel>());
 
         var newsService = new Mock<INewsService>();
         newsService.Setup(s => s.GetAllActiveAsync()).ReturnsAsync(new List<MechanicalCataphract.Data.Entities.NewsItem>());

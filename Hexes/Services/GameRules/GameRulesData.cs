@@ -20,6 +20,7 @@ public record MovementRateRules(
 
 public record SupplyRules(
     int WagonSupplyMultiplier,
+    int WagonCarryCapacity,
     int ForageMultiplierPerDensity,
     int DailyUsageHour);
 

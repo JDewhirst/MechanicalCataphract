@@ -94,7 +94,7 @@ public class Army : IPathMovable
         {
             int baseCapacity = Brigades.Sum(b => b.Number * b.UnitType.CarryCapacityPerMan())
                 + (UnitType.Infantry.CarryCapacityPerMan() * NonCombatants)
-                + Wagons * 1000;
+                + Wagons * GameRules.Current.Supply.WagonCarryCapacity;
             if (IsSiegeEnginesLoaded)
                 baseCapacity -= SiegeEngines * 1000;
             return baseCapacity;

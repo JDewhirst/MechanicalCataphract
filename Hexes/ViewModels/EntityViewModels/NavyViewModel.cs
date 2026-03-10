@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
 using System;
@@ -53,30 +52,26 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
 
     public int? Col
     {
-        get => CoordinateQ == null || CoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).col;
+        get => HexCoordinateHelper.GetCol(CoordinateQ, CoordinateR);
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            int row = Row is int r && r >= 0 ? r : 0;
-            if (!IsOffsetInBounds(value.Value, row)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
-            CoordinateQ = hex.q; CoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetCol(value, Row, _mapCols, _mapRows);
+            if (result == null) return;
+            CoordinateQ = result.Value.q; CoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
 
     public int? Row
     {
-        get => CoordinateQ == null || CoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).row;
+        get => HexCoordinateHelper.GetRow(CoordinateQ, CoordinateR);
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            int col = Col is int c && c >= 0 ? c : 0;
-            if (!IsOffsetInBounds(col, value.Value)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
-            CoordinateQ = hex.q; CoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetRow(value, Col, _mapCols, _mapRows);
+            if (result == null) return;
+            CoordinateQ = result.Value.q; CoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
@@ -211,9 +206,6 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         OnPropertyChanged(nameof(CarriedArmyName));
         OnPropertyChanged(nameof(HasCarriedArmy));
     }
-
-    private bool IsOffsetInBounds(int col, int row)
-        => col >= 0 && col < _mapCols && row >= 0 && row < _mapRows;
 
     public NavyViewModel(
         Navy navy,

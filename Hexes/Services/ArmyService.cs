@@ -157,13 +157,9 @@ public class ArmyService : IArmyService
     public async Task<int> GetDailySupplyConsumptionAsync(int armyId)
     {
         var army = await GetArmyWithBrigadesAsync(armyId);
-        var wagonMultiplier = await _factionRuleService.GetRuleValueAsync(
-            army.FactionId,
-            FactionRuleKeys.WagonSupplyMultiplier,
-            GameRules.Current.Supply.WagonSupplyMultiplier);
         return army.Brigades.Sum(b => b.Number * b.UnitType.SupplyConsumptionPerMan())
             + (UnitType.Infantry.SupplyConsumptionPerMan() * army.NonCombatants)
-            + (int)(wagonMultiplier * army.Wagons);
+            + (int)(GameRules.Current.Supply.WagonSupplyMultiplier * army.Wagons);
     }
 
 

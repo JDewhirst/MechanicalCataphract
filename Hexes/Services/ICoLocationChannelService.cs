@@ -6,8 +6,6 @@ namespace MechanicalCataphract.Services;
 
 public interface ICoLocationChannelService : IEntityService<CoLocationChannel>
 {
-    Task<CoLocationChannel?> GetWithCommandersAsync(int id);
-    Task<IList<CoLocationChannel>> GetAllWithCommandersAsync();
     Task<IList<CoLocationChannel>> GetChannelsForCommanderAsync(int commanderId);
     Task AddCommanderAsync(int channelId, int commanderId);
     Task RemoveCommanderAsync(int channelId, int commanderId);

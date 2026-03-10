@@ -324,7 +324,7 @@ public class DiscordChannelManagerViewModelTests
         armyService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Army>());
         orderService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Order>());
         messageService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Message>());
-        _coLocService.Setup(s => s.GetAllWithCommandersAsync()).ReturnsAsync(new List<CoLocationChannel>());
+        _coLocService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<CoLocationChannel>());
         _navyService.Setup(s => s.GetAllAsync()).ReturnsAsync(new List<Navy>());
 
         var newsService = new Mock<INewsService>();

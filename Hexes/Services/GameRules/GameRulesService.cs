@@ -63,6 +63,7 @@ public class GameRulesService : IGameRulesService
             CommanderBaseRate: 2.0),
         Supply: new SupplyRules(
             WagonSupplyMultiplier: 10,
+            WagonCarryCapacity: 1000,
             ForageMultiplierPerDensity: 500,
             DailyUsageHour: 21),
         Armies: new ArmiesRules(
@@ -122,6 +123,7 @@ public class GameRulesService : IGameRulesService
                 CommanderBaseRate: mr.CommanderBaseRate ?? 2.0),
             Supply: new SupplyRules(
                 WagonSupplyMultiplier: s.WagonSupplyMultiplier ?? 10,
+                WagonCarryCapacity: s.WagonCarryCapacity ?? 1000,
                 ForageMultiplierPerDensity: s.ForageMultiplierPerDensity ?? 500,
                 DailyUsageHour: s.DailyUsageHour ?? defaults.Supply.DailyUsageHour),
             Armies: new ArmiesRules(
@@ -218,6 +220,7 @@ public class GameRulesService : IGameRulesService
     private class SupplyDto
     {
         public int? WagonSupplyMultiplier { get; set; }
+        public int? WagonCarryCapacity { get; set; }
         public int? ForageMultiplierPerDensity { get; set; }
         public int? DailyUsageHour { get; set; }
     }

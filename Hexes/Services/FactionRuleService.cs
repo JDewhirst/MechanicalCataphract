@@ -48,7 +48,7 @@ public class FactionRuleService : IFactionRuleService
     {
         _context.FactionRules.Add(rule);
         await _context.SaveChangesAsync();
-        InvalidateCache(rule.FactionId);
+        await InvalidateAndReloadCacheAsync(rule.FactionId);
         return rule;
     }
 
@@ -56,7 +56,7 @@ public class FactionRuleService : IFactionRuleService
     {
         _context.FactionRules.Update(rule);
         await _context.SaveChangesAsync();
-        InvalidateCache(rule.FactionId);
+        await InvalidateAndReloadCacheAsync(rule.FactionId);
     }
 
     public async Task DeleteRuleAsync(int ruleId)
@@ -66,14 +66,15 @@ public class FactionRuleService : IFactionRuleService
         {
             _context.FactionRules.Remove(rule);
             await _context.SaveChangesAsync();
-            InvalidateCache(rule.FactionId);
+            await InvalidateAndReloadCacheAsync(rule.FactionId);
         }
     }
 
-    private void InvalidateCache(int factionId)
+    private async Task InvalidateAndReloadCacheAsync(int factionId)
     {
         var keysToRemove = _cache.Keys.Where(k => k.factionId == factionId).ToList();
         foreach (var key in keysToRemove)
             _cache.TryRemove(key, out _);
+        await PreloadForFactionAsync(factionId);
     }
 }

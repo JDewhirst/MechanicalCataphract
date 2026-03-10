@@ -287,7 +287,13 @@ public class WargameDbContext : DbContext
 
         // Computed properties on Army not stored in DB
         modelBuilder.Entity<Army>()
-            .Ignore(a => a.IsEmbarked);
+            .Ignore(a => a.IsEmbarked)
+            .Ignore(a => a.MarchingColumnLength)
+            .Ignore(a => a.FordingColumnLength)
+            .Ignore(a => a.CombatStrength)
+            .Ignore(a => a.DailySupplyConsumption)
+            .Ignore(a => a.DaysOfSupply)
+            .Ignore(a => a.CarryCapacity);
 
         // Seed default faction
         modelBuilder.Entity<Faction>().HasData(

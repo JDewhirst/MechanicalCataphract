@@ -14,13 +14,15 @@ namespace GUI.ViewModels.EntityViewModels;
 /// <summary>
 /// ViewModel wrapper for Army entity with Brigades management and auto-save.
 /// </summary>
-public partial class ArmyViewModel : ObservableObject, IEntityViewModel
+public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSelectableViewModel
 {
     private readonly Army _army;
     private readonly IArmyService _service;
     private readonly IPathfindingService? _pathfindingService;
     private readonly int _mapRows;
     private readonly int _mapCols;
+    private readonly IFactionRuleService? _factionRuleService;
+    private double _wagonCarryCapacity;
 
     public string EntityTypeName => "Army";
 
@@ -56,32 +58,26 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
 
     public int? Col
     {
-        get => CoordinateQ == null || CoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).col;
+        get => HexCoordinateHelper.GetCol(CoordinateQ, CoordinateR);
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            // If Row is negative (e.g. entity is at offmap sentinel hex), default to 0
-            int row = Row is int r && r >= 0 ? r : 0;
-            if (!IsOffsetInBounds(value.Value, row)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
-            CoordinateQ = hex.q; CoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetCol(value, Row, _mapCols, _mapRows);
+            if (result == null) return;
+            CoordinateQ = result.Value.q; CoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
 
     public int? Row
     {
-        get => CoordinateQ == null || CoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).row;
+        get => HexCoordinateHelper.GetRow(CoordinateQ, CoordinateR);
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            // If Col is negative (e.g. entity is at offmap sentinel hex), default to 0
-            int col = Col is int c && c >= 0 ? c : 0;
-            if (!IsOffsetInBounds(col, value.Value)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
-            CoordinateQ = hex.q; CoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetRow(value, Col, _mapCols, _mapRows);
+            if (result == null) return;
+            CoordinateQ = result.Value.q; CoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
@@ -100,30 +96,26 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
 
     public int? TargetCol
     {
-        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).col;
+        get => HexCoordinateHelper.GetCol(TargetCoordinateQ, TargetCoordinateR);
         set
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
-            int row = TargetRow is int r && r >= 0 ? r : 0;
-            if (!IsOffsetInBounds(value.Value, row)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
-            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetCol(value, TargetRow, _mapCols, _mapRows);
+            if (result == null) return;
+            TargetCoordinateQ = result.Value.q; TargetCoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
 
     public int? TargetRow
     {
-        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).row;
+        get => HexCoordinateHelper.GetRow(TargetCoordinateQ, TargetCoordinateR);
         set
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
-            int col = TargetCol is int c && c >= 0 ? c : 0;
-            if (!IsOffsetInBounds(col, value.Value)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
-            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetRow(value, TargetCol, _mapCols, _mapRows);
+            if (result == null) return;
+            TargetCoordinateQ = result.Value.q; TargetCoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
@@ -248,7 +240,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     public Faction? Faction
     {
         get => _army.Faction;
-        set { if (_army.Faction != value) { _army.Faction = value; _army.FactionId = value?.Id ?? 1; OnPropertyChanged(); _ = SaveAsync(); } }
+        set { if (_army.Faction != value) { _army.Faction = value; _army.FactionId = value?.Id ?? 1; RefreshWagonCarryCapacity(); OnPropertyChanged(); OnPropertyChanged(nameof(MaxCarry)); _ = SaveAsync(); } }
     }
     public Commander? Commander
     {
@@ -269,7 +261,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     public int Wagons
     {
         get => _army.Wagons;
-        set { if (_army.Wagons != value) { _army.Wagons = value; OnPropertyChanged(); _ = SaveAsync(); } }
+        set { if (_army.Wagons != value) { _army.Wagons = value; OnPropertyChanged(); OnPropertyChanged(nameof(MaxCarry)); _ = SaveAsync(); } }
     }
 
     public int CarriedSupply
@@ -293,20 +285,18 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
     {
         get
         {
-            return _army.CarryCapacity;
+            int baseCapacity = (Brigades?.Sum(b => b.Number * b.UnitType.CarryCapacityPerMan()) ?? 0)
+                + (UnitType.Infantry.CarryCapacityPerMan() * NonCombatants)
+                + (int)(_wagonCarryCapacity * _army.Wagons);
+            if (_army.IsSiegeEnginesLoaded)
+                baseCapacity -= _army.SiegeEngines * 1000;
+            return baseCapacity;
         }
     }
 
-    public int DailySupplyConsumption
-    {
-        get 
-        { 
-             return _service.GetDailySupplyConsumptionAsync(Id).Result;
-        }
+    public int DailySupplyConsumption => _army.DailySupplyConsumption;
 
-    }
-
-    public double DaysOfSupply => (double)CarriedSupply / (double)DailySupplyConsumption;
+    public double DaysOfSupply => _army.DaysOfSupply;
 
     public int CarriedCoins
     {
@@ -519,6 +509,14 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         Saved?.Invoke();
     }
 
+    private void RefreshWagonCarryCapacity()
+    {
+        _wagonCarryCapacity = _factionRuleService?.GetCachedRuleValue(
+            _army.FactionId, FactionRuleKeys.WagonCarryCapacity,
+            GameRules.Current.Supply.WagonCarryCapacity)
+            ?? GameRules.Current.Supply.WagonCarryCapacity;
+    }
+
     private void NotifyComputedPropertiesChanged()
       {
         OnPropertyChanged(nameof(CombatStrength));
@@ -530,10 +528,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         OnPropertyChanged(nameof(MarchingColumnLength));
       }
 
-    private bool IsOffsetInBounds(int col, int row)
-        => col >= 0 && col < _mapCols && row >= 0 && row < _mapRows;
-
-    public ArmyViewModel(Army army, IArmyService service, IEnumerable<Commander> availableCommanders, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IPathfindingService? pathfindingService = null)
+    public ArmyViewModel(Army army, IArmyService service, IEnumerable<Commander> availableCommanders, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IPathfindingService? pathfindingService = null, IFactionRuleService? factionRuleService = null)
     {
         _army = army;
         _service = service;
@@ -542,6 +537,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel
         _mapRows = mapRows;
         _mapCols = mapCols;
         _pathfindingService = pathfindingService;
+        _factionRuleService = factionRuleService;
+        RefreshWagonCarryCapacity();
         Brigades = new ObservableCollection<Brigade>(_army.Brigades);
         SaveCommand = new AsyncRelayCommand(SaveAsync);
     }

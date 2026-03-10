@@ -376,6 +376,9 @@ public partial class HexMapViewModel : ObservableObject
         var factions = await _factionService.GetAllAsync();
         Factions = new ObservableCollection<Faction>(factions);
 
+        foreach (var f in factions)
+            await _factionRuleService.PreloadForFactionAsync(f.Id);
+
         var armies = await _armyService.GetAllAsync();
         Armies = new ObservableCollection<Army>(armies);
 
@@ -395,7 +398,7 @@ public partial class HexMapViewModel : ObservableObject
         _allMessages = messages.ToList();
         ApplyMessageFilter();
 
-        var coLocationChannels = await _coLocationChannelService.GetAllWithCommandersAsync();
+        var coLocationChannels = await _coLocationChannelService.GetAllAsync();
         CoLocationChannels = new ObservableCollection<CoLocationChannel>(coLocationChannels);
 
         var gameState = await _gameStateService.GetGameStateAsync();
@@ -581,7 +584,7 @@ public partial class HexMapViewModel : ObservableObject
 
     public async Task RefreshCoLocationChannelsAsync()
     {
-        var channels = await _coLocationChannelService.GetAllWithCommandersAsync();
+        var channels = await _coLocationChannelService.GetAllAsync();
         CoLocationChannels = new ObservableCollection<CoLocationChannel>(channels);
     }
 
@@ -1168,42 +1171,34 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     // Selection clearing - when one entity type is selected, clear others
+    private void ClearAllSelectionsExcept(string keep)
+    {
+        if (keep != nameof(SelectedFaction)) SelectedFaction = null;
+        if (keep != nameof(SelectedArmy)) SelectedArmy = null;
+        if (keep != nameof(SelectedCommander)) SelectedCommander = null;
+        if (keep != nameof(SelectedOrder)) SelectedOrder = null;
+        if (keep != nameof(SelectedMessage)) SelectedMessage = null;
+        if (keep != nameof(SelectedNavy)) SelectedNavy = null;
+        if (keep != nameof(SelectedMapHex)) SelectedHex = null;
+        if (keep != nameof(SelectedMapHex)) SelectedMapHex = null;
+    }
+
     partial void OnSelectedFactionChanged(Faction? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedArmy = null;
-            SelectedCommander = null;
-            SelectedOrder = null;
-            SelectedMessage = null;
-            SelectedNavy = null;
-            SelectedHex = null;
-            SelectedMapHex = null;
-            SelectedEntityViewModel = new FactionViewModel(value, _factionService, _factionRuleService, _discordChannelManager);
-            StatusMessage = $"Selected faction: {value.Name}";
-            _ = LoadFactionWithDetailsAsync(value.Id);
-        }
+        ClearAllSelectionsExcept(nameof(SelectedFaction));
+        SelectedEntityViewModel = new FactionViewModel(value, _factionService, _factionRuleService, _discordChannelManager);
+        StatusMessage = $"Selected faction: {value.Name}";
+        _ = LoadFactionWithDetailsAsync(value.Id);
     }
 
     partial void OnSelectedArmyChanged(Army? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedFaction = null;
-            SelectedCommander = null;
-            SelectedOrder = null;
-            SelectedMessage = null;
-            SelectedNavy = null;
-            SelectedHex = null;
-            SelectedMapHex = null;
-
-            // Load army with brigades - the Armies collection doesn't include them
-            _ = LoadArmyWithDetails(value.Id);
-
-            StatusMessage = $"Selected army: {value.Name}";
-        }
+        ClearAllSelectionsExcept(nameof(SelectedArmy));
+        // Load army with brigades - the Armies collection doesn't include them
+        _ = LoadArmyWithDetails(value.Id);
+        StatusMessage = $"Selected army: {value.Name}";
     }
 
     private async Task LoadFactionWithDetailsAsync(int factionId)
@@ -1229,7 +1224,7 @@ public partial class HexMapViewModel : ObservableObject
         var armyWithDetails = await _armyService.GetArmyWithBrigadesAsync(armyId);
         if (armyWithDetails != null)
         {
-            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService);
+            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService, _factionRuleService);
             armyVm.TransferRequested += OnBrigadeTransferRequested;
             armyVm.PathSelectionRequested += StartPathSelectionMode;
             armyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
@@ -1404,86 +1399,49 @@ public partial class HexMapViewModel : ObservableObject
     partial void OnSelectedCommanderChanged(Commander? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedFaction = null;
-            SelectedArmy = null;
-            SelectedOrder = null;
-            SelectedMessage = null;
-            SelectedNavy = null;
-            SelectedHex = null;
-            SelectedMapHex = null;
-            var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
-            cmdVm.PathSelectionRequested += StartPathSelectionMode;
-            cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-            cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-            cmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
-            cmdVm.Saved += () => SyncEntityInCollection(() => Commanders, c => Commanders = c, c => SelectedCommander = c, cmdVm.Entity);
-            SelectedEntityViewModel = cmdVm;
-            StatusMessage = $"Selected commander: {value.Name}";
-        }
+        ClearAllSelectionsExcept(nameof(SelectedCommander));
+        var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
+        cmdVm.PathSelectionRequested += StartPathSelectionMode;
+        cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+        cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+        cmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
+        cmdVm.Saved += () => SyncEntityInCollection(() => Commanders, c => Commanders = c, c => SelectedCommander = c, cmdVm.Entity);
+        SelectedEntityViewModel = cmdVm;
+        StatusMessage = $"Selected commander: {value.Name}";
     }
 
     partial void OnSelectedOrderChanged(OrderViewModel? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedFaction = null;
-            SelectedArmy = null;
-            SelectedCommander = null;
-            SelectedMessage = null;
-            SelectedNavy = null;
-            SelectedHex = null;
-            SelectedMapHex = null;
-            SelectedEntityViewModel = value;  // Already a ViewModel
-            StatusMessage = $"Selected order for {value.CommanderName ?? "?"}";
-        }
+        ClearAllSelectionsExcept(nameof(SelectedOrder));
+        SelectedEntityViewModel = value;  // Already a ViewModel
+        StatusMessage = $"Selected order for {value.CommanderName ?? "?"}";
     }
 
     partial void OnSelectedMessageChanged(Message? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedFaction = null;
-            SelectedArmy = null;
-            SelectedCommander = null;
-            SelectedOrder = null;
-            SelectedNavy = null;
-            SelectedHex = null;
-            SelectedMapHex = null;
-            var messageVm = new MessageViewModel(value, _messageService, Commanders, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
-            messageVm.PathSelectionRequested += StartPathSelectionMode;
-            messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-            messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-            messageVm.Saved += () => SyncEntityInCollection(() => Messages, c => Messages = c, m => SelectedMessage = m, messageVm.Entity);
-            SelectedEntityViewModel = messageVm;
-            StatusMessage = $"Selected message: {value.SenderCommander?.Name ?? "?"} → {value.TargetCommander?.Name ?? "?"}";
-        }
+        ClearAllSelectionsExcept(nameof(SelectedMessage));
+        var messageVm = new MessageViewModel(value, _messageService, Commanders, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
+        messageVm.PathSelectionRequested += StartPathSelectionMode;
+        messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
+        messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
+        messageVm.Saved += () => SyncEntityInCollection(() => Messages, c => Messages = c, m => SelectedMessage = m, messageVm.Entity);
+        SelectedEntityViewModel = messageVm;
+        StatusMessage = $"Selected message: {value.SenderCommander?.Name ?? "?"} → {value.TargetCommander?.Name ?? "?"}";
     }
 
     partial void OnSelectedCoLocationChannelChanged(CoLocationChannel? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedFaction = null;
-            SelectedArmy = null;
-            SelectedCommander = null;
-            SelectedOrder = null;
-            SelectedMessage = null;
-            SelectedNavy = null;
-            SelectedHex = null;
-            SelectedMapHex = null;
-            _ = LoadCoLocationChannelWithDetailsAsync(value.Id);
-            StatusMessage = $"Selected co-location channel: {value.Name}";
-        }
+        ClearAllSelectionsExcept(nameof(SelectedCoLocationChannel));
+        _ = LoadCoLocationChannelWithDetailsAsync(value.Id);
+        StatusMessage = $"Selected co-location channel: {value.Name}";
     }
 
     private async Task LoadCoLocationChannelWithDetailsAsync(int channelId)
     {
-        var channel = await _coLocationChannelService.GetWithCommandersAsync(channelId);
+        var channel = await _coLocationChannelService.GetByIdAsync(channelId);
         if (channel != null)
         {
             var vm = new CoLocationChannelViewModel(channel, _coLocationChannelService, Armies, Commanders, _discordChannelManager);
@@ -1495,18 +1453,9 @@ public partial class HexMapViewModel : ObservableObject
     partial void OnSelectedNavyChanged(Navy? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedFaction = null;
-            SelectedArmy = null;
-            SelectedCommander = null;
-            SelectedOrder = null;
-            SelectedMessage = null;
-            SelectedHex = null;
-            SelectedMapHex = null;
-            _ = LoadNavyWithDetailsAsync(value.Id);
-            StatusMessage = $"Selected navy: {value.Name}";
-        }
+        ClearAllSelectionsExcept(nameof(SelectedNavy));
+        _ = LoadNavyWithDetailsAsync(value.Id);
+        StatusMessage = $"Selected navy: {value.Name}";
     }
 
     private async Task LoadNavyWithDetailsAsync(int navyId)
@@ -1524,18 +1473,10 @@ public partial class HexMapViewModel : ObservableObject
     partial void OnSelectedMapHexChanged(MapHex? value)
     {
         if (_isSyncingCollection || value == null) return;
-        if (value != null)
-        {
-            SelectedFaction = null;
-            SelectedArmy = null;
-            SelectedCommander = null;
-            SelectedOrder = null;
-            SelectedMessage = null;
-            SelectedNavy = null;
-            SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions, LocationTypes, WeatherTypes);
-            StatusMessage = $"Selected Hex: {value.LocationName}";
-            _ = LoadHexWithDetailsAsync(value.Q, value.R);
-        }
+        ClearAllSelectionsExcept(nameof(SelectedMapHex));
+        SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions, LocationTypes, WeatherTypes);
+        StatusMessage = $"Selected Hex: {value.LocationName}";
+        _ = LoadHexWithDetailsAsync(value.Q, value.R);
     }
 
     private async Task LoadHexWithDetailsAsync(int Q, int R)
@@ -1914,20 +1855,10 @@ public partial class HexMapViewModel : ObservableObject
         StatusMessage = "Click hexes to build path (must be adjacent)";
 
         // Update ViewModel state if it's the current selection
-        if (SelectedEntityViewModel is MessageViewModel msgVm)
+        if (SelectedEntityViewModel is IPathSelectableViewModel psvm)
         {
-            msgVm.IsPathSelectionActive = true;
-            msgVm.PathSelectionCount = 0;
-        }
-        else if (SelectedEntityViewModel is ArmyViewModel armyVm)
-        {
-            armyVm.IsPathSelectionActive = true;
-            armyVm.PathSelectionCount = 0;
-        }
-        else if (SelectedEntityViewModel is CommanderViewModel cmdVm)
-        {
-            cmdVm.IsPathSelectionActive = true;
-            cmdVm.PathSelectionCount = 0;
+            psvm.IsPathSelectionActive = true;
+            psvm.PathSelectionCount = 0;
         }
     }
 
@@ -1961,12 +1892,8 @@ public partial class HexMapViewModel : ObservableObject
         StatusMessage = $"Path: {PathSelectionCount} hex(es)";
 
         // Update ViewModel count
-        if (SelectedEntityViewModel is MessageViewModel msgVm)
-            msgVm.PathSelectionCount = PathSelectionHexes.Count;
-        else if (SelectedEntityViewModel is ArmyViewModel armyVm)
-            armyVm.PathSelectionCount = PathSelectionHexes.Count;
-        else if (SelectedEntityViewModel is CommanderViewModel cmdVm)
-            cmdVm.PathSelectionCount = PathSelectionHexes.Count;
+        if (SelectedEntityViewModel is IPathSelectableViewModel psvm)
+            psvm.PathSelectionCount = PathSelectionHexes.Count;
     }
 
     [RelayCommand]
@@ -2021,7 +1948,7 @@ public partial class HexMapViewModel : ObservableObject
             // Recreate the ArmyViewModel to reflect the updated Path
             if (SelectedArmy != null)
             {
-                var refreshedArmyVm = new ArmyViewModel(SelectedArmy, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService);
+                var refreshedArmyVm = new ArmyViewModel(SelectedArmy, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService, _factionRuleService);
                 refreshedArmyVm.TransferRequested += OnBrigadeTransferRequested;
                 refreshedArmyVm.PathSelectionRequested += StartPathSelectionMode;
                 refreshedArmyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
@@ -2057,20 +1984,10 @@ public partial class HexMapViewModel : ObservableObject
     private void CancelPathSelectionMode()
     {
         // Update ViewModel state before clearing
-        if (SelectedEntityViewModel is MessageViewModel msgVm)
+        if (SelectedEntityViewModel is IPathSelectableViewModel psvm)
         {
-            msgVm.IsPathSelectionActive = false;
-            msgVm.PathSelectionCount = 0;
-        }
-        else if (SelectedEntityViewModel is ArmyViewModel armyVm)
-        {
-            armyVm.IsPathSelectionActive = false;
-            armyVm.PathSelectionCount = 0;
-        }
-        else if (SelectedEntityViewModel is CommanderViewModel cmdVm)
-        {
-            cmdVm.IsPathSelectionActive = false;
-            cmdVm.PathSelectionCount = 0;
+            psvm.IsPathSelectionActive = false;
+            psvm.PathSelectionCount = 0;
         }
 
         PathSelectionHexes.Clear();

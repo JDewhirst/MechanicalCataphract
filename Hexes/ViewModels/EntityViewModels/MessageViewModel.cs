@@ -14,7 +14,7 @@ namespace GUI.ViewModels.EntityViewModels;
 /// <summary>
 /// ViewModel wrapper for Message entity with auto-save on property change.
 /// </summary>
-public partial class MessageViewModel : ObservableObject, IEntityViewModel
+public partial class MessageViewModel : ObservableObject, IEntityViewModel, IPathSelectableViewModel
 {
     private readonly Message _message;
     private readonly IMessageService _service;
@@ -70,10 +70,8 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
     public int? SenderCoordinateQ => _message.SenderCoordinateQ;
     public int? SenderCoordinateR => _message.SenderCoordinateR;
 
-    public int? SenderCol => SenderCoordinateQ == null || SenderCoordinateR == null ? null
-        : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(SenderCoordinateQ.Value, SenderCoordinateR.Value, -SenderCoordinateQ.Value - SenderCoordinateR.Value)).col;
-    public int? SenderRow => SenderCoordinateQ == null || SenderCoordinateR == null ? null
-        : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(SenderCoordinateQ.Value, SenderCoordinateR.Value, -SenderCoordinateQ.Value - SenderCoordinateR.Value)).row;
+    public int? SenderCol => HexCoordinateHelper.GetCol(SenderCoordinateQ, SenderCoordinateR);
+    public int? SenderRow => HexCoordinateHelper.GetRow(SenderCoordinateQ, SenderCoordinateR);
 
     public int? TargetCoordinateQ
     {
@@ -88,30 +86,26 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 
     public int? TargetCol
     {
-        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).col;
+        get => HexCoordinateHelper.GetCol(TargetCoordinateQ, TargetCoordinateR);
         set
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
-            int row = TargetRow is int r && r >= 0 ? r : 0;
-            if (!IsOffsetInBounds(value.Value, row)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
-            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetCol(value, TargetRow, _mapCols, _mapRows);
+            if (result == null) return;
+            TargetCoordinateQ = result.Value.q; TargetCoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
 
     public int? TargetRow
     {
-        get => TargetCoordinateQ == null || TargetCoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value)).row;
+        get => HexCoordinateHelper.GetRow(TargetCoordinateQ, TargetCoordinateR);
         set
         {
             if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
-            int col = TargetCol is int c && c >= 0 ? c : 0;
-            if (!IsOffsetInBounds(col, value.Value)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
-            TargetCoordinateQ = hex.q; TargetCoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetRow(value, TargetCol, _mapCols, _mapRows);
+            if (result == null) return;
+            TargetCoordinateQ = result.Value.q; TargetCoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
@@ -129,30 +123,26 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
 
     public int? Col
     {
-        get => CoordinateQ == null || CoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).col;
+        get => HexCoordinateHelper.GetCol(CoordinateQ, CoordinateR);
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            int row = Row is int r && r >= 0 ? r : 0;
-            if (!IsOffsetInBounds(value.Value, row)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(value.Value, row));
-            CoordinateQ = hex.q; CoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetCol(value, Row, _mapCols, _mapRows);
+            if (result == null) return;
+            CoordinateQ = result.Value.q; CoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
 
     public int? Row
     {
-        get => CoordinateQ == null || CoordinateR == null ? null
-             : OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value)).row;
+        get => HexCoordinateHelper.GetRow(CoordinateQ, CoordinateR);
         set
         {
             if (value == null) { CoordinateQ = null; CoordinateR = null; return; }
-            int col = Col is int c && c >= 0 ? c : 0;
-            if (!IsOffsetInBounds(col, value.Value)) return;
-            var hex = OffsetCoord.QoffsetToCube(OffsetCoord.ODD, new OffsetCoord(col, value.Value));
-            CoordinateQ = hex.q; CoordinateR = hex.r;
+            var result = HexCoordinateHelper.SetRow(value, Col, _mapCols, _mapRows);
+            if (result == null) return;
+            CoordinateQ = result.Value.q; CoordinateR = result.Value.r;
             OnPropertyChanged();
         }
     }
@@ -324,9 +314,6 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel
             SendStatus = $"Failed: {ex.Message}";
         }
     }
-
-    private bool IsOffsetInBounds(int col, int row)
-        => col >= 0 && col < _mapCols && row >= 0 && row < _mapRows;
 
     private async Task SaveAsync()
     {
