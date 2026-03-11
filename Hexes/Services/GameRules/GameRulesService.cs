@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using MechanicalCataphract.Data.Entities;
 
 namespace MechanicalCataphract.Services;
 
@@ -46,52 +50,72 @@ public class GameRulesService : IGameRulesService
         return CreateDefaults();
     }
 
-    public static GameRulesData CreateDefaults() => new(
-        Movement: new MovementRules(
-            RoadCost: 6,
-            OffRoadCost: 12,
-            ArmyMovementMultiplier: 1.5,
-            MarchDayStartHour: 8,
-            MarchDayEndHour: 20,
-            LongColumnThreshold: 6,
-            LongColumnSpeedCap: 0.5,
-            ForcedMarchMultiplier: 2.0,
-            RiverFordingCostPerColumnUnit: 6),
-        MovementRates: new MovementRateRules(
-            ArmyBaseRate: 1.0,
-            MessengerBaseRate: 2.0,
-            CommanderBaseRate: 2.0),
-        Supply: new SupplyRules(
-            WagonSupplyMultiplier: 10,
-            WagonCarryCapacity: 1000,
-            ForageMultiplierPerDensity: 500,
-            DailyUsageHour: 21),
-        Armies: new ArmiesRules(
-            DailyReportHour: 6),
-        UnitStats: new UnitStatsRules(
-            Infantry: new UnitTypeStats(1, 15, 1, 1, 5000, true),
-            Skirmishers: new UnitTypeStats(1, 15, 1, 1, 5000, true),
-            Cavalry: new UnitTypeStats(10, 75, 2, 2, 2000, false)),
-        News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0),
-        Weather: new WeatherRules(
-            DailyUpdateHour: 6,
-            Transitions: new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>
-            {
-                ["Clear"]    = new() { ["Clear"]=0.40, ["Overcast"]=0.25, ["Rain"]=0.20, ["Fog"]=0.15 },
-                ["Overcast"] = new() { ["Overcast"]=0.40, ["Rain"]=0.25, ["Fog"]=0.20, ["Clear"]=0.15 },
-                ["Rain"]     = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 },
-                ["Fog"]      = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 }
-            }),
-        Ships: new ShipRules(
-            TransportInfantryCapacity: 100,
-            TransportCavalryCapacity: 20,
-            TransportSupplyCapacity: 10000,
-            TransportWagonCapacity: 5,
-            WarshipCapacityMultiplier: 0.5,
-            CrewSupplyConsumptionPerShip: 20,
-            SeaOrDownriverHexesPerDay: 24,
-            UpriverMovementCostMultiplier: 2,
-            RowingBonusHexesPerDay: 12));
+    public static GameRulesData CreateDefaults()
+    {
+        var unitStats = new Dictionary<UnitType, UnitTypeStats>
+        {
+            [UnitType.Infantry]      = new(1, 15, 1, 1, 5000, true),
+            [UnitType.Skirmishers]   = new(1, 15, 1, 2, 5000, true),
+            [UnitType.Cavalry]       = new(10, 75, 2, 2, 2000, false),
+            [UnitType.Engineers]     = new(1, 15, 1, 1, 5000, true),
+            [UnitType.HeavyInfantry] = new(1, 15, 2, 1, 5000, true),
+            [UnitType.Huscarls]      = new(1, 15, 3, 1, 5000, true),
+            [UnitType.Otrangers]     = new(1, 15, 2, 2, 5000, true),
+            [UnitType.KnightLancers] = new(10, 75, 5, 2, 2000, false),
+            [UnitType.HeavyCavalry]  = new(10, 75, 4, 2, 2000, false),
+        };
+
+        var shipTypes = new Dictionary<ShipType, ShipTypeStats>
+        {
+            [ShipType.Transport] = new(1.0),
+            [ShipType.Warship]   = new(0.5),
+            [ShipType.Longships] = new(1.0),
+        };
+
+        return new GameRulesData(
+            Movement: new MovementRules(
+                RoadCost: 6,
+                OffRoadCost: 12,
+                ArmyMovementMultiplier: 1.5,
+                MarchDayStartHour: 8,
+                MarchDayEndHour: 20,
+                LongColumnThreshold: 6,
+                LongColumnSpeedCap: 0.5,
+                ForcedMarchMultiplier: 2.0,
+                RiverFordingCostPerColumnUnit: 6),
+            MovementRates: new MovementRateRules(
+                ArmyBaseRate: 1.0,
+                MessengerBaseRate: 2.0,
+                CommanderBaseRate: 2.0),
+            Supply: new SupplyRules(
+                WagonSupplyMultiplier: 10,
+                WagonCarryCapacity: 1000,
+                ForageMultiplierPerDensity: 500,
+                DailyUsageHour: 21),
+            Armies: new ArmiesRules(
+                DailyReportHour: 6),
+            UnitStats: new ReadOnlyDictionary<UnitType, UnitTypeStats>(unitStats),
+            News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0),
+            Weather: new WeatherRules(
+                DailyUpdateHour: 6,
+                Transitions: new Dictionary<string, Dictionary<string, double>>
+                {
+                    ["Clear"]    = new() { ["Clear"]=0.40, ["Overcast"]=0.25, ["Rain"]=0.20, ["Fog"]=0.15 },
+                    ["Overcast"] = new() { ["Overcast"]=0.40, ["Rain"]=0.25, ["Fog"]=0.20, ["Clear"]=0.15 },
+                    ["Rain"]     = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 },
+                    ["Fog"]      = new() { ["Fog"]=0.40, ["Clear"]=0.25, ["Overcast"]=0.20, ["Rain"]=0.15 }
+                }),
+            Ships: new ShipRules(
+                TransportInfantryCapacity: 100,
+                TransportCavalryCapacity: 20,
+                TransportSupplyCapacity: 10000,
+                TransportWagonCapacity: 5,
+                CrewSupplyConsumptionPerShip: 20,
+                SeaOrDownriverHexesPerDay: 24,
+                UpriverMovementCostMultiplier: 2,
+                RowingBonusHexesPerDay: 12,
+                ShipTypes: new ReadOnlyDictionary<ShipType, ShipTypeStats>(shipTypes)));
+    }
 
     private static GameRulesData FromDto(GameRulesDto dto)
     {
@@ -99,7 +123,6 @@ public class GameRulesService : IGameRulesService
         var mr = dto.MovementRates ?? new MovementRatesDto();
         var s = dto.Supply ?? new SupplyDto();
         var ar = dto.Armies ?? new ArmiesDto();
-        var us = dto.UnitStats ?? new UnitStatsDto();
         var n = dto.News ?? new NewsDto();
         var w = dto.Weather;
         var sh = dto.Ships;
@@ -128,10 +151,7 @@ public class GameRulesService : IGameRulesService
                 DailyUsageHour: s.DailyUsageHour ?? defaults.Supply.DailyUsageHour),
             Armies: new ArmiesRules(
                 DailyReportHour: ar.DailyReportHour ?? defaults.Armies.DailyReportHour),
-            UnitStats: new UnitStatsRules(
-                Infantry: FromUnitDto(us.Infantry),
-                Skirmishers: FromUnitDto(us.Skirmishers),
-                Cavalry: FromCavalryDto(us.Cavalry)),
+            UnitStats: ParseUnitStats(dto.UnitStats, defaults.UnitStats),
             News: new NewsRules(
                 OffRoadHoursPerHex: n.OffRoadHoursPerHex ?? 24.0,
                 RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0),
@@ -141,36 +161,92 @@ public class GameRulesService : IGameRulesService
             Ships: FromShipsDto(sh, defaults.Ships));
     }
 
-    private static ShipRules FromShipsDto(ShipsDto? dto, ShipRules defaults) => dto == null ? defaults : new ShipRules(
-        TransportInfantryCapacity:    dto.TransportInfantryCapacity    ?? defaults.TransportInfantryCapacity,
-        TransportCavalryCapacity:     dto.TransportCavalryCapacity     ?? defaults.TransportCavalryCapacity,
-        TransportSupplyCapacity:      dto.TransportSupplyCapacity      ?? defaults.TransportSupplyCapacity,
-        TransportWagonCapacity:       dto.TransportWagonCapacity       ?? defaults.TransportWagonCapacity,
-        WarshipCapacityMultiplier:    dto.WarshipCapacityMultiplier    ?? defaults.WarshipCapacityMultiplier,
-        CrewSupplyConsumptionPerShip: dto.CrewSupplyConsumptionPerShip ?? defaults.CrewSupplyConsumptionPerShip,
-        SeaOrDownriverHexesPerDay:    dto.SeaOrDownriverHexesPerDay    ?? defaults.SeaOrDownriverHexesPerDay,
-        UpriverMovementCostMultiplier:dto.UpriverMovementCostMultiplier?? defaults.UpriverMovementCostMultiplier,
-        RowingBonusHexesPerDay:       dto.RowingBonusHexesPerDay       ?? defaults.RowingBonusHexesPerDay);
+    private static IReadOnlyDictionary<UnitType, UnitTypeStats> ParseUnitStats(
+        Dictionary<string, UnitTypeStatsDto>? dtoDict,
+        IReadOnlyDictionary<UnitType, UnitTypeStats> defaults)
+    {
+        if (dtoDict == null || dtoDict.Count == 0)
+            return defaults;
 
-    private static UnitTypeStats FromUnitDto(UnitTypeStatsDto? dto) => dto == null
-        ? new UnitTypeStats(1, 15, 1, 1, 5000, true)
-        : new UnitTypeStats(
-            dto.SupplyConsumptionPerMan ?? 1,
-            dto.CarryCapacityPerMan ?? 15,
-            dto.CombatPowerPerMan ?? 1,
-            dto.ScoutingRange ?? 1,
-            dto.MarchingColumnCapacity ?? 5000,
-            dto.CountsForFordingLength ?? true);
+        var result = new Dictionary<UnitType, UnitTypeStats>(defaults);
 
-    private static UnitTypeStats FromCavalryDto(UnitTypeStatsDto? dto) => dto == null
-        ? new UnitTypeStats(10, 75, 2, 2, 2000, false)
-        : new UnitTypeStats(
-            dto.SupplyConsumptionPerMan ?? 10,
-            dto.CarryCapacityPerMan ?? 75,
-            dto.CombatPowerPerMan ?? 2,
-            dto.ScoutingRange ?? 2,
-            dto.MarchingColumnCapacity ?? 2000,
-            dto.CountsForFordingLength ?? false);
+        foreach (var (key, dto) in dtoDict)
+        {
+            if (!Enum.TryParse<UnitType>(key, ignoreCase: true, out var unitType))
+            {
+                System.Diagnostics.Debug.WriteLine($"[GameRulesService] Unknown UnitType key '{key}' in unitStats — skipping.");
+                continue;
+            }
+
+            var fallback = defaults.TryGetValue(unitType, out var fb) ? fb : null;
+            result[unitType] = FromUnitDto(dto, fallback);
+        }
+
+        return new ReadOnlyDictionary<UnitType, UnitTypeStats>(result);
+    }
+
+    private static UnitTypeStats FromUnitDto(UnitTypeStatsDto dto, UnitTypeStats? fallback)
+    {
+        // Determine defaults based on whether this is a cavalry-type or infantry-type unit.
+        // If we have a fallback from CreateDefaults(), use it; otherwise infer from CountsForFordingLength.
+        bool isCavalry = fallback != null ? !fallback.CountsForFordingLength
+                       : dto.CountsForFordingLength == false;
+
+        int defSupply   = isCavalry ? 10   : 1;
+        int defCarry    = isCavalry ? 75   : 15;
+        int defCombat   = isCavalry ? 2    : 1;
+        int defScouting = isCavalry ? 2    : 1;
+        int defColumn   = isCavalry ? 2000 : 5000;
+        bool defFording = !isCavalry;
+
+        return new UnitTypeStats(
+            dto.SupplyConsumptionPerMan ?? fallback?.SupplyConsumptionPerMan ?? defSupply,
+            dto.CarryCapacityPerMan     ?? fallback?.CarryCapacityPerMan     ?? defCarry,
+            dto.CombatPowerPerMan       ?? fallback?.CombatPowerPerMan       ?? defCombat,
+            dto.ScoutingRange           ?? fallback?.ScoutingRange           ?? defScouting,
+            dto.MarchingColumnCapacity  ?? fallback?.MarchingColumnCapacity  ?? defColumn,
+            dto.CountsForFordingLength  ?? fallback?.CountsForFordingLength  ?? defFording);
+    }
+
+    private static ShipRules FromShipsDto(ShipsDto? dto, ShipRules defaults)
+    {
+        if (dto == null) return defaults;
+
+        return new ShipRules(
+            TransportInfantryCapacity:    dto.TransportInfantryCapacity    ?? defaults.TransportInfantryCapacity,
+            TransportCavalryCapacity:     dto.TransportCavalryCapacity     ?? defaults.TransportCavalryCapacity,
+            TransportSupplyCapacity:      dto.TransportSupplyCapacity      ?? defaults.TransportSupplyCapacity,
+            TransportWagonCapacity:       dto.TransportWagonCapacity       ?? defaults.TransportWagonCapacity,
+            CrewSupplyConsumptionPerShip: dto.CrewSupplyConsumptionPerShip ?? defaults.CrewSupplyConsumptionPerShip,
+            SeaOrDownriverHexesPerDay:    dto.SeaOrDownriverHexesPerDay    ?? defaults.SeaOrDownriverHexesPerDay,
+            UpriverMovementCostMultiplier:dto.UpriverMovementCostMultiplier?? defaults.UpriverMovementCostMultiplier,
+            RowingBonusHexesPerDay:       dto.RowingBonusHexesPerDay       ?? defaults.RowingBonusHexesPerDay,
+            ShipTypes: ParseShipTypes(dto.ShipTypes, defaults.ShipTypes));
+    }
+
+    private static IReadOnlyDictionary<ShipType, ShipTypeStats> ParseShipTypes(
+        Dictionary<string, ShipTypeStatsDto>? dtoDict,
+        IReadOnlyDictionary<ShipType, ShipTypeStats> defaults)
+    {
+        if (dtoDict == null || dtoDict.Count == 0)
+            return defaults;
+
+        var result = new Dictionary<ShipType, ShipTypeStats>(defaults);
+
+        foreach (var (key, dto) in dtoDict)
+        {
+            if (!Enum.TryParse<ShipType>(key, ignoreCase: true, out var shipType))
+            {
+                System.Diagnostics.Debug.WriteLine($"[GameRulesService] Unknown ShipType key '{key}' in shipTypes — skipping.");
+                continue;
+            }
+
+            var fallback = defaults.TryGetValue(shipType, out var fb) ? fb : null;
+            result[shipType] = new ShipTypeStats(dto.CapacityMultiplier ?? fallback?.CapacityMultiplier ?? 1.0);
+        }
+
+        return new ReadOnlyDictionary<ShipType, ShipTypeStats>(result);
+    }
 
     // DTO classes for deserialization (nullable fields → graceful partial JSON)
     private class GameRulesDto
@@ -179,7 +255,7 @@ public class GameRulesService : IGameRulesService
         public MovementRatesDto? MovementRates { get; set; }
         public SupplyDto? Supply { get; set; }
         public ArmiesDto? Armies { get; set; }
-        public UnitStatsDto? UnitStats { get; set; }
+        public Dictionary<string, UnitTypeStatsDto>? UnitStats { get; set; }
         public NewsDto? News { get; set; }
         public WeatherDto? Weather { get; set; }
         public ShipsDto? Ships { get; set; }
@@ -188,7 +264,7 @@ public class GameRulesService : IGameRulesService
     private class WeatherDto
     {
         public int? DailyUpdateHour { get; set; }
-        public System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, double>>? Transitions { get; set; }
+        public Dictionary<string, Dictionary<string, double>>? Transitions { get; set; }
     }
 
     private class NewsDto
@@ -230,13 +306,6 @@ public class GameRulesService : IGameRulesService
         public int? DailyReportHour { get; set; }
     }
 
-    private class UnitStatsDto
-    {
-        public UnitTypeStatsDto? Infantry { get; set; }
-        public UnitTypeStatsDto? Skirmishers { get; set; }
-        public UnitTypeStatsDto? Cavalry { get; set; }
-    }
-
     private class UnitTypeStatsDto
     {
         public int? SupplyConsumptionPerMan { get; set; }
@@ -253,10 +322,15 @@ public class GameRulesService : IGameRulesService
         public int? TransportCavalryCapacity { get; set; }
         public int? TransportSupplyCapacity { get; set; }
         public int? TransportWagonCapacity { get; set; }
-        public double? WarshipCapacityMultiplier { get; set; }
         public int? CrewSupplyConsumptionPerShip { get; set; }
         public int? SeaOrDownriverHexesPerDay { get; set; }
         public int? UpriverMovementCostMultiplier { get; set; }
         public int? RowingBonusHexesPerDay { get; set; }
+        public Dictionary<string, ShipTypeStatsDto>? ShipTypes { get; set; }
+    }
+
+    private class ShipTypeStatsDto
+    {
+        public double? CapacityMultiplier { get; set; }
     }
 }

@@ -12,10 +12,9 @@
             <!-- Count -->
             <StackPanel Grid.Column="0">
                 <TextBlock Text="Count" FontWeight="SemiBold" FontSize="10"/>
-                <NumericUpDown Value="{Binding Count, Mode=TwoWay}"
-                               Minimum="0" Increment="1"
-                               FontSize="12"
-                               LostFocus="OnFieldLostFocus"/>
+                <TextBox Text="{Binding Count, Mode=TwoWay}"
+                         FontSize="12"
+                         LostFocus="OnFieldLostFocus"/>
             </StackPanel>
 
             <!-- ShipType -->

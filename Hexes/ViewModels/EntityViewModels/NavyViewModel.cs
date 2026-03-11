@@ -110,8 +110,8 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     }
 
     // Computed properties (delegate to entity)
-    public int TransportCount => _navy.TransportCount;
-    public int WarshipCount   => _navy.WarshipCount;
+    public int TransportCount  => _navy.TransportCount;
+    public int WarshipCount    => _navy.WarshipCount;
     public int MaxCarryUnits  => _navy.MaxCarryUnits;
     public double TotalCarryUnits => _navy.TotalCarryUnits;
     public int DailySupplyConsumption => _navy.DailySupplyConsumption;

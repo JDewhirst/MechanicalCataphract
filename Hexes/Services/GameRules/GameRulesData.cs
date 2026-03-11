@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MechanicalCataphract.Data.Entities;
 
 namespace MechanicalCataphract.Services;
 
@@ -35,11 +36,6 @@ public record UnitTypeStats(
     int MarchingColumnCapacity,
     bool CountsForFordingLength);
 
-public record UnitStatsRules(
-    UnitTypeStats Infantry,
-    UnitTypeStats Skirmishers,
-    UnitTypeStats Cavalry);
-
 public record NewsRules(
     double OffRoadHoursPerHex,
     double RoadHoursPerHex);
@@ -48,23 +44,25 @@ public record WeatherRules(
     int DailyUpdateHour,
     Dictionary<string, Dictionary<string, double>> Transitions);
 
+public record ShipTypeStats(double CapacityMultiplier);
+
 public record ShipRules(
     int TransportInfantryCapacity,
     int TransportCavalryCapacity,
     int TransportSupplyCapacity,
     int TransportWagonCapacity,
-    double WarshipCapacityMultiplier,
     int CrewSupplyConsumptionPerShip,
     int SeaOrDownriverHexesPerDay,
     int UpriverMovementCostMultiplier,
-    int RowingBonusHexesPerDay);
+    int RowingBonusHexesPerDay,
+    IReadOnlyDictionary<ShipType, ShipTypeStats> ShipTypes);
 
 public record GameRulesData(
     MovementRules Movement,
     MovementRateRules MovementRates,
     SupplyRules Supply,
     ArmiesRules Armies,
-    UnitStatsRules UnitStats,
+    IReadOnlyDictionary<UnitType, UnitTypeStats> UnitStats,
     NewsRules News,
     WeatherRules Weather,
     ShipRules Ships);

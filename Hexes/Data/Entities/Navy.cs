@@ -35,8 +35,8 @@ public class Navy
     public Army? CarriedArmy { get; set; }
 
     // Computed properties
-    public int TransportCount => Ships.Where(s => s.ShipType == ShipType.Transport).Sum(s => s.Count);
-    public int WarshipCount   => Ships.Where(s => s.ShipType == ShipType.Warship).Sum(s => s.Count);
+    public int TransportCount  => Ships.Where(s => s.ShipType == ShipType.Transport).Sum(s => s.Count);
+    public int WarshipCount    => Ships.Where(s => s.ShipType == ShipType.Warship).Sum(s => s.Count);
 
     public int DailySupplyConsumption =>
         Ships.Sum(s => s.Count) * GameRules.Current.Ships.CrewSupplyConsumptionPerShip;
@@ -49,8 +49,10 @@ public class Navy
         get
         {
             var rules = GameRules.Current.Ships;
-            return TransportCount * rules.TransportInfantryCapacity
-                 + (int)(WarshipCount * rules.TransportInfantryCapacity * rules.WarshipCapacityMultiplier);
+            return Ships.Sum(s =>
+                rules.ShipTypes.TryGetValue(s.ShipType, out var st)
+                    ? (int)(s.Count * rules.TransportInfantryCapacity * st.CapacityMultiplier)
+                    : 0);
         }
     }
 
@@ -76,7 +78,7 @@ public class Navy
                 {
                     foreach (var b in army.Brigades)
                     {
-                        double weight = b.UnitType == UnitType.Cavalry ? cavalryWeight : infantryWeight;
+                        double weight = !b.UnitType.CountsForFordingLength() ? cavalryWeight : infantryWeight;
                         units += b.Number * weight;
                     }
                 }

@@ -9,13 +9,10 @@ namespace MechanicalCataphract.Data.Entities;
 /// </summary>
 public static class UnitTypeExtensions
 {
-    private static UnitTypeStats GetStats(UnitType t) => t switch
-    {
-        UnitType.Infantry    => GameRules.Current.UnitStats.Infantry,
-        UnitType.Skirmishers => GameRules.Current.UnitStats.Skirmishers,
-        UnitType.Cavalry     => GameRules.Current.UnitStats.Cavalry,
-        _ => throw new ArgumentOutOfRangeException(nameof(t), t, "Unhandled UnitType")
-    };
+    private static UnitTypeStats GetStats(UnitType t) =>
+        GameRules.Current.UnitStats.TryGetValue(t, out var stats)
+            ? stats
+            : throw new ArgumentOutOfRangeException(nameof(t), t, "No stats defined for UnitType");
 
     public static int SupplyConsumptionPerMan(this UnitType t)    => GetStats(t).SupplyConsumptionPerMan;
     public static int CarryCapacityPerMan(this UnitType t)        => GetStats(t).CarryCapacityPerMan;

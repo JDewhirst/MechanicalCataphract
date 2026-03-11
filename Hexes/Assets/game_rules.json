@@ -25,8 +25,14 @@
   },
   "unitStats": {
     "infantry":    { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "skirmishers": { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "cavalry":     { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false }
+    "skirmishers":   { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 2, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
+    "cavalry":       { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false },
+    "engineers":     { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
+    "heavyInfantry": { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 2, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
+    "huscarls":      { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 3, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
+    "otrangers":     { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
+    "knightLancers": { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 5, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false },
+    "heavyCavalry":  { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 4, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false }
   },
   "news": {
     "offRoadHoursPerHex": 24.0,
@@ -46,10 +52,14 @@
     "transportCavalryCapacity": 20,
     "transportSupplyCapacity": 10000,
     "transportWagonCapacity": 5,
-    "warshipCapacityMultiplier": 0.5,
     "crewSupplyConsumptionPerShip": 20,
     "seaOrDownriverHexesPerDay": 24,
     "upriverMovementCostMultiplier": 2,
-    "rowingBonusHexesPerDay": 12
+    "rowingBonusHexesPerDay": 12,
+    "shipTypes": {
+      "transport": { "capacityMultiplier": 1.0 },
+      "warship":   { "capacityMultiplier": 0.5 },
+      "longships": { "capacityMultiplier": 1.0 }
+    }
   }
 }
