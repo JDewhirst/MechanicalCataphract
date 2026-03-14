@@ -244,6 +244,14 @@ public class HexMapView : Control
     private Dictionary<int, (Bitmap? bitmap, double scaleFactor)> _locationIconCache = new();
     private Dictionary<int, IImage?> _weatherIconCache = new();
 
+    // Overlay brush caches — avoid allocating new SolidColorBrush per hex per frame
+    private Dictionary<int, SolidColorBrush> _factionOverlayBrushCache = new();
+    private static readonly Dictionary<int, SolidColorBrush> _populationBrushCache = new();
+    private static readonly Dictionary<int, SolidColorBrush> _foragedBrushCache = new();
+    private static readonly Dictionary<string, SolidColorBrush> _weatherBrushCache = new();
+    private static readonly SolidColorBrush NoFactionOverlayBrush = new(Color.FromArgb(191, 128, 128, 128));
+    private static readonly SolidColorBrush NoWeatherOverlayBrush = new(Color.FromArgb(128, 240, 240, 240));
+
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
     private static readonly Pen RiverPen = new Pen(new SolidColorBrush(Color.Parse("#4169E1")), 4);
@@ -1457,6 +1465,7 @@ public class HexMapView : Control
     private void RebuildTerrainColorCache()
     {
         _terrainColorCache.Clear();
+        _factionOverlayBrushCache.Clear();
         var terrainTypes = TerrainTypes;
         if (terrainTypes == null) return;
 
@@ -1596,16 +1605,20 @@ public class HexMapView : Control
 
     /// <summary>
     /// Returns semi-transparent faction color for overlay (~50% opacity).
-    /// Uses cache for faction colors.
+    /// Uses cache to avoid per-hex-per-frame brush allocation.
     /// </summary>
     private SolidColorBrush GetFactionBrushWithAlpha(MapHex mapHex)
     {
         if (!mapHex.ControllingFactionId.HasValue)
-            return new SolidColorBrush(Color.FromArgb(191, 128, 128, 128)); // Semi-transparent gray
+            return NoFactionOverlayBrush;
 
-        // Get base color from cache or parse from faction
+        var factionId = mapHex.ControllingFactionId.Value;
+        if (_factionOverlayBrushCache.TryGetValue(factionId, out var cached))
+            return cached;
+
+        // Get base color from faction color cache or parse from faction
         Color baseColor;
-        if (_factionColorCache.TryGetValue(mapHex.ControllingFactionId.Value, out var cachedBrush))
+        if (_factionColorCache.TryGetValue(factionId, out var cachedBrush))
         {
             baseColor = cachedBrush.Color;
         }
@@ -1614,77 +1627,91 @@ public class HexMapView : Control
             try
             {
                 baseColor = Color.Parse(mapHex.ControllingFaction.ColorHex);
-                _factionColorCache[mapHex.ControllingFactionId.Value] = new SolidColorBrush(baseColor);
+                _factionColorCache[factionId] = new SolidColorBrush(baseColor);
             }
             catch
             {
-                baseColor = Color.Parse("#808080"); // Gray fallback
+                baseColor = Color.Parse("#808080");
             }
         }
         else
         {
-            baseColor = Color.Parse("#808080"); // Gray fallback
+            baseColor = Color.Parse("#808080");
         }
 
-        return new SolidColorBrush(Color.FromArgb(100, baseColor.R, baseColor.G, baseColor.B));
+        var brush = new SolidColorBrush(Color.FromArgb(100, baseColor.R, baseColor.G, baseColor.B));
+        _factionOverlayBrushCache[factionId] = brush;
+        return brush;
     }
 
     /// <summary>
     /// Semi-transparent heat map for population density overlay (~50% opacity).
+    /// Cached by clamped density value (at most 101 entries).
     /// </summary>
     private static SolidColorBrush GetPopulationBrushWithAlpha(int density)
     {
-        // Clamp to 0-100
         density = Math.Max(0, Math.Min(100, density));
 
-        // Interpolate from light blue (#ADD8E6) to deep red (#8B0000)
-        double t = density / 100.0;
+        if (_populationBrushCache.TryGetValue(density, out var cached))
+            return cached;
 
+        double t = density / 100.0;
         byte r = (byte)(173 + (139 - 173) * t);
         byte g = (byte)(216 + (0 - 216) * t);
         byte b = (byte)(230 + (0 - 230) * t);
 
-        return new SolidColorBrush(Color.FromArgb(128, r, g, b));
+        var brush = new SolidColorBrush(Color.FromArgb(128, r, g, b));
+        _populationBrushCache[density] = brush;
+        return brush;
     }
 
     /// <summary>
     /// Semi-transparent foraged gradient overlay (~50% opacity).
+    /// Cached by clamped forage count (at most 11 entries).
     /// </summary>
     private static SolidColorBrush GetForagedBrushWithAlpha(int timesForaged)
     {
-        // Clamp to 0-10
         timesForaged = Math.Max(0, Math.Min(10, timesForaged));
 
-        // Interpolate from green (#228B22) to brown (#8B4513)
-        double t = timesForaged / 10.0;
+        if (_foragedBrushCache.TryGetValue(timesForaged, out var cached))
+            return cached;
 
+        double t = timesForaged / 10.0;
         byte r = (byte)(34 + (139 - 34) * t);
         byte g = (byte)(139 + (69 - 139) * t);
         byte b = (byte)(34 + (19 - 34) * t);
 
-        return new SolidColorBrush(Color.FromArgb(128, r, g, b));
+        var brush = new SolidColorBrush(Color.FromArgb(128, r, g, b));
+        _foragedBrushCache[timesForaged] = brush;
+        return brush;
     }
 
     /// <summary>
     /// Returns semi-transparent weather color overlay (~50% opacity).
+    /// Cached by weather name (at most ~7 entries).
     /// </summary>
     private static SolidColorBrush GetWeatherBrushWithAlpha(MapHex mapHex)
     {
         if (!mapHex.WeatherId.HasValue || mapHex.Weather == null)
-            return new SolidColorBrush(Color.FromArgb(128, 240, 240, 240)); // Semi-transparent off-white
+            return NoWeatherOverlayBrush;
 
         var weatherName = mapHex.Weather.Name?.ToLowerInvariant() ?? "";
 
-        return weatherName switch
+        if (_weatherBrushCache.TryGetValue(weatherName, out var cached))
+            return cached;
+
+        var brush = weatherName switch
         {
-            "clear" => new SolidColorBrush(Color.FromArgb(128, 135, 206, 235)),  // Light blue
-            "rain" => new SolidColorBrush(Color.FromArgb(128, 65, 105, 225)),    // Dark blue
-            "storm" => new SolidColorBrush(Color.FromArgb(128, 139, 0, 139)),    // Purple
-            "snow" => new SolidColorBrush(Color.FromArgb(128, 255, 250, 250)),   // White
-            "fog" => new SolidColorBrush(Color.FromArgb(128, 211, 211, 211)),    // Light gray
-            "overcast" => new SolidColorBrush(Color.FromArgb(128, 169, 169, 169)), // Medium gray
-            _ => new SolidColorBrush(Color.FromArgb(128, 240, 240, 240))         // Off-white
+            "clear" => new SolidColorBrush(Color.FromArgb(128, 135, 206, 235)),
+            "rain" => new SolidColorBrush(Color.FromArgb(128, 65, 105, 225)),
+            "storm" => new SolidColorBrush(Color.FromArgb(128, 139, 0, 139)),
+            "snow" => new SolidColorBrush(Color.FromArgb(128, 255, 250, 250)),
+            "fog" => new SolidColorBrush(Color.FromArgb(128, 211, 211, 211)),
+            "overcast" => new SolidColorBrush(Color.FromArgb(128, 169, 169, 169)),
+            _ => new SolidColorBrush(Color.FromArgb(128, 240, 240, 240))
         };
+        _weatherBrushCache[weatherName] = brush;
+        return brush;
     }
 
     /// <summary>
