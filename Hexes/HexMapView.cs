@@ -252,6 +252,9 @@ public class HexMapView : Control
     private static readonly SolidColorBrush NoFactionOverlayBrush = new(Color.FromArgb(191, 128, 128, 128));
     private static readonly SolidColorBrush NoWeatherOverlayBrush = new(Color.FromArgb(128, 240, 240, 240));
 
+    // FormattedText cache — avoids expensive text layout per hex per frame
+    private Dictionary<(string text, double fontSize), FormattedText> _formattedTextCache = new();
+
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
     private static readonly Pen RiverPen = new Pen(new SolidColorBrush(Color.Parse("#4169E1")), 4);
@@ -634,6 +637,7 @@ public class HexMapView : Control
         {
             _cachedHexGeometry = BuildHexGeometry(layout);
             _cachedHexRadius = HexRadius;
+            _formattedTextCache.Clear();
         }
 
         var hexes = VisibleHexes;
@@ -761,13 +765,8 @@ public class HexMapView : Control
             // Draw coordinate label at bottom of hex, scaled with zoom
             double hexHeight = Math.Sqrt(3) * HexRadius;
             double fontSize = Math.Max(6.0, HexRadius * 0.4);
-            var text = new FormattedText(
-                $"{rowcolcoord.col},{rowcolcoord.row}",
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                Typeface.Default,
-                fontSize,
-                Brushes.Black);
+            var label = $"{rowcolcoord.col},{rowcolcoord.row}";
+            var text = GetOrCreateFormattedText(label, fontSize, Brushes.Black);
             double textY = (hexHeight / 2) - text.Height - 2;  // 2px from bottom edge
             context.DrawText(text, new AvaloniaPoint(-text.Width / 2, textY));
         }
@@ -914,13 +913,7 @@ public class HexMapView : Control
         if (!string.IsNullOrEmpty(army.Name))
         {
             var initial = army.Name[0].ToString().ToUpperInvariant();
-            var text = new FormattedText(
-                initial,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                Typeface.Default,
-                Math.Max(8, markerRadius * 1.2),
-                Brushes.White);
+            var text = GetOrCreateFormattedText(initial, Math.Max(8, markerRadius * 1.2), Brushes.White);
             context.DrawText(text, new AvaloniaPoint(
                 markerCenter.X - text.Width / 2,
                 markerCenter.Y - text.Height / 2));
@@ -1062,13 +1055,7 @@ public class HexMapView : Control
         if (!string.IsNullOrEmpty(navy.Name))
         {
             var initial = navy.Name[0].ToString().ToUpperInvariant();
-            var text = new FormattedText(
-                initial,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                Typeface.Default,
-                Math.Max(8, markerRadius * 1.0),
-                Brushes.White);
+            var text = GetOrCreateFormattedText(initial, Math.Max(8, markerRadius * 1.0), Brushes.White);
             // Triangle centroid is 1/3 up from base; shift text down from markerCenter
             context.DrawText(text, new AvaloniaPoint(
                 markerCenter.X - text.Width / 2,
@@ -1601,6 +1588,27 @@ public class HexMapView : Control
             "Weather" => GetWeatherBrushWithAlpha(mapHex),
             _ => null // "None" - no overlay
         };
+    }
+
+    /// <summary>
+    /// Returns a cached FormattedText for the given label and font size.
+    /// Cache is cleared when HexRadius changes (which affects font sizes).
+    /// </summary>
+    private FormattedText GetOrCreateFormattedText(string label, double fontSize, IBrush foreground)
+    {
+        var key = (label, fontSize);
+        if (_formattedTextCache.TryGetValue(key, out var cached))
+            return cached;
+
+        var text = new FormattedText(
+            label,
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            Typeface.Default,
+            fontSize,
+            foreground);
+        _formattedTextCache[key] = text;
+        return text;
     }
 
     /// <summary>
