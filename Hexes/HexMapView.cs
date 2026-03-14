@@ -670,12 +670,23 @@ public class HexMapView : Control
         if (hexes == null || hexes.Count == 0 || _cachedHexGeometry == null)
             return;
 
+        bool showLabels = HexRadius >= 15.0;
+
         using (context.PushClip(viewport))
         {
-            // Pass 1: Draw hex backgrounds (terrain, icons, overlays, selections, labels)
+            // Pass 1: Draw hex backgrounds (terrain, icons, overlays, selections)
             foreach (var mapHex in hexes)
             {
                 DrawHex(context, layout, mapHex, viewport);
+            }
+
+            // Pass 1b: Coordinate labels (separate pass, zoom-gated)
+            if (showLabels)
+            {
+                foreach (var mapHex in hexes)
+                {
+                    DrawHexLabel(context, layout, mapHex, viewport);
+                }
             }
 
             // Pass 2: Draw all roads and rivers in a separate pass so they layer
@@ -706,7 +717,6 @@ public class HexMapView : Control
     private void DrawHex(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
     {
         var hex = mapHex.ToHex();
-        var rowcolcoord = OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, hex);
         var center = layout.HexToPixel(hex);
 
         // Viewport culling using flat-top hex bounding box (no PolygonCorners allocation)
@@ -782,16 +792,34 @@ public class HexMapView : Control
             {
                 context.DrawGeometry(NewsReachedBrush, null, _cachedHexGeometry!);
             }
-
-            // Draw coordinate label at bottom of hex, scaled with zoom
-            double hexHeight = Math.Sqrt(3) * HexRadius;
-            double fontSize = Math.Max(6.0, HexRadius * 0.4);
-            var label = $"{rowcolcoord.col},{rowcolcoord.row}";
-            var text = GetOrCreateFormattedText(label, fontSize, Brushes.Black);
-            double textY = (hexHeight / 2) - text.Height - 2;  // 2px from bottom edge
-            context.DrawText(text, new AvaloniaPoint(-text.Width / 2, textY));
         }
 
+    }
+
+    private void DrawHexLabel(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
+    {
+        var hex = mapHex.ToHex();
+        var center = layout.HexToPixel(hex);
+
+        double halfW = HexRadius;
+        double halfH = Math.Sqrt(3) * HexRadius * 0.5;
+
+        if (center.X + halfW < viewport.Left || center.X - halfW > viewport.Right ||
+            center.Y + halfH < viewport.Top || center.Y - halfH > viewport.Bottom)
+            return;
+
+        var rowcolcoord = OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, hex);
+        double hexHeight = halfH * 2;
+        double fontSize = Math.Max(6.0, HexRadius * 0.4);
+        var label = $"{rowcolcoord.col},{rowcolcoord.row}";
+        var text = GetOrCreateFormattedText(label, fontSize, Brushes.Black);
+        double textY = (hexHeight / 2) - text.Height - 2;
+
+        var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
+        using (context.PushTransform(translateMatrix))
+        {
+            context.DrawText(text, new AvaloniaPoint(-text.Width / 2, textY));
+        }
     }
 
     /// <summary>
