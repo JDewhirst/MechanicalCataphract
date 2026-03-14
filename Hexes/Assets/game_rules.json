@@ -36,7 +36,8 @@
   },
   "news": {
     "offRoadHoursPerHex": 24.0,
-    "roadHoursPerHex": 12.0
+    "roadHoursPerHex": 12.0,
+    "waterHoursPerHex": 2.4
   },
   "weather": {
     "dailyUpdateHour": 6,

@@ -47,13 +47,17 @@ public class NewsService(
                 var neighborHex = hex.Neighbor(dir);
                 var neighborKey = (neighborHex.q, neighborHex.r);
 
-                if (!hexLookup.ContainsKey(neighborKey))
+                if (!hexLookup.TryGetValue(neighborKey, out var neighborMapHex))
                     continue;
 
-                // Roads halve movement cost
-                double edgeCost = currentHex.HasRoadInDirection(dir)
-                    ? GameRules.Current.News.RoadHoursPerHex
-                    : GameRules.Current.News.OffRoadHoursPerHex;
+                // Apply water/road/offroad edge costs
+                double edgeCost;
+                if (currentHex.TerrainType?.IsWater == true)
+                    edgeCost = GameRules.Current.News.WaterHoursPerHex;
+                else if (currentHex.HasRoadInDirection(dir))
+                    edgeCost = GameRules.Current.News.RoadHoursPerHex;
+                else
+                    edgeCost = GameRules.Current.News.OffRoadHoursPerHex;
                 double newDist = currentDist + edgeCost;
 
                 if (!dist.TryGetValue(neighborKey, out double existingDist) || newDist < existingDist)

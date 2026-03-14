@@ -38,7 +38,8 @@ public record UnitTypeStats(
 
 public record NewsRules(
     double OffRoadHoursPerHex,
-    double RoadHoursPerHex);
+    double RoadHoursPerHex,
+    double WaterHoursPerHex);
 
 public record WeatherRules(
     int DailyUpdateHour,

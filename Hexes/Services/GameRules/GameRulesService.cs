@@ -95,7 +95,7 @@ public class GameRulesService : IGameRulesService
             Armies: new ArmiesRules(
                 DailyReportHour: 6),
             UnitStats: new ReadOnlyDictionary<UnitType, UnitTypeStats>(unitStats),
-            News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0),
+            News: new NewsRules(OffRoadHoursPerHex: 24.0, RoadHoursPerHex: 12.0, WaterHoursPerHex: 2.4),
             Weather: new WeatherRules(
                 DailyUpdateHour: 6,
                 Transitions: new Dictionary<string, Dictionary<string, double>>
@@ -154,7 +154,8 @@ public class GameRulesService : IGameRulesService
             UnitStats: ParseUnitStats(dto.UnitStats, defaults.UnitStats),
             News: new NewsRules(
                 OffRoadHoursPerHex: n.OffRoadHoursPerHex ?? 24.0,
-                RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0),
+                RoadHoursPerHex: n.RoadHoursPerHex ?? 12.0,
+                WaterHoursPerHex: n.WaterHoursPerHex ?? 2.4),
             Weather: new WeatherRules(
                 DailyUpdateHour: w?.DailyUpdateHour ?? defaults.Weather.DailyUpdateHour,
                 Transitions: w?.Transitions ?? defaults.Weather.Transitions),
@@ -271,6 +272,7 @@ public class GameRulesService : IGameRulesService
     {
         public double? OffRoadHoursPerHex { get; set; }
         public double? RoadHoursPerHex { get; set; }
+        public double? WaterHoursPerHex { get; set; }
     }
 
     private class MovementDto
