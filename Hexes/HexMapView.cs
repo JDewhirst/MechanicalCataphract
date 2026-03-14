@@ -18,6 +18,10 @@ namespace GUI;
 
 public class HexMapView : Control
 {
+    public const double MinHexRadius = 5.0;
+    public const double MaxHexRadius = 80.0;
+    public const double ZoomStep = 5.0;
+
     #region Avalonia Properties
 
     public static readonly StyledProperty<double> HexRadiusProperty =
@@ -394,6 +398,17 @@ public class HexMapView : Control
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
         PointerReleased += OnPointerReleased;
+        PointerWheelChanged += OnPointerWheelChanged;
+    }
+
+    private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (e.Delta.Y > 0)
+            HexRadius = Math.Min(HexRadius + ZoomStep, MaxHexRadius);
+        else if (e.Delta.Y < 0)
+            HexRadius = Math.Max(HexRadius - ZoomStep, MinHexRadius);
+
+        e.Handled = true;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

@@ -53,14 +53,14 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ZoomIn()
     {
-        if (HexMapViewModel.HexRadius < 50)
-            HexMapViewModel.HexRadius += 5;
+        if (HexMapViewModel.HexRadius < HexMapView.MaxHexRadius)
+            HexMapViewModel.HexRadius += HexMapView.ZoomStep;
     }
 
     [RelayCommand]
     private void ZoomOut()
     {
-        if (HexMapViewModel.HexRadius > 10)
-            HexMapViewModel.HexRadius -= 5;
+        if (HexMapViewModel.HexRadius > HexMapView.MinHexRadius)
+            HexMapViewModel.HexRadius -= HexMapView.ZoomStep;
     }
 }

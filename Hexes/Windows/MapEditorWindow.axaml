@@ -59,7 +59,7 @@
             <StackPanel Orientation="Horizontal" Spacing="5">
                 <TextBlock Text="Hex Size:" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding HexRadius, Mode=TwoWay}"
-                               Minimum="10" Maximum="50" Increment="5"
+                               Minimum="5" Maximum="80" Increment="5"
                                Width="120"/>
             </StackPanel>
 
