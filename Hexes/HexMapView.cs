@@ -682,16 +682,13 @@ public class HexMapView : Control
         var hex = mapHex.ToHex();
         var rowcolcoord = OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, hex);
         var center = layout.HexToPixel(hex);
-        var corners = layout.PolygonCorners(hex);
 
-        // Viewport culling
-        double minX = corners.Min(c => c.X);
-        double maxX = corners.Max(c => c.X);
-        double minY = corners.Min(c => c.Y);
-        double maxY = corners.Max(c => c.Y);
+        // Viewport culling using flat-top hex bounding box (no PolygonCorners allocation)
+        double halfW = HexRadius;
+        double halfH = Math.Sqrt(3) * HexRadius * 0.5;
 
-        if (maxX < viewport.Left || minX > viewport.Right ||
-            maxY < viewport.Top || minY > viewport.Bottom)
+        if (center.X + halfW < viewport.Left || center.X - halfW > viewport.Right ||
+            center.Y + halfH < viewport.Top || center.Y - halfH > viewport.Bottom)
             return;
 
         // Determine if hex is selected
@@ -785,24 +782,22 @@ public class HexMapView : Control
 
         var hex = mapHex.ToHex();
         var center = layout.HexToPixel(hex);
-        var corners = layout.PolygonCorners(hex);
 
-        // Viewport culling
-        double minX = corners.Min(c => c.X);
-        double maxX = corners.Max(c => c.X);
-        double minY = corners.Min(c => c.Y);
-        double maxY = corners.Max(c => c.Y);
+        // Viewport culling using flat-top hex bounding box (no PolygonCorners allocation)
+        double halfW = HexRadius;
+        double halfH = Math.Sqrt(3) * HexRadius * 0.5;
 
-        if (maxX < viewport.Left || minX > viewport.Right ||
-            maxY < viewport.Top || minY > viewport.Bottom)
+        if (center.X + halfW < viewport.Left || center.X - halfW > viewport.Right ||
+            center.Y + halfH < viewport.Top || center.Y - halfH > viewport.Bottom)
             return;
 
         var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
         using (context.PushTransform(translateMatrix))
         {
-            // Draw rivers (on hex edges)
+            // Draw rivers (on hex edges) — need actual corner positions for edge lines
             if (hasRivers)
             {
+                var corners = layout.PolygonCorners(hex);
                 for (int dir = 0; dir < 6; dir++)
                 {
                     if (mapHex.HasRiverOnEdge(dir))
