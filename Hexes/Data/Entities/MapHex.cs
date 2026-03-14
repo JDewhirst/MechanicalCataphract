@@ -24,10 +24,20 @@ public class MapHex
     public Faction? ControllingFaction { get; set; }
 
     // Roads - stored as comma-separated directions (0-5)
-    public string? RoadDirections { get; set; }
+    private string? _roadDirections;
+    public string? RoadDirections
+    {
+        get => _roadDirections;
+        set { _roadDirections = value; _roadDirectionSet = null; }
+    }
 
     // Rivers - stored as comma-separated edge directions (0-5)
-    public string? RiverEdges { get; set; }
+    private string? _riverEdges;
+    public string? RiverEdges
+    {
+        get => _riverEdges;
+        set { _riverEdges = value; _riverEdgeSet = null; }
+    }
 
     // Weather
     public int? WeatherId { get; set; }
@@ -56,17 +66,22 @@ public class MapHex
     // Helper to convert to Hex struct
     public Hex ToHex() => new Hex(Q, R, -Q - R);
 
-    // Helper to check if has road in direction
-    public bool HasRoadInDirection(int direction)
-    {
-        if (string.IsNullOrEmpty(RoadDirections)) return false;
-        return RoadDirections.Split(',').Contains(direction.ToString());
-    }
+    // Cached parsed direction sets — lazily built, invalidated when string properties change
+    private HashSet<int>? _roadDirectionSet;
+    private HashSet<int>? _riverEdgeSet;
 
-    // Helper to check if has river on edge
-    public bool HasRiverOnEdge(int edge)
+    public bool HasRoadInDirection(int direction) => GetRoadDirectionSet().Contains(direction);
+    public bool HasRiverOnEdge(int edge) => GetRiverEdgeSet().Contains(edge);
+
+    private HashSet<int> GetRoadDirectionSet() => _roadDirectionSet ??= ParseDirections(_roadDirections);
+    private HashSet<int> GetRiverEdgeSet() => _riverEdgeSet ??= ParseDirections(_riverEdges);
+
+    private static HashSet<int> ParseDirections(string? csv)
     {
-        if (string.IsNullOrEmpty(RiverEdges)) return false;
-        return RiverEdges.Split(',').Contains(edge.ToString());
+        if (string.IsNullOrEmpty(csv)) return new HashSet<int>();
+        var set = new HashSet<int>();
+        foreach (var part in csv.Split(','))
+            if (int.TryParse(part.Trim(), out var d)) set.Add(d);
+        return set;
     }
 }

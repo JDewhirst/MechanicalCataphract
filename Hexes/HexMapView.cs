@@ -225,12 +225,29 @@ public class HexMapView : Control
     public event EventHandler<Hex>? NewsDropRequested;
     private void OnForageSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
+        RebuildForageSelectedSet();
         InvalidateVisual();
     }
 
     private void OnPathSelectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         InvalidateVisual();
+    }
+
+    private void RebuildNewsReachedSet()
+    {
+        var list = NewsReachedHexes;
+        _newsReachedSet = list != null
+            ? new HashSet<(int, int)>(list.Select(h => (h.q, h.r)))
+            : null;
+    }
+
+    private void RebuildForageSelectedSet()
+    {
+        var list = ForageSelectedHexes;
+        _forageSelectedSet = list != null
+            ? new HashSet<(int, int)>(list.Select(h => (h.q, h.r)))
+            : null;
     }
     #endregion
 
@@ -254,6 +271,10 @@ public class HexMapView : Control
 
     // FormattedText cache — avoids expensive text layout per hex per frame
     private Dictionary<(string text, double fontSize), FormattedText> _formattedTextCache = new();
+
+    // HashSet caches for O(1) hex membership checks (rebuilt when source lists change)
+    private HashSet<(int q, int r)>? _newsReachedSet;
+    private HashSet<(int q, int r)>? _forageSelectedSet;
 
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
@@ -385,6 +406,7 @@ public class HexMapView : Control
             {
                 newCollection.CollectionChanged += view.OnForageSelectionChanged;
             }
+            view.RebuildForageSelectedSet();
             view.InvalidateVisual();
         });
         PathSelectionHexesProperty.Changed.AddClassHandler<HexMapView>((view, args) =>
@@ -401,7 +423,11 @@ public class HexMapView : Control
             }
             view.InvalidateVisual();
         });
-        NewsReachedHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
+        NewsReachedHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
+        {
+            view.RebuildNewsReachedSet();
+            view.InvalidateVisual();
+        });
     }
 
     public HexMapView()
@@ -697,12 +723,10 @@ public class HexMapView : Control
                           SelectedHex.Value.r == mapHex.R;
 
         // Determine if this hex is in the selected news item's reached set
-        bool isNewsReached = NewsReachedHexes != null &&
-            NewsReachedHexes.Any(eh => eh.q == mapHex.Q && eh.r == mapHex.R);
+        bool isNewsReached = _newsReachedSet?.Contains((mapHex.Q, mapHex.R)) ?? false;
 
         // Determine if we are currently using the Forage tool
-        bool isForageSelected = ForageSelectedHexes != null &&
-            ForageSelectedHexes.Any(fh => fh.q == mapHex.Q && fh.r == mapHex.R);
+        bool isForageSelected = _forageSelectedSet?.Contains((mapHex.Q, mapHex.R)) ?? false;
 
         // Layer rendering: terrain → overlay → selection
         var terrainFill = GetTerrainBrush(mapHex.TerrainTypeId);
