@@ -79,8 +79,8 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
 
         Assert.That(result.Success, Is.True);
         Assert.That(result.FormattedTime, Is.Not.Empty);
-        // Default calendar: "Year 1000, Dawnmarch 1, Firstday, 09:00"
-        Assert.That(result.FormattedTime, Does.StartWith("Year 1000"));
+        // Default calendar: "Year 1024, September 1, Monday, 09:00"
+        Assert.That(result.FormattedTime, Does.StartWith("Year 1024"));
     }
 
     [Test]

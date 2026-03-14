@@ -43,19 +43,19 @@ public class CalendarValidationTests
     }
 
     [Test]
-    public void HardcodedDefault_Has6Months_Each30Days()
+    public void HardcodedDefault_Has12Months_365Days()
     {
         var def = CalendarDefinitionService.CreateHardcodedDefault();
-        Assert.That(def.Months.Count, Is.EqualTo(6));
-        Assert.That(def.Months.All(m => m.Days == 30), Is.True);
+        Assert.That(def.Months.Count, Is.EqualTo(12));
+        Assert.That(def.Months.Sum(m => m.Days), Is.EqualTo(365));
     }
 
     [Test]
-    public void HardcodedDefault_EpochIsYearFirstDayFirstMonth()
+    public void HardcodedDefault_EpochIsSept1_1024()
     {
         var def = CalendarDefinitionService.CreateHardcodedDefault();
-        Assert.That(def.EpochYear, Is.EqualTo(1000));
-        Assert.That(def.EpochMonth, Is.EqualTo(1));
+        Assert.That(def.EpochYear, Is.EqualTo(1024));
+        Assert.That(def.EpochMonth, Is.EqualTo(9));
         Assert.That(def.EpochDay, Is.EqualTo(1));
         Assert.That(def.EpochWeekday, Is.EqualTo(0));
     }

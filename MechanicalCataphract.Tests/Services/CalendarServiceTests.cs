@@ -6,7 +6,7 @@ namespace MechanicalCataphract.Tests.Services;
 [TestFixture]
 public class CalendarServiceTests
 {
-    // Default calendar: H=24, W=7, months 6x30=180 days/year, epoch (1000, month1, day1, weekday0)
+    // Default calendar: H=24, W=7, 12 months=365 days/year, epoch (1024, month9=September, day1, weekday0=Monday)
     private static ICalendarService BuildDefault()
     {
         var def = CalendarDefinitionService.CreateHardcodedDefault();
@@ -55,13 +55,13 @@ public class CalendarServiceTests
         var svc = BuildDefault();
         var d = svc.GetDate(0);
 
-        Assert.That(d.Year, Is.EqualTo(1000));
-        Assert.That(d.MonthNumber, Is.EqualTo(1));
-        Assert.That(d.MonthName, Is.EqualTo("Dawnmarch"));
+        Assert.That(d.Year, Is.EqualTo(1024));
+        Assert.That(d.MonthNumber, Is.EqualTo(9));
+        Assert.That(d.MonthName, Is.EqualTo("September"));
         Assert.That(d.DayOfMonth, Is.EqualTo(1));
-        Assert.That(d.DayOfYear, Is.EqualTo(1));
+        Assert.That(d.DayOfYear, Is.EqualTo(244));
         Assert.That(d.WeekdayIndex, Is.EqualTo(0));
-        Assert.That(d.WeekdayName, Is.EqualTo("Firstday"));
+        Assert.That(d.WeekdayName, Is.EqualTo("Monday"));
         Assert.That(d.HourOfDay, Is.EqualTo(0));
         Assert.That(d.AbsoluteDayIndex, Is.EqualTo(0));
     }
@@ -70,7 +70,7 @@ public class CalendarServiceTests
     public void FormatDateTime_WorldHour0_ReturnsExpectedString()
     {
         var svc = BuildDefault();
-        Assert.That(svc.FormatDateTime(0), Is.EqualTo("Year 1000, Dawnmarch 1, Firstday, 00:00"));
+        Assert.That(svc.FormatDateTime(0), Is.EqualTo("Year 1024, September 1, Monday, 00:00"));
     }
 
     // ── Hour-of-day rollover ─────────────────────────────────────────────────
@@ -119,11 +119,11 @@ public class CalendarServiceTests
     [Test]
     public void Month_RolloversCorrectly()
     {
-        var svc = BuildDefault(); // 6 months x 30 days
-        // Day 30 (0-indexed) = first day of month 2
+        var svc = BuildDefault(); // epoch = Sept 1, September has 30 days
+        // Day 30 from epoch = first day of October
         var d = svc.GetDate(30L * 24);
-        Assert.That(d.MonthNumber, Is.EqualTo(2));
-        Assert.That(d.MonthName, Is.EqualTo("Rainfall"));
+        Assert.That(d.MonthNumber, Is.EqualTo(10));
+        Assert.That(d.MonthName, Is.EqualTo("October"));
         Assert.That(d.DayOfMonth, Is.EqualTo(1));
     }
 
@@ -131,19 +131,20 @@ public class CalendarServiceTests
     public void Month_LastDayOfMonth1_Correct()
     {
         var svc = BuildDefault();
-        var d = svc.GetDate(29L * 24); // day index 29 = last day of Dawnmarch
-        Assert.That(d.MonthNumber, Is.EqualTo(1));
+        var d = svc.GetDate(29L * 24); // day index 29 = last day of September (30 days)
+        Assert.That(d.MonthNumber, Is.EqualTo(9));
         Assert.That(d.DayOfMonth, Is.EqualTo(30));
     }
 
     // ── Year rollover ────────────────────────────────────────────────────────
 
     [Test]
-    public void Year_RolloversAfter180Days()
+    public void Year_RolloversAfterFullYear()
     {
-        var svc = BuildDefault(); // 180 days/year
-        var d = svc.GetDate(180L * 24);
-        Assert.That(d.Year, Is.EqualTo(1001));
+        var svc = BuildDefault(); // 365 days/year, epoch = Sept 1
+        // 122 days from Sept 1 = Jan 1, 1025
+        var d = svc.GetDate(122L * 24);
+        Assert.That(d.Year, Is.EqualTo(1025));
         Assert.That(d.MonthNumber, Is.EqualTo(1));
         Assert.That(d.DayOfMonth, Is.EqualTo(1));
     }
@@ -152,10 +153,11 @@ public class CalendarServiceTests
     public void Year_LastDayOfYear_Correct()
     {
         var svc = BuildDefault();
-        var d = svc.GetDate(179L * 24);
-        Assert.That(d.Year, Is.EqualTo(1000));
-        Assert.That(d.MonthNumber, Is.EqualTo(6));
-        Assert.That(d.DayOfMonth, Is.EqualTo(30));
+        // 121 days from Sept 1 = Dec 31, 1024
+        var d = svc.GetDate(121L * 24);
+        Assert.That(d.Year, Is.EqualTo(1024));
+        Assert.That(d.MonthNumber, Is.EqualTo(12));
+        Assert.That(d.DayOfMonth, Is.EqualTo(31));
     }
 
     // ── Uneven month lengths ─────────────────────────────────────────────────

@@ -136,16 +136,18 @@ public class CalendarDefinitionService : ICalendarDefinitionService
     }
 
     public static CalendarDefinition CreateHardcodedDefault() => new(
-        Name: "Imperial Reckoning",
+        Name: "Gregorian",
         HoursPerDay: 24,
-        WeekdayNames: new List<string> { "Firstday", "Secondday", "Thirdday", "Fourthday", "Fifthday", "Sixthday", "Seventhday" },
+        WeekdayNames: new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" },
         Months: new List<CalendarMonthDefinition>
         {
-            new("Dawnmarch", 30), new("Rainfall", 30), new("Highsun", 30),
-            new("Harvest", 30), new("Frostwane", 30), new("Yearsend", 30)
+            new("January", 31), new("February", 28), new("March", 31),
+            new("April", 30), new("May", 31), new("June", 30),
+            new("July", 31), new("August", 31), new("September", 30),
+            new("October", 31), new("November", 30), new("December", 31)
         },
-        EpochYear: 1000,
-        EpochMonth: 1,
+        EpochYear: 1024,
+        EpochMonth: 9,
         EpochDay: 1,
         EpochWeekday: 0);
 
