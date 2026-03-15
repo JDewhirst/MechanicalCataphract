@@ -983,11 +983,11 @@ public partial class HexMapViewModel : ObservableObject
         await RefreshHexInCollection(startHex);
         await RefreshHexInCollection(clickedHex);
 
-        // Advance chain: new start is the hex just painted to
-        RiverStartHex = clickedHex;
+        // Reset — require two fresh clicks for each segment
+        RiverStartHex = null;
         StatusMessage = hasRiver
-            ? $"Removed river. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel"
-            : $"Added river. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel";
+            ? "Removed river. Click first hex for next segment"
+            : "Added river. Click first hex for next segment";
     }
 
     [RelayCommand]
