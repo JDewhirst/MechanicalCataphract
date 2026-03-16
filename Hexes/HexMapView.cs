@@ -276,6 +276,10 @@ public class HexMapView : Control
     private HashSet<(int q, int r)>? _newsReachedSet;
     private HashSet<(int q, int r)>? _forageSelectedSet;
 
+    // Spatial lookup for O(1) hex access by coordinate
+    private Dictionary<(int q, int r), MapHex>? _hexLookup;
+
+
     private static readonly Pen StrokePen = new Pen(Brushes.Black, 1);
     private static readonly Pen RoadPen = new Pen(new SolidColorBrush(Color.Parse("#8B4513")), 3);
     private static readonly Pen RiverPen = new Pen(new SolidColorBrush(Color.Parse("#4169E1")), 4);
@@ -363,6 +367,7 @@ public class HexMapView : Control
         SelectedHexProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         VisibleHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
         {
+            view._hexLookup = view.VisibleHexes?.ToDictionary(h => (h.Q, h.R));
             view.RebuildFactionColorCache();
             view.RebuildWeatherIconCache(view.VisibleHexes);
             view.InvalidateVisual();
@@ -651,6 +656,34 @@ public class HexMapView : Control
 
     #region Rendering
 
+    private List<MapHex> GetViewportHexes(Layout layout, Rect viewport)
+    {
+        if (_hexLookup == null || _hexLookup.Count == 0)
+            return new List<MapHex>();
+
+        // Convert viewport corners to hex coordinates
+        var topLeft = layout.PixelToHexRounded(new AvaloniaPoint(viewport.Left, viewport.Top));
+        var topRight = layout.PixelToHexRounded(new AvaloniaPoint(viewport.Right, viewport.Top));
+        var bottomLeft = layout.PixelToHexRounded(new AvaloniaPoint(viewport.Left, viewport.Bottom));
+        var bottomRight = layout.PixelToHexRounded(new AvaloniaPoint(viewport.Right, viewport.Bottom));
+
+        int minQ = Math.Min(Math.Min(topLeft.q, topRight.q), Math.Min(bottomLeft.q, bottomRight.q)) - 2;
+        int maxQ = Math.Max(Math.Max(topLeft.q, topRight.q), Math.Max(bottomLeft.q, bottomRight.q)) + 2;
+        int minR = Math.Min(Math.Min(topLeft.r, topRight.r), Math.Min(bottomLeft.r, bottomRight.r)) - 2;
+        int maxR = Math.Max(Math.Max(topLeft.r, topRight.r), Math.Max(bottomLeft.r, bottomRight.r)) + 2;
+
+        var result = new List<MapHex>((maxQ - minQ + 1) * (maxR - minR + 1));
+        for (int q = minQ; q <= maxQ; q++)
+        {
+            for (int r = minR; r <= maxR; r++)
+            {
+                if (_hexLookup.TryGetValue((q, r), out var hex))
+                    result.Add(hex);
+            }
+        }
+        return result;
+    }
+
     public override void Render(DrawingContext context)
     {
         var layout = GetLayout();
@@ -666,8 +699,8 @@ public class HexMapView : Control
             _formattedTextCache.Clear();
         }
 
-        var hexes = VisibleHexes;
-        if (hexes == null || hexes.Count == 0 || _cachedHexGeometry == null)
+        var hexes = GetViewportHexes(layout, viewport);
+        if (hexes.Count == 0 || _cachedHexGeometry == null)
             return;
 
         bool showLabels = HexRadius >= 15.0;
@@ -677,7 +710,7 @@ public class HexMapView : Control
             // Pass 1: Draw hex backgrounds (terrain, icons, overlays, selections)
             foreach (var mapHex in hexes)
             {
-                DrawHex(context, layout, mapHex, viewport);
+                DrawHex(context, layout, mapHex);
             }
 
             // Pass 1b: Coordinate labels (separate pass, zoom-gated)
@@ -685,7 +718,7 @@ public class HexMapView : Control
             {
                 foreach (var mapHex in hexes)
                 {
-                    DrawHexLabel(context, layout, mapHex, viewport);
+                    DrawHexLabel(context, layout, mapHex);
                 }
             }
 
@@ -693,13 +726,13 @@ public class HexMapView : Control
             // consistently across hex boundaries (no road partially behind an adjacent hex)
             foreach (var mapHex in hexes)
             {
-                DrawRoadsAndRivers(context, layout, mapHex, viewport);
+                DrawRoadsAndRivers(context, layout, mapHex);
             }
 
             // Pass 3: Draw location icons on top of roads/rivers
             foreach (var mapHex in hexes)
             {
-                DrawLocationIcons(context, layout, mapHex, viewport);
+                DrawLocationIcons(context, layout, mapHex);
             }
 
             // Pass 4: Render entity markers and paths on top
@@ -714,42 +747,27 @@ public class HexMapView : Control
         }
     }
 
-    private void DrawHex(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
+    private void DrawHex(DrawingContext context, Layout layout, MapHex mapHex)
     {
         var hex = mapHex.ToHex();
         var center = layout.HexToPixel(hex);
-
-        // Viewport culling using flat-top hex bounding box (no PolygonCorners allocation)
-        double halfW = HexRadius;
-        double halfH = Math.Sqrt(3) * HexRadius * 0.5;
-
-        if (center.X + halfW < viewport.Left || center.X - halfW > viewport.Right ||
-            center.Y + halfH < viewport.Top || center.Y - halfH > viewport.Bottom)
-            return;
 
         // Determine if hex is selected
         bool isSelected = SelectedHex.HasValue &&
                           SelectedHex.Value.q == mapHex.Q &&
                           SelectedHex.Value.r == mapHex.R;
 
-        // Determine if this hex is in the selected news item's reached set
         bool isNewsReached = _newsReachedSet?.Contains((mapHex.Q, mapHex.R)) ?? false;
-
-        // Determine if we are currently using the Forage tool
         bool isForageSelected = _forageSelectedSet?.Contains((mapHex.Q, mapHex.R)) ?? false;
 
-        // Layer rendering: terrain → overlay → selection
         var terrainFill = GetTerrainBrush(mapHex.TerrainTypeId);
         var overlayBrush = GetOverlayBrushWithAlpha(mapHex);
 
-        // Draw hex geometry with layered fills
         var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
         using (context.PushTransform(translateMatrix))
         {
-            // 1. Draw terrain base layer (always)
-            context.DrawGeometry(terrainFill, StrokePen, _cachedHexGeometry!);
+            context.DrawGeometry(terrainFill, HexRadius >= 15.0 ? StrokePen : null, _cachedHexGeometry!);
 
-            // 2. Draw terrain icon on top of base color (if available)
             if (mapHex.TerrainTypeId.HasValue &&
                 _terrainIconCache.TryGetValue(mapHex.TerrainTypeId.Value, out var iconData) &&
                 iconData.bitmap != null)
@@ -757,14 +775,12 @@ public class HexMapView : Control
                 DrawTerrainIcon(context, iconData.bitmap, iconData.scaleFactor);
             }
 
-            // 3. Draw scrim + overlay on top (if not "None")
             if (overlayBrush != null)
             {
                 context.DrawGeometry(ScrimBrush, null, _cachedHexGeometry!);
                 context.DrawGeometry(overlayBrush, null, _cachedHexGeometry!);
             }
 
-            // 3b. Draw weather SVG icon when in Weather overlay mode
             if (SelectedOverlay == "Weather" && mapHex.WeatherId.HasValue
                 && _weatherIconCache.TryGetValue(mapHex.WeatherId.Value, out var weatherIcon)
                 && weatherIcon != null)
@@ -775,41 +791,21 @@ public class HexMapView : Control
                 context.DrawImage(weatherIcon, destRect);
             }
 
-            // 4. Draw selection highlight (if selected)
-            if (isSelected)
-            {
+            if (isSelected || isForageSelected)
                 context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
-            }
 
-            // 4. Draw forage selection highlight
-            if (isForageSelected)
-            {
-                context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
-            }
-
-            // 5. Draw news reached overlay (amber semi-transparent)
             if (isNewsReached)
-            {
                 context.DrawGeometry(NewsReachedBrush, null, _cachedHexGeometry!);
-            }
         }
-
     }
 
-    private void DrawHexLabel(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
+    private void DrawHexLabel(DrawingContext context, Layout layout, MapHex mapHex)
     {
         var hex = mapHex.ToHex();
         var center = layout.HexToPixel(hex);
 
-        double halfW = HexRadius;
-        double halfH = Math.Sqrt(3) * HexRadius * 0.5;
-
-        if (center.X + halfW < viewport.Left || center.X - halfW > viewport.Right ||
-            center.Y + halfH < viewport.Top || center.Y - halfH > viewport.Bottom)
-            return;
-
         var rowcolcoord = OffsetCoord.QoffsetFromCube(OffsetCoord.ODD, hex);
-        double hexHeight = halfH * 2;
+        double hexHeight = Math.Sqrt(3) * HexRadius;
         double fontSize = Math.Max(6.0, HexRadius * 0.4);
         var label = $"{rowcolcoord.col},{rowcolcoord.row}";
         var text = GetOrCreateFormattedText(label, fontSize, Brushes.Black);
@@ -826,7 +822,7 @@ public class HexMapView : Control
     /// Draws roads and rivers for a single hex in a separate rendering pass.
     /// This ensures all roads/rivers layer consistently on top of all hex backgrounds.
     /// </summary>
-    private void DrawRoadsAndRivers(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
+    private void DrawRoadsAndRivers(DrawingContext context, Layout layout, MapHex mapHex)
     {
         bool hasRivers = !string.IsNullOrEmpty(mapHex.RiverEdges);
         bool hasRoads = !string.IsNullOrEmpty(mapHex.RoadDirections);
@@ -834,14 +830,6 @@ public class HexMapView : Control
 
         var hex = mapHex.ToHex();
         var center = layout.HexToPixel(hex);
-
-        // Viewport culling using flat-top hex bounding box (no PolygonCorners allocation)
-        double halfW = HexRadius;
-        double halfH = Math.Sqrt(3) * HexRadius * 0.5;
-
-        if (center.X + halfW < viewport.Left || center.X - halfW > viewport.Right ||
-            center.Y + halfH < viewport.Top || center.Y - halfH > viewport.Bottom)
-            return;
 
         var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
         using (context.PushTransform(translateMatrix))
@@ -885,7 +873,7 @@ public class HexMapView : Control
     /// Draws the location icon for a single hex in a separate rendering pass.
     /// This ensures location icons render on top of roads/rivers.
     /// </summary>
-    private void DrawLocationIcons(DrawingContext context, Layout layout, MapHex mapHex, Rect viewport)
+    private void DrawLocationIcons(DrawingContext context, Layout layout, MapHex mapHex)
     {
         if (!mapHex.LocationTypeId.HasValue) return;
         if (!_locationIconCache.TryGetValue(mapHex.LocationTypeId.Value, out var locIconData)) return;
@@ -893,12 +881,6 @@ public class HexMapView : Control
 
         var hex = mapHex.ToHex();
         var center = layout.HexToPixel(hex);
-
-        // Viewport culling
-        double margin = HexRadius;
-        if (center.X < viewport.Left - margin || center.X > viewport.Right + margin ||
-            center.Y < viewport.Top - margin || center.Y > viewport.Bottom + margin)
-            return;
 
         var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
         using (context.PushTransform(translateMatrix))
