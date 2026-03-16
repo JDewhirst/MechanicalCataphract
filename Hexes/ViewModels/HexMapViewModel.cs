@@ -1031,6 +1031,10 @@ public partial class HexMapViewModel : ObservableObject
                     mapHex.LocationName = null;
                     mapHex.LocationFactionId = null;
                     VisibleHexes[i] = mapHex;
+                    if (SelectedHex.HasValue && SelectedHex.Value.q == args.hex.q && SelectedHex.Value.r == args.hex.r)
+                    {
+                        SelectedMapHex = mapHex;
+                    }
                     break;
                 }
             }
@@ -1049,6 +1053,10 @@ public partial class HexMapViewModel : ObservableObject
                 mapHex.LocationType = locType;
                 mapHex.LocationName = args.locationName;
                 VisibleHexes[i] = mapHex;
+                if (SelectedHex.HasValue && SelectedHex.Value.q == args.hex.q && SelectedHex.Value.r == args.hex.r)
+                {
+                    SelectedMapHex = mapHex;
+                }
                 break;
             }
         }
@@ -1491,7 +1499,19 @@ public partial class HexMapViewModel : ObservableObject
             hexWithDetails.Weather = WeatherTypes.FirstOrDefault(w => w.Id == hexWithDetails.WeatherId);
 
             var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions, LocationTypes, WeatherTypes);
-            hexVm.Saved += () => SyncEntityInCollection(() => VisibleHexes, c => VisibleHexes = c, null, hexVm.Entity);
+            hexVm.Saved += () =>
+            {
+                var entity = hexVm.Entity;
+                for (int i = 0; i < VisibleHexes.Count; i++)
+                {
+                    if (VisibleHexes[i].Q == entity.Q && VisibleHexes[i].R == entity.R)
+                    {
+                        VisibleHexes[i] = entity;
+                        break;
+                    }
+                }
+                SyncEntityInCollection(() => VisibleHexes, c => VisibleHexes = c, null, entity);
+            };
 
             SelectedEntityViewModel = hexVm;
             StatusMessage = $"Selected hex: {hexWithDetails.Q}, {hexWithDetails.R}";
