@@ -113,6 +113,54 @@
                     </StackPanel>
                 </Border>
 
+                <Separator/>
+                <!-- Muster Controls Panel -->
+                <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
+                    Margin="0,10,0,0">
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Muster" FontWeight="Bold" FontSize="12"/>
+                        <!-- Faction dropdown -->
+                        <ComboBox ItemsSource="{Binding HexMapViewModel.Factions}"
+                                  SelectedItem="{Binding HexMapViewModel.MusterSelectedFaction}"
+                                  IsEnabled="{Binding !HexMapViewModel.IsMusterModeActive}"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <!-- Option toggles -->
+                        <CheckBox Content="Include Cavalry (25%)"
+                                  IsChecked="{Binding HexMapViewModel.MusterIncludeCavalry}"
+                                  IsEnabled="{Binding !HexMapViewModel.IsMusterModeActive}"/>
+                        <CheckBox Content="Include Wagons (5%)"
+                                  IsChecked="{Binding HexMapViewModel.MusterIncludeWagons}"
+                                  IsEnabled="{Binding !HexMapViewModel.IsMusterModeActive}"/>
+                        <!-- Start button -->
+                        <Button Content="Start Muster (use selected hex)"
+                                Command="{Binding HexMapViewModel.StartMusterModeCommand}"
+                                IsVisible="{Binding !HexMapViewModel.IsMusterModeActive}"
+                                HorizontalAlignment="Stretch"/>
+                        <!-- Confirm/Cancel -->
+                        <StackPanel Orientation="Horizontal" Spacing="5"
+                                    IsVisible="{Binding HexMapViewModel.IsMusterModeActive}">
+                            <Button Content="Confirm"
+                                    Command="{Binding HexMapViewModel.ConfirmMusterCommand}"
+                                    Background="Green" Foreground="White"/>
+                            <Button Content="Cancel"
+                                    Command="{Binding HexMapViewModel.CancelMusterModeCommand}"/>
+                        </StackPanel>
+                        <!-- Selected count + preview -->
+                        <TextBlock Text="{Binding HexMapViewModel.MusterSelectedCount, StringFormat='{}{0} hex(es) selected'}"
+                                   IsVisible="{Binding HexMapViewModel.IsMusterModeActive}"
+                                   FontStyle="Italic"/>
+                        <TextBlock Text="{Binding HexMapViewModel.MusterPreviewText}"
+                                   IsVisible="{Binding HexMapViewModel.IsMusterModeActive}"
+                                   FontSize="11"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Game Time Control -->
                 <TextBlock Text="Game Time:"/>
                 <TextBlock Text="{Binding HexMapViewModel.CurrentCalendarDateText}"/>
@@ -166,6 +214,7 @@
                           SelectedCommander="{Binding HexMapViewModel.SelectedCommander}"
                           SelectedMessage="{Binding HexMapViewModel.SelectedMessage}"
                           ForageSelectedHexes="{Binding HexMapViewModel.ForageSelectedHexes}"
+                          MusterSelectedHexes="{Binding HexMapViewModel.MusterSelectedHexes}"
                           PathSelectionHexes="{Binding HexMapViewModel.PathSelectionHexes}"
                           NewsReachedHexes="{Binding HexMapViewModel.NewsReachedHexes}"
                           Navies="{Binding HexMapViewModel.Navies}"

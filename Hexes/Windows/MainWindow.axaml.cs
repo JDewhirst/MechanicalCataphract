@@ -22,6 +22,13 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // Check if we're in muster selection mode
+            if (viewModel.HexMapViewModel.IsMusterModeActive)
+            {
+                viewModel.HexMapViewModel.ToggleMusterHexSelection(hex);
+                return;
+            }
+
             // Check if we're in forage selection mode
             if (viewModel.HexMapViewModel.IsForageModeActive)
             {
@@ -35,6 +42,12 @@ public partial class MainWindow : Window
             viewModel.HexMapViewModel.SelectedOrder = null;
             viewModel.HexMapViewModel.SelectedMessage = null;
             viewModel.HexMapViewModel.SelectHexCommand.Execute(hex);
+        };
+
+        // Wire muster drag-painting (add-only, no toggle)
+        HexMapView.MusterHexDragged += (s, hex) =>
+        {
+            viewModel.HexMapViewModel.AddMusterHexSelection(hex);
         };
 
         HexMapView.ArmyClicked += (s, army) =>

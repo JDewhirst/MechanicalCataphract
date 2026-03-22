@@ -109,6 +109,33 @@ public partial class HexMapViewModel : ObservableObject
     private ObservableCollection<Hex> _forageSelectedHexes = new();
     public int ForageSelectedCount => ForageSelectedHexes.Count;
 
+    // Properties for muster mode
+    [ObservableProperty]
+    private bool _isMusterModeActive;
+
+    [ObservableProperty]
+    private Hex? _musterDestinationHex;
+
+    [ObservableProperty]
+    private Faction? _musterSelectedFaction;
+
+    [ObservableProperty]
+    private bool _musterIncludeCavalry;
+
+    [ObservableProperty]
+    private bool _musterIncludeWagons;
+
+    [ObservableProperty]
+    private ObservableCollection<Hex> _musterSelectedHexes = new();
+    public int MusterSelectedCount => MusterSelectedHexes.Count;
+
+    private string _musterPreviewText = "";
+    public string MusterPreviewText
+    {
+        get => _musterPreviewText;
+        private set => SetProperty(ref _musterPreviewText, value);
+    }
+
     // Properties for path selection mode
     [ObservableProperty]
     private bool _isPathSelectionModeActive;
@@ -1850,6 +1877,205 @@ public partial class HexMapViewModel : ObservableObject
         await LoadVisibleHexesAsync();
 
         StatusMessage = $"Foraged {hexCount} hexes for {armyName}, gained {supplyGained} supply";
+    }
+
+    #endregion
+
+    #region Muster Commands
+
+    [RelayCommand]
+    private void StartMusterMode()
+    {
+        if (SelectedHex == null)
+        {
+            StatusMessage = "Select a destination hex first";
+            return;
+        }
+        if (MusterSelectedFaction == null)
+        {
+            StatusMessage = "Select a faction first";
+            return;
+        }
+        if (IsForageModeActive || IsPathSelectionModeActive)
+        {
+            StatusMessage = "Finish or cancel the current mode first";
+            return;
+        }
+
+        MusterDestinationHex = SelectedHex;
+        MusterSelectedHexes.Clear();
+        IsMusterModeActive = true;
+        CurrentTool = "MusterSelect";
+        UpdateMusterPreview();
+        StatusMessage = $"Muster Mode: Click/drag hexes to select levy sources. Destination: ({MusterDestinationHex.Value.q}, {MusterDestinationHex.Value.r})";
+    }
+
+    [RelayCommand]
+    private void CancelMusterMode()
+    {
+        MusterSelectedHexes.Clear();
+        IsMusterModeActive = false;
+        MusterDestinationHex = null;
+        CurrentTool = "Pan";
+        MusterPreviewText = "";
+        StatusMessage = "Muster cancelled";
+    }
+
+    public void ToggleMusterHexSelection(Hex hex)
+    {
+        // Filter out water hexes
+        var mapHex = VisibleHexes.FirstOrDefault(h => h.Q == hex.q && h.R == hex.r);
+        if (mapHex?.TerrainType?.IsWater == true) return;
+
+        if (MusterSelectedHexes.Contains(hex))
+            MusterSelectedHexes.Remove(hex);
+        else
+            MusterSelectedHexes.Add(hex);
+
+        OnPropertyChanged(nameof(MusterSelectedCount));
+        UpdateMusterPreview();
+        StatusMessage = $"Muster Mode: {MusterSelectedHexes.Count} hex(es) selected";
+    }
+
+    public void AddMusterHexSelection(Hex hex)
+    {
+        // Add-only variant for drag painting — does not toggle off
+        var mapHex = VisibleHexes.FirstOrDefault(h => h.Q == hex.q && h.R == hex.r);
+        if (mapHex?.TerrainType?.IsWater == true) return;
+        if (MusterSelectedHexes.Contains(hex)) return;
+
+        MusterSelectedHexes.Add(hex);
+        OnPropertyChanged(nameof(MusterSelectedCount));
+        UpdateMusterPreview();
+        StatusMessage = $"Muster Mode: {MusterSelectedHexes.Count} hex(es) selected";
+    }
+
+    private void UpdateMusterPreview()
+    {
+        int totalInfantry = 0;
+        int totalCavalry = 0;
+        int totalWagons = 0;
+
+        foreach (var hex in MusterSelectedHexes)
+        {
+            var mapHex = VisibleHexes.FirstOrDefault(h => h.Q == hex.q && h.R == hex.r);
+            if (mapHex == null) continue;
+            int pop = mapHex.PopulationDensity;
+            totalInfantry += pop;
+            if (MusterIncludeCavalry) totalCavalry += (int)(pop * 0.25);
+            if (MusterIncludeWagons) totalWagons += (int)(pop * 0.05);
+        }
+
+        var parts = new List<string> { $"Inf: {totalInfantry}" };
+        if (MusterIncludeCavalry) parts.Add($"Cav: {totalCavalry}");
+        if (MusterIncludeWagons) parts.Add($"Wag: {totalWagons}");
+        MusterPreviewText = string.Join(" | ", parts);
+    }
+
+    [RelayCommand]
+    private async Task ConfirmMusterAsync()
+    {
+        if (MusterDestinationHex == null || MusterSelectedFaction == null || MusterSelectedHexes.Count == 0)
+        {
+            StatusMessage = "No hexes selected for muster";
+            return;
+        }
+
+        // Calculate totals from selected hexes
+        int totalInfantry = 0;
+        int totalCavalry = 0;
+        int totalWagons = 0;
+
+        foreach (var hex in MusterSelectedHexes)
+        {
+            var mapHex = VisibleHexes.FirstOrDefault(h => h.Q == hex.q && h.R == hex.r);
+            if (mapHex == null) continue;
+            int pop = mapHex.PopulationDensity;
+            totalInfantry += pop;
+            if (MusterIncludeCavalry) totalCavalry += (int)(pop * 0.25);
+            if (MusterIncludeWagons) totalWagons += (int)(pop * 0.05);
+        }
+
+        if (totalInfantry == 0 && totalCavalry == 0)
+        {
+            StatusMessage = "Selected hexes have no population to muster";
+            MusterSelectedHexes.Clear();
+            IsMusterModeActive = false;
+            CurrentTool = "Pan";
+            MusterPreviewText = "";
+            return;
+        }
+
+        var dest = MusterDestinationHex.Value;
+
+        // Create the army
+        var army = new Army
+        {
+            Name = $"Mustered Army",
+            CoordinateQ = dest.q,
+            CoordinateR = dest.r,
+            FactionId = MusterSelectedFaction.Id,
+            Morale = 9,
+            Wagons = totalWagons,
+            CarriedSupply = 0
+        };
+        var created = await _armyService.CreateAsync(army);
+
+        // Create infantry brigades (max 1000 per brigade)
+        int brigadeNum = 1;
+        int remaining = totalInfantry;
+        while (remaining > 0)
+        {
+            int count = Math.Min(remaining, 1000);
+            await _armyService.AddBrigadeAsync(new Brigade
+            {
+                ArmyId = created.Id,
+                Name = $"Infantry {brigadeNum}",
+                UnitType = UnitType.Infantry,
+                Number = count,
+                FactionId = MusterSelectedFaction.Id
+            });
+            remaining -= count;
+            brigadeNum++;
+        }
+
+        // Create cavalry brigades (max 250 per brigade)
+        if (MusterIncludeCavalry && totalCavalry > 0)
+        {
+            int cavBrigadeNum = 1;
+            remaining = totalCavalry;
+            while (remaining > 0)
+            {
+                int count = Math.Min(remaining, 250);
+                await _armyService.AddBrigadeAsync(new Brigade
+                {
+                    ArmyId = created.Id,
+                    Name = $"Cavalry {cavBrigadeNum}",
+                    UnitType = UnitType.Cavalry,
+                    Number = count,
+                    FactionId = MusterSelectedFaction.Id
+                });
+                remaining -= count;
+                cavBrigadeNum++;
+            }
+        }
+
+        var hexCount = MusterSelectedHexes.Count;
+
+        // Exit muster mode
+        MusterSelectedHexes.Clear();
+        IsMusterModeActive = false;
+        MusterDestinationHex = null;
+        CurrentTool = "Pan";
+        MusterPreviewText = "";
+
+        // Refresh entities
+        await LoadAllEntitiesAsync();
+
+        var summary = $"Mustered army at ({dest.q},{dest.r}) from {hexCount} hexes: {totalInfantry} infantry";
+        if (totalCavalry > 0) summary += $", {totalCavalry} cavalry";
+        if (totalWagons > 0) summary += $", {totalWagons} wagons";
+        StatusMessage = summary;
     }
 
     #endregion

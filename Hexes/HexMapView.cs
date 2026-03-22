@@ -138,6 +138,15 @@ public class HexMapView : Control
         set => SetValue(ForageSelectedHexesProperty, value);
     }
 
+    public static readonly StyledProperty<IList<Hex>?> MusterSelectedHexesProperty =
+        AvaloniaProperty.Register<HexMapView, IList<Hex>?>(nameof(MusterSelectedHexes));
+
+    public IList<Hex>? MusterSelectedHexes
+    {
+        get => GetValue(MusterSelectedHexesProperty);
+        set => SetValue(MusterSelectedHexesProperty, value);
+    }
+
     public static readonly StyledProperty<IList<Hex>?> PathSelectionHexesProperty =
         AvaloniaProperty.Register<HexMapView, IList<Hex>?>(nameof(PathSelectionHexes));
 
@@ -223,6 +232,14 @@ public class HexMapView : Control
     public event EventHandler<Hex>? FactionControlPainted;
     public event EventHandler<Hex>? WeatherPainted;
     public event EventHandler<Hex>? NewsDropRequested;
+    public event EventHandler<Hex>? MusterHexDragged;
+
+    private void OnMusterSelectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebuildMusterSelectedSet();
+        InvalidateVisual();
+    }
+
     private void OnForageSelectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         RebuildForageSelectedSet();
@@ -246,6 +263,14 @@ public class HexMapView : Control
     {
         var list = ForageSelectedHexes;
         _forageSelectedSet = list != null
+            ? new HashSet<(int, int)>(list.Select(h => (h.q, h.r)))
+            : null;
+    }
+
+    private void RebuildMusterSelectedSet()
+    {
+        var list = MusterSelectedHexes;
+        _musterSelectedSet = list != null
             ? new HashSet<(int, int)>(list.Select(h => (h.q, h.r)))
             : null;
     }
@@ -275,6 +300,7 @@ public class HexMapView : Control
     // HashSet caches for O(1) hex membership checks (rebuilt when source lists change)
     private HashSet<(int q, int r)>? _newsReachedSet;
     private HashSet<(int q, int r)>? _forageSelectedSet;
+    private HashSet<(int q, int r)>? _musterSelectedSet;
 
     // Spatial lookup for O(1) hex access by coordinate
     private Dictionary<(int q, int r), MapHex>? _hexLookup;
@@ -307,6 +333,10 @@ public class HexMapView : Control
     private bool _isDragging;
     private AvaloniaPoint _lastPointerPosition;
     private Vector _dragDelta;
+
+    // Muster paint-drag state
+    private bool _isMusterPainting;
+    private Hex? _lastMusterDragHex;
 
     #endregion
 
@@ -412,6 +442,19 @@ public class HexMapView : Control
                 newCollection.CollectionChanged += view.OnForageSelectionChanged;
             }
             view.RebuildForageSelectedSet();
+            view.InvalidateVisual();
+        });
+        MusterSelectedHexesProperty.Changed.AddClassHandler<HexMapView>((view, args) =>
+        {
+            if (args.OldValue is System.Collections.Specialized.INotifyCollectionChanged oldCollection)
+            {
+                oldCollection.CollectionChanged -= view.OnMusterSelectionChanged;
+            }
+            if (args.NewValue is System.Collections.Specialized.INotifyCollectionChanged newCollection)
+            {
+                newCollection.CollectionChanged += view.OnMusterSelectionChanged;
+            }
+            view.RebuildMusterSelectedSet();
             view.InvalidateVisual();
         });
         PathSelectionHexesProperty.Changed.AddClassHandler<HexMapView>((view, args) =>
@@ -532,6 +575,11 @@ public class HexMapView : Control
                 case "ForageSelect":
                     HexClicked?.Invoke(this, hex);
                     return;
+                case "MusterSelect":
+                    HexClicked?.Invoke(this, hex);
+                    _isMusterPainting = true;
+                    _lastMusterDragHex = hex;
+                    return;
                 case "NewsDrop":
                     NewsDropRequested?.Invoke(this, hex);
                     return;
@@ -634,6 +682,20 @@ public class HexMapView : Control
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
+        // Handle muster paint-drag: add hexes as pointer moves
+        if (_isMusterPainting)
+        {
+            var pos = e.GetPosition(this);
+            var layout = GetLayout();
+            var hex = layout.PixelToHexRounded(pos);
+            if (_lastMusterDragHex == null || hex.q != _lastMusterDragHex.Value.q || hex.r != _lastMusterDragHex.Value.r)
+            {
+                _lastMusterDragHex = hex;
+                MusterHexDragged?.Invoke(this, hex);
+            }
+            return;
+        }
+
         if (!_isDragging) return;
 
         var currentPosition = e.GetPosition(this);
@@ -644,6 +706,12 @@ public class HexMapView : Control
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (_isMusterPainting)
+        {
+            _isMusterPainting = false;
+            _lastMusterDragHex = null;
+        }
+
         if (_isDragging && _dragDelta != Vector.Zero)
         {
             PanCompleted?.Invoke(this, _dragDelta);
@@ -759,6 +827,7 @@ public class HexMapView : Control
 
         bool isNewsReached = _newsReachedSet?.Contains((mapHex.Q, mapHex.R)) ?? false;
         bool isForageSelected = _forageSelectedSet?.Contains((mapHex.Q, mapHex.R)) ?? false;
+        bool isMusterSelected = _musterSelectedSet?.Contains((mapHex.Q, mapHex.R)) ?? false;
 
         var terrainFill = GetTerrainBrush(mapHex.TerrainTypeId);
         var overlayBrush = GetOverlayBrushWithAlpha(mapHex);
@@ -791,7 +860,7 @@ public class HexMapView : Control
                 context.DrawImage(weatherIcon, destRect);
             }
 
-            if (isSelected || isForageSelected)
+            if (isSelected || isForageSelected || isMusterSelected)
                 context.DrawGeometry(SelectionBrush, null, _cachedHexGeometry!);
 
             if (isNewsReached)
