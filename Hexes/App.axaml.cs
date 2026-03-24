@@ -74,6 +74,21 @@ public partial class App : Application
             var dbContext = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
             dbContext.Database.EnsureCreated();
 
+            // Add Chorister columns to DiscordConfigs for running-game migration
+            var conn = dbContext.Database.GetDbConnection();
+            conn.Open();
+            foreach (var col in new[] { "ChoristerRoleId", "ChorusCategoryId", "ChorusChannelId" })
+            {
+                try
+                {
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = $"ALTER TABLE DiscordConfigs ADD COLUMN {col} INTEGER NULL";
+                    cmd.ExecuteNonQuery();
+                }
+                catch { /* Column already exists */ }
+            }
+            conn.Close();
+
             // Load terrain types from properties file if not already loaded
             if (!dbContext.TerrainTypes.Any())
             {

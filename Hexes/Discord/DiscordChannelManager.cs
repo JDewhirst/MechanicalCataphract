@@ -90,6 +90,10 @@ public class DiscordChannelManager : IDiscordChannelManager
                     .ToListAsync();
             } // scope disposed — connection closed before any writes
 
+            // 0. Ensure Chorister role and Greek Chorus channel exist
+            await EnsureChoristerRoleAsync();
+            await EnsureChorusChannelAsync();
+
             // 1. Sync factions.
             foreach (var faction in unsyncedFactions)
                 await OnFactionCreatedAsync(faction);
@@ -104,6 +108,9 @@ public class DiscordChannelManager : IDiscordChannelManager
             await EnsureCoLocationCategoryAsync();
             foreach (var ch in unsyncedCoLocs)
                 await OnCoLocationChannelCreatedAsync(ch);
+
+            // 4. Retrofit Chorister permissions onto all existing channels
+            await SyncChoristerPermissionsAsync();
 
             System.Diagnostics.Debug.WriteLine("[DiscordChannelManager] SyncExistingEntitiesAsync complete.");
         }
@@ -141,6 +148,11 @@ public class DiscordChannelManager : IDiscordChannelManager
                 new GuildChannelProperties(faction.Name, ChannelType.CategoryChannel));
             faction.DiscordCategoryId = category.Id;
 
+            // Apply Chorister read-only overwrite to the category so child channels inherit it
+            var categoryChoristerOverwrite = await BuildChoristerOverwriteAsync();
+            if (categoryChoristerOverwrite != null)
+                await rest.ModifyGuildChannelPermissionsAsync(category.Id, categoryChoristerOverwrite);
+
             // 3. Create read-only text channel in the category
             var channelOverwrites = new List<PermissionOverwriteProperties>
             {
@@ -171,6 +183,11 @@ public class DiscordChannelManager : IDiscordChannelManager
                             | Permissions.ReadMessageHistory | Permissions.ManageChannels,
                 });
             }
+
+            // Chorister role: read-only observer access
+            var choristerOverwrite = await BuildChoristerOverwriteAsync();
+            if (choristerOverwrite != null)
+                channelOverwrites.Add(choristerOverwrite);
 
             var channel = await rest.CreateGuildChannelAsync(guildId.Value,
                 new GuildChannelProperties($"{faction.Name.ToLowerInvariant().Replace(' ', '-')}-general", ChannelType.TextGuildChannel)
@@ -323,6 +340,11 @@ public class DiscordChannelManager : IDiscordChannelManager
                 });
             }
 
+            // Chorister role: read-only observer access
+            var choristerOverwrite = await BuildChoristerOverwriteAsync();
+            if (choristerOverwrite != null)
+                channelOverwrites.Add(choristerOverwrite);
+
             var channel = await rest.CreateGuildChannelAsync(guildId.Value,
                 new GuildChannelProperties($"cmd-{commander.Name.ToLowerInvariant().Replace(' ', '-')}", ChannelType.TextGuildChannel)
                 {
@@ -389,6 +411,29 @@ public class DiscordChannelManager : IDiscordChannelManager
         if (!_botService.IsConnected) return;
         if (commander.DiscordUserId == null) return;
 
+        // Reload stale faction data — ViewModel may have cached these before Discord IDs were set
+        if (oldFaction.DiscordRoleId == null)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var freshOld = await db.Factions.FindAsync(oldFaction.Id);
+            if (freshOld?.DiscordRoleId != null)
+                oldFaction.DiscordRoleId = freshOld.DiscordRoleId;
+        }
+
+        if (newFaction.DiscordCategoryId == null || newFaction.DiscordRoleId == null)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var freshNew = await db.Factions.FindAsync(newFaction.Id);
+            if (freshNew != null)
+            {
+                newFaction.DiscordCategoryId = freshNew.DiscordCategoryId;
+                newFaction.DiscordRoleId = freshNew.DiscordRoleId;
+                newFaction.DiscordChannelId = freshNew.DiscordChannelId;
+            }
+        }
+
         try
         {
             var rest = _botService.Client!.Rest;
@@ -409,6 +454,11 @@ public class DiscordChannelManager : IDiscordChannelManager
                 {
                     options.ParentId = newFaction.DiscordCategoryId.Value;
                 });
+
+                // Re-apply Chorister overwrite — category move can reset channel permissions
+                var choristerOverwrite = await BuildChoristerOverwriteAsync();
+                if (choristerOverwrite != null)
+                    await rest.ModifyGuildChannelPermissionsAsync(commander.DiscordChannelId.Value, choristerOverwrite);
             }
 
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Commander '{commander.Name}' moved from '{oldFaction.Name}' to '{newFaction.Name}'.");
@@ -568,6 +618,11 @@ public class DiscordChannelManager : IDiscordChannelManager
                             | Permissions.ReadMessageHistory | Permissions.ManageChannels,
                 });
             }
+
+            // Chorister role: read-only observer access
+            var choristerOverwrite = await BuildChoristerOverwriteAsync();
+            if (choristerOverwrite != null)
+                channelOverwrites.Add(choristerOverwrite);
 
             var discordChannel = await rest.CreateGuildChannelAsync(guildId.Value,
                 new GuildChannelProperties($"coloc-{channel.Name.ToLowerInvariant().Replace(' ', '-')}", ChannelType.TextGuildChannel)
@@ -1008,6 +1063,28 @@ public class DiscordChannelManager : IDiscordChannelManager
         return config?.AdminRoleId;
     }
 
+    private async Task<ulong?> GetChoristerRoleIdAsync()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+        var config = await db.DiscordConfigs.FindAsync(1);
+        return config?.ChoristerRoleId;
+    }
+
+    private async Task<PermissionOverwriteProperties?> BuildChoristerOverwriteAsync()
+    {
+        var choristerRoleId = await GetChoristerRoleIdAsync();
+        if (choristerRoleId == null) return null;
+
+        return new PermissionOverwriteProperties(choristerRoleId.Value, PermissionOverwriteType.Role)
+        {
+            Allowed = Permissions.ViewChannel | Permissions.ReadMessageHistory,
+            Denied = Permissions.SendMessages | Permissions.AddReactions
+                   | Permissions.CreatePublicThreads | Permissions.CreatePrivateThreads
+                   | Permissions.SendMessagesInThreads,
+        };
+    }
+
     private async Task SaveFactionAsync(Faction faction)
     {
         using var scope = _serviceProvider.CreateScope();
@@ -1027,6 +1104,182 @@ public class DiscordChannelManager : IDiscordChannelManager
         await db.Commanders
             .Where(c => c.Id == commander.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.DiscordChannelId, commander.DiscordChannelId));
+    }
+
+    public async Task EnsureChoristerRoleAsync()
+    {
+        if (!_botService.IsConnected) return;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var config = await db.DiscordConfigs.FindAsync(1);
+            if (config == null || config.GuildId == null) return;
+            if (config.ChoristerRoleId.HasValue) return; // Already created
+
+            var rest = _botService.Client!.Rest;
+            var role = await rest.CreateGuildRoleAsync(config.GuildId.Value, new RoleProperties
+            {
+                Name = "Chorister",
+                Color = new Color(0x9B, 0x59, 0xB6), // Purple
+            });
+            config.ChoristerRoleId = role.Id;
+            await db.SaveChangesAsync();
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Chorister role created: {role.Id}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] EnsureChoristerRole failed: {ex.Message}");
+        }
+    }
+
+    public async Task EnsureChorusChannelAsync()
+    {
+        if (!_botService.IsConnected) return;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+            var config = await db.DiscordConfigs.FindAsync(1);
+            if (config == null || config.GuildId == null) return;
+
+            var rest = _botService.Client!.Rest;
+            var guildId = config.GuildId.Value;
+
+            // 1. Create category if needed
+            if (!config.ChorusCategoryId.HasValue)
+            {
+                var category = await rest.CreateGuildChannelAsync(guildId,
+                    new GuildChannelProperties("Greek Chorus", ChannelType.CategoryChannel));
+                config.ChorusCategoryId = category.Id;
+            }
+
+            // 2. Create channel if needed
+            if (!config.ChorusChannelId.HasValue)
+            {
+                var overwrites = new List<PermissionOverwriteProperties>
+                {
+                    // Deny @everyone
+                    new(guildId, PermissionOverwriteType.Role)
+                    {
+                        Denied = Permissions.ViewChannel,
+                    },
+                };
+
+                AddBotOverwrite(overwrites);
+
+                // Chorister role: full read/write access in this channel
+                if (config.ChoristerRoleId.HasValue)
+                {
+                    overwrites.Add(new(config.ChoristerRoleId.Value, PermissionOverwriteType.Role)
+                    {
+                        Allowed = Permissions.ViewChannel | Permissions.SendMessages
+                                | Permissions.ReadMessageHistory | Permissions.AddReactions
+                                | Permissions.CreatePublicThreads | Permissions.SendMessagesInThreads,
+                    });
+                }
+
+                // Admin role access
+                if (config.AdminRoleId.HasValue)
+                {
+                    overwrites.Add(new(config.AdminRoleId.Value, PermissionOverwriteType.Role)
+                    {
+                        Allowed = Permissions.ViewChannel | Permissions.SendMessages
+                                | Permissions.ReadMessageHistory | Permissions.ManageChannels,
+                    });
+                }
+
+                var channel = await rest.CreateGuildChannelAsync(guildId,
+                    new GuildChannelProperties("greek-chorus", ChannelType.TextGuildChannel)
+                    {
+                        ParentId = config.ChorusCategoryId,
+                        PermissionOverwrites = overwrites,
+                    });
+                config.ChorusChannelId = channel.Id;
+            }
+
+            await db.SaveChangesAsync();
+            System.Diagnostics.Debug.WriteLine("[DiscordChannelManager] Greek Chorus resources ensured.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] EnsureChorusChannel failed: {ex.Message}");
+        }
+    }
+
+    public async Task SyncChoristerPermissionsAsync()
+    {
+        if (!_botService.IsConnected) return;
+        var choristerOverwrite = await BuildChoristerOverwriteAsync();
+        if (choristerOverwrite == null) return;
+
+        try
+        {
+            var rest = _botService.Client!.Rest;
+            List<ulong> channelIds;
+
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+
+                // Include faction categories (so child channels inherit Chorister deny)
+                var factionCategoryIds = await db.Factions
+                    .Where(f => f.DiscordCategoryId != null)
+                    .Select(f => f.DiscordCategoryId!.Value)
+                    .ToListAsync();
+
+                var factionChannelIds = await db.Factions
+                    .Where(f => f.DiscordChannelId != null)
+                    .Select(f => f.DiscordChannelId!.Value)
+                    .ToListAsync();
+
+                var commanderChannelIds = await db.Commanders
+                    .Where(c => c.DiscordChannelId != null)
+                    .Select(c => c.DiscordChannelId!.Value)
+                    .ToListAsync();
+
+                var coLocChannelIds = await db.CoLocationChannels
+                    .Where(c => c.DiscordChannelId != null)
+                    .Select(c => c.DiscordChannelId!.Value)
+                    .ToListAsync();
+
+                // Include the co-location category itself
+                var config = await db.DiscordConfigs.FindAsync(1);
+                var coLocCategoryId = config?.CoLocationCategoryId;
+
+                channelIds = factionCategoryIds
+                    .Concat(factionChannelIds)
+                    .Concat(commanderChannelIds)
+                    .Concat(coLocChannelIds)
+                    .ToList();
+
+                if (coLocCategoryId.HasValue)
+                    channelIds.Add(coLocCategoryId.Value);
+            }
+
+            foreach (var channelId in channelIds)
+            {
+                try
+                {
+                    await rest.ModifyGuildChannelPermissionsAsync(channelId, choristerOverwrite);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[DiscordChannelManager] Chorister overwrite failed for channel {channelId}: {ex.Message}");
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine(
+                $"[DiscordChannelManager] Chorister permissions synced to {channelIds.Count} channels.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] SyncChoristerPermissions failed: {ex.Message}");
+        }
     }
 
     /// <summary>

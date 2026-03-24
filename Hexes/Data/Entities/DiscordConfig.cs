@@ -7,4 +7,7 @@ public class DiscordConfig
     public ulong? GuildId { get; set; }
     public ulong? AdminRoleId { get; set; }
     public ulong? CoLocationCategoryId { get; set; }
+    public ulong? ChoristerRoleId { get; set; }
+    public ulong? ChorusCategoryId { get; set; }
+    public ulong? ChorusChannelId { get; set; }
 }

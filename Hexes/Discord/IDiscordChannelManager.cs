@@ -26,6 +26,11 @@ public interface IDiscordChannelManager
     Task OnCommanderUpdatedAsync(Commander commander);
     Task OnFactionUpdatedAsync(Faction faction, string? oldName, string? oldColorHex);
 
+    // Chorister (observer) role management
+    Task EnsureChoristerRoleAsync();
+    Task EnsureChorusChannelAsync();
+    Task SyncChoristerPermissionsAsync();
+
     // Co-location channel management
     Task EnsureCoLocationCategoryAsync();
     Task OnCoLocationChannelCreatedAsync(CoLocationChannel channel);
