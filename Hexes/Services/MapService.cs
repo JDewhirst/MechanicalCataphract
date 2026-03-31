@@ -192,7 +192,21 @@ public class MapService(WargameDbContext context) : IMapService
         {
             var mapHex = await _context.MapHexes.FindAsync(hex.q, hex.r);
 
-            totalSupply += mapHex.PopulationDensity * GameRules.Current.Supply.ForageMultiplierPerDensity;
+            switch(mapHex.TimesForaged)
+            {
+                case 0:
+                    totalSupply += mapHex.PopulationDensity * GameRules.Current.Supply.ForageMultiplierPerDensity;
+                    break;
+                case 1:
+                    totalSupply += (mapHex.PopulationDensity * GameRules.Current.Supply.ForageMultiplierPerDensity) / 2;
+                    break;
+                case 2:
+                    totalSupply += (mapHex.PopulationDensity * GameRules.Current.Supply.ForageMultiplierPerDensity) * (1/4);
+                    break;
+                default:
+                    break;
+            }
+            
             mapHex.TimesForaged++;
         }
 

@@ -1772,23 +1772,25 @@ public class HexMapView : Control
     }
 
     /// <summary>
-    /// Semi-transparent foraged gradient overlay (~50% opacity).
-    /// Cached by clamped forage count (at most 11 entries).
+    /// Semi-transparent foraged tier overlay (~50% opacity).
+    /// Returns null for unforaged hexes, yellow/orange/red for 1/2/3+ forages.
     /// </summary>
-    private static SolidColorBrush GetForagedBrushWithAlpha(int timesForaged)
+    private static SolidColorBrush? GetForagedBrushWithAlpha(int timesForaged)
     {
-        timesForaged = Math.Max(0, Math.Min(10, timesForaged));
+        if (timesForaged <= 0)
+            return null;
 
-        if (_foragedBrushCache.TryGetValue(timesForaged, out var cached))
+        int key = Math.Min(timesForaged, 3);
+        if (_foragedBrushCache.TryGetValue(key, out var cached))
             return cached;
 
-        double t = timesForaged / 10.0;
-        byte r = (byte)(34 + (139 - 34) * t);
-        byte g = (byte)(139 + (69 - 139) * t);
-        byte b = (byte)(34 + (19 - 34) * t);
-
-        var brush = new SolidColorBrush(Color.FromArgb(128, r, g, b));
-        _foragedBrushCache[timesForaged] = brush;
+        var brush = key switch
+        {
+            1 => new SolidColorBrush(Color.FromArgb(128, 255, 255, 0)),   // Yellow
+            2 => new SolidColorBrush(Color.FromArgb(128, 255, 165, 0)),   // Orange
+            _ => new SolidColorBrush(Color.FromArgb(128, 255, 0, 0)),     // Red
+        };
+        _foragedBrushCache[key] = brush;
         return brush;
     }
 
