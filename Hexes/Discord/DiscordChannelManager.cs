@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -22,11 +23,51 @@ public class DiscordChannelManager : IDiscordChannelManager
     private readonly IServiceProvider _serviceProvider;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
+    /// <summary>
+    /// Cached snapshot of guild state (channels + roles), set during sync and cleared after.
+    /// Individual calls outside sync get a fresh snapshot via <see cref="GetOrFetchSnapshotAsync"/>.
+    /// </summary>
+    private GuildSnapshot? _currentSnapshot;
+
     public DiscordChannelManager(IDiscordBotService botService, IServiceProvider serviceProvider)
     {
         _botService = botService;
         _serviceProvider = serviceProvider;
     }
+
+    // ── Guild snapshot: verify Discord resources actually exist ──────────
+
+    private record GuildSnapshot(
+        IReadOnlyList<IGuildChannel> Channels,
+        IReadOnlyDictionary<ulong, Role> Roles);
+
+    private async Task<GuildSnapshot?> FetchGuildSnapshotAsync()
+    {
+        var guildId = await GetGuildIdAsync();
+        if (guildId == null) return null;
+        var rest = _botService.Client!.Rest;
+        var guild = await rest.GetGuildAsync(guildId.Value);
+        var channels = await guild.GetChannelsAsync();
+        return new GuildSnapshot(channels, guild.Roles);
+    }
+
+    private async Task<GuildSnapshot?> GetOrFetchSnapshotAsync()
+    {
+        if (_currentSnapshot != null) return _currentSnapshot;
+        return await FetchGuildSnapshotAsync();
+    }
+
+    private static bool CategoryExists(GuildSnapshot snapshot, ulong id)
+        => snapshot.Channels.Any(c => c.Id == id && c is CategoryGuildChannel);
+
+    private static bool ChannelExists(GuildSnapshot snapshot, ulong id)
+        => snapshot.Channels.Any(c => c.Id == id);
+
+    private static bool RoleExists(GuildSnapshot snapshot, ulong id)
+        => snapshot.Roles.ContainsKey(id);
+
+    private static bool IsNotFoundError(Exception ex)
+        => ex is RestException restEx && restEx.StatusCode == HttpStatusCode.NotFound;
 
     public async Task EnsureSentinelFactionResourcesAsync()
     {
@@ -39,8 +80,23 @@ public class DiscordChannelManager : IDiscordChannelManager
             var sentinel = await db.Factions.FindAsync(1);
             if (sentinel == null) return;
 
-            // Already has Discord resources — nothing to do
-            if (sentinel.DiscordCategoryId.HasValue) return;
+            // Verify stored IDs still exist in Discord
+            var snapshot = await GetOrFetchSnapshotAsync();
+            if (snapshot != null)
+            {
+                bool anyCleared = false;
+                if (sentinel.DiscordRoleId.HasValue && !RoleExists(snapshot, sentinel.DiscordRoleId.Value))
+                { sentinel.DiscordRoleId = null; anyCleared = true; }
+                if (sentinel.DiscordCategoryId.HasValue && !CategoryExists(snapshot, sentinel.DiscordCategoryId.Value))
+                { sentinel.DiscordCategoryId = null; anyCleared = true; }
+                if (sentinel.DiscordChannelId.HasValue && !ChannelExists(snapshot, sentinel.DiscordChannelId.Value))
+                { sentinel.DiscordChannelId = null; anyCleared = true; }
+                if (anyCleared) await SaveFactionAsync(sentinel);
+            }
+
+            // Already has all Discord resources — nothing to do
+            if (sentinel.DiscordRoleId.HasValue && sentinel.DiscordCategoryId.HasValue && sentinel.DiscordChannelId.HasValue)
+                return;
 
             System.Diagnostics.Debug.WriteLine("[DiscordChannelManager] Creating Discord resources for 'No Faction' sentinel...");
             await OnFactionCreatedAsync(sentinel);
@@ -64,6 +120,10 @@ public class DiscordChannelManager : IDiscordChannelManager
 
         try
         {
+            // Fetch a snapshot of actual Discord state so Ensure* methods can verify
+            // stored IDs still exist, without making per-entity API calls.
+            _currentSnapshot = await FetchGuildSnapshotAsync();
+
             // Load all unsynced entities in a short-lived scope, then close it before processing.
             // Keeping the outer scope open across the loop causes SaveFactionAsync (and friends)
             // to hit a SQLite write-lock when they try to open their own write scope.
@@ -76,7 +136,7 @@ public class DiscordChannelManager : IDiscordChannelManager
                 var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
 
                 unsyncedFactions = await db.Factions
-                    .Where(f => f.DiscordCategoryId == null)
+                    .Where(f => f.DiscordRoleId == null || f.DiscordCategoryId == null || f.DiscordChannelId == null)
                     .ToListAsync();
 
                 unsyncedCommanders = await db.Commanders
@@ -120,6 +180,7 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
         finally
         {
+            _currentSnapshot = null;
             _syncLock.Release();
         }
     }
@@ -130,77 +191,123 @@ public class DiscordChannelManager : IDiscordChannelManager
 
         try
         {
+            // Reload from DB — in-memory entity may be stale or from a previous partial attempt
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+                var existing = await db.Factions.FindAsync(faction.Id);
+                if (existing != null)
+                {
+                    faction.DiscordRoleId = existing.DiscordRoleId;
+                    faction.DiscordCategoryId = existing.DiscordCategoryId;
+                    faction.DiscordChannelId = existing.DiscordChannelId;
+                }
+            }
+
+            // Verify stored IDs still exist in Discord — clear any stale ones
+            var snapshot = await GetOrFetchSnapshotAsync();
+            if (snapshot != null)
+            {
+                bool anyCleared = false;
+                if (faction.DiscordRoleId.HasValue && !RoleExists(snapshot, faction.DiscordRoleId.Value))
+                { faction.DiscordRoleId = null; anyCleared = true; }
+                if (faction.DiscordCategoryId.HasValue && !CategoryExists(snapshot, faction.DiscordCategoryId.Value))
+                { faction.DiscordCategoryId = null; anyCleared = true; }
+                if (faction.DiscordChannelId.HasValue && !ChannelExists(snapshot, faction.DiscordChannelId.Value))
+                { faction.DiscordChannelId = null; anyCleared = true; }
+                if (anyCleared) await SaveFactionAsync(faction);
+            }
+
+            // All resources already exist — nothing to do
+            if (faction.DiscordRoleId.HasValue && faction.DiscordCategoryId.HasValue && faction.DiscordChannelId.HasValue)
+                return;
             var rest = _botService.Client!.Rest;
             var guildId = await GetGuildIdAsync();
             if (guildId == null) return;
 
-            // 1. Create faction role with faction color
-            var color = ParseColor(faction.ColorHex);
-            var role = await rest.CreateGuildRoleAsync(guildId.Value, new RoleProperties
+            // 1. Create faction role (skip if already exists from a partial previous attempt)
+            if (!faction.DiscordRoleId.HasValue)
             {
-                Name = faction.Name,
-                Color = color,
-            });
-            faction.DiscordRoleId = role.Id;
-
-            // 2. Create channel category for the faction
-            var category = await rest.CreateGuildChannelAsync(guildId.Value,
-                new GuildChannelProperties(faction.Name, ChannelType.CategoryChannel));
-            faction.DiscordCategoryId = category.Id;
-
-            // Apply Chorister read-only overwrite to the category so child channels inherit it
-            var categoryChoristerOverwrite = await BuildChoristerOverwriteAsync();
-            if (categoryChoristerOverwrite != null)
-                await rest.ModifyGuildChannelPermissionsAsync(category.Id, categoryChoristerOverwrite);
-
-            // 3. Create read-only text channel in the category
-            var channelOverwrites = new List<PermissionOverwriteProperties>
-            {
-                // Deny @everyone from seeing the channel
-                new(guildId.Value, PermissionOverwriteType.Role)
+                var color = ParseColor(faction.ColorHex);
+                var role = await rest.CreateGuildRoleAsync(guildId.Value, new RoleProperties
                 {
-                    Denied = Permissions.ViewChannel,
-                },
-                // Allow faction role to view but not send or create threads
-                new(role.Id, PermissionOverwriteType.Role)
-                {
-                    Allowed = Permissions.ViewChannel | Permissions.ReadMessageHistory,
-                    Denied = Permissions.SendMessages | Permissions.CreatePublicThreads
-                           | Permissions.CreatePrivateThreads | Permissions.SendMessagesInThreads,
-                },
-            };
-
-            // Grant the bot itself access so it can manage the channel
-            AddBotOverwrite(channelOverwrites);
-
-            // If admin role is configured, grant full access
-            var adminRoleId = await GetAdminRoleIdAsync();
-            if (adminRoleId != null)
-            {
-                channelOverwrites.Add(new(adminRoleId.Value, PermissionOverwriteType.Role)
-                {
-                    Allowed = Permissions.ViewChannel | Permissions.SendMessages
-                            | Permissions.ReadMessageHistory | Permissions.ManageChannels,
+                    Name = faction.Name,
+                    Color = color,
                 });
+                faction.DiscordRoleId = role.Id;
+                await SaveFactionAsync(faction);
             }
 
-            // Chorister role: read-only observer access
-            var choristerOverwrite = await BuildChoristerOverwriteAsync();
-            if (choristerOverwrite != null)
-                channelOverwrites.Add(choristerOverwrite);
+            // 2. Create channel category (skip if already exists)
+            if (!faction.DiscordCategoryId.HasValue)
+            {
+                var category = await rest.CreateGuildChannelAsync(guildId.Value,
+                    new GuildChannelProperties(faction.Name, ChannelType.CategoryChannel));
+                faction.DiscordCategoryId = category.Id;
+                await SaveFactionAsync(faction);
+            }
 
-            var channel = await rest.CreateGuildChannelAsync(guildId.Value,
-                new GuildChannelProperties($"{faction.Name.ToLowerInvariant().Replace(' ', '-')}-general", ChannelType.TextGuildChannel)
+            // 3. Apply Chorister read-only overwrite to the category (non-fatal)
+            try
+            {
+                var categoryChoristerOverwrite = await BuildChoristerOverwriteAsync();
+                if (categoryChoristerOverwrite != null)
+                    await rest.ModifyGuildChannelPermissionsAsync(faction.DiscordCategoryId!.Value, categoryChoristerOverwrite);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Chorister category overwrite failed (non-fatal): {ex.Message}");
+            }
+
+            // 4. Create read-only general channel (skip if already exists)
+            if (!faction.DiscordChannelId.HasValue)
+            {
+                var channelOverwrites = new List<PermissionOverwriteProperties>
                 {
-                    ParentId = faction.DiscordCategoryId,
-                    PermissionOverwrites = channelOverwrites,
-                });
-            faction.DiscordChannelId = channel.Id;
+                    // Deny @everyone from seeing the channel
+                    new(guildId.Value, PermissionOverwriteType.Role)
+                    {
+                        Denied = Permissions.ViewChannel,
+                    },
+                    // Allow faction role to view but not send or create threads
+                    new(faction.DiscordRoleId!.Value, PermissionOverwriteType.Role)
+                    {
+                        Allowed = Permissions.ViewChannel | Permissions.ReadMessageHistory,
+                        Denied = Permissions.SendMessages | Permissions.CreatePublicThreads
+                               | Permissions.CreatePrivateThreads | Permissions.SendMessagesInThreads,
+                    },
+                };
 
-            // Save Discord IDs back to the faction
-            await SaveFactionAsync(faction);
+                // Grant the bot itself access so it can manage the channel
+                AddBotOverwrite(channelOverwrites);
 
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Faction '{faction.Name}' — role {role.Id}, category {faction.DiscordCategoryId}, channel {faction.DiscordChannelId}");
+                // If admin role is configured, grant full access
+                var adminRoleId = await GetAdminRoleIdAsync();
+                if (adminRoleId != null)
+                {
+                    channelOverwrites.Add(new(adminRoleId.Value, PermissionOverwriteType.Role)
+                    {
+                        Allowed = Permissions.ViewChannel | Permissions.SendMessages
+                                | Permissions.ReadMessageHistory | Permissions.ManageChannels,
+                    });
+                }
+
+                // Chorister role: read-only observer access
+                var choristerOverwrite = await BuildChoristerOverwriteAsync();
+                if (choristerOverwrite != null)
+                    channelOverwrites.Add(choristerOverwrite);
+
+                var channel = await rest.CreateGuildChannelAsync(guildId.Value,
+                    new GuildChannelProperties($"{faction.Name.ToLowerInvariant().Replace(' ', '-')}-general", ChannelType.TextGuildChannel)
+                    {
+                        ParentId = faction.DiscordCategoryId,
+                        PermissionOverwrites = channelOverwrites,
+                    });
+                faction.DiscordChannelId = channel.Id;
+                await SaveFactionAsync(faction);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Faction '{faction.Name}' — role {faction.DiscordRoleId}, category {faction.DiscordCategoryId}, channel {faction.DiscordChannelId}");
         }
         catch (Exception ex)
         {
@@ -305,6 +412,25 @@ public class DiscordChannelManager : IDiscordChannelManager
 
         try
         {
+            // Idempotency: check DB in case in-memory entity is stale
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+                var existing = await db.Commanders.FindAsync(commander.Id);
+                if (existing?.DiscordChannelId.HasValue == true)
+                {
+                    // Verify the channel still exists in Discord
+                    var snapshot = await GetOrFetchSnapshotAsync();
+                    if (snapshot != null && ChannelExists(snapshot, existing.DiscordChannelId!.Value))
+                    {
+                        commander.DiscordChannelId = existing.DiscordChannelId;
+                        return;
+                    }
+                    // Stale — clear and recreate
+                    existing.DiscordChannelId = null;
+                    await SaveCommanderAsync(existing);
+                }
+            }
             var rest = _botService.Client!.Rest;
             var guildId = await GetGuildIdAsync();
             if (guildId == null) return;
@@ -465,7 +591,14 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderFactionChanged failed: {ex.Message}");
+            if (IsNotFoundError(ex) && commander.DiscordChannelId.HasValue)
+            {
+                commander.DiscordChannelId = null;
+                await SaveCommanderAsync(commander);
+                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Cleared stale commander channel ID during faction change: {ex.Message}");
+            }
+            else
+                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderFactionChanged failed: {ex.Message}");
         }
     }
 
@@ -485,7 +618,14 @@ public class DiscordChannelManager : IDiscordChannelManager
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderUpdated failed: {ex.Message}");
+            if (IsNotFoundError(ex))
+            {
+                commander.DiscordChannelId = null;
+                await SaveCommanderAsync(commander);
+                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Cleared stale commander channel ID: {ex.Message}");
+            }
+            else
+                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderUpdated failed: {ex.Message}");
         }
     }
 
@@ -516,7 +656,14 @@ public class DiscordChannelManager : IDiscordChannelManager
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Role update failed: {ex.Message}");
+                if (IsNotFoundError(ex))
+                {
+                    faction.DiscordRoleId = null;
+                    await SaveFactionAsync(faction);
+                    System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Cleared stale role ID: {ex.Message}");
+                }
+                else
+                    System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Role update failed: {ex.Message}");
             }
         }
 
@@ -533,7 +680,14 @@ public class DiscordChannelManager : IDiscordChannelManager
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Category update failed: {ex.Message}");
+                if (IsNotFoundError(ex))
+                {
+                    faction.DiscordCategoryId = null;
+                    await SaveFactionAsync(faction);
+                    System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Cleared stale category ID: {ex.Message}");
+                }
+                else
+                    System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Category update failed: {ex.Message}");
             }
         }
 
@@ -550,7 +704,14 @@ public class DiscordChannelManager : IDiscordChannelManager
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Channel update failed: {ex.Message}");
+                if (IsNotFoundError(ex))
+                {
+                    faction.DiscordChannelId = null;
+                    await SaveFactionAsync(faction);
+                    System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Cleared stale channel ID: {ex.Message}");
+                }
+                else
+                    System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Channel update failed: {ex.Message}");
             }
         }
     }
@@ -564,27 +725,38 @@ public class DiscordChannelManager : IDiscordChannelManager
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
             var config = await db.DiscordConfigs.FindAsync(1);
-            if (config == null) return;
-
-            // Already has a co-location category
-            if (config.CoLocationCategoryId.HasValue) return;
+            if (config == null || config.GuildId == null) return;
 
             var rest = _botService.Client!.Rest;
-            var guildId = config.GuildId;
-            if (guildId == null) return;
+            var guildId = config.GuildId.Value;
 
-            var category = await rest.CreateGuildChannelAsync(guildId.Value,
+            // Verify stored category still exists in Discord
+            if (config.CoLocationCategoryId.HasValue)
+            {
+                var snapshot = await GetOrFetchSnapshotAsync();
+                if (snapshot != null && CategoryExists(snapshot, config.CoLocationCategoryId.Value))
+                    return;
+
+                // Stored ID is stale or no longer a category
+                config.CoLocationCategoryId = null;
+            }
+
+            var category = await rest.CreateGuildChannelAsync(guildId,
                 new GuildChannelProperties("Co-Location", ChannelType.CategoryChannel));
+
             config.CoLocationCategoryId = category.Id;
             await db.SaveChangesAsync();
 
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Co-Location category created: {category.Id}");
+            System.Diagnostics.Debug.WriteLine(
+                $"[DiscordChannelManager] Co-Location category ensured: {category.Id}");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] EnsureCoLocationCategory failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine(
+                $"[DiscordChannelManager] EnsureCoLocationCategory failed: {ex.Message}");
         }
     }
+
 
     public async Task OnCoLocationChannelCreatedAsync(CoLocationChannel channel)
     {
@@ -592,20 +764,42 @@ public class DiscordChannelManager : IDiscordChannelManager
 
         try
         {
+            // Idempotency: check DB in case in-memory entity is stale
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+                var existing = await db.CoLocationChannels.FindAsync(channel.Id);
+                if (existing?.DiscordChannelId.HasValue == true)
+                {
+                    // Verify the channel still exists in Discord
+                    var snapshot = await GetOrFetchSnapshotAsync();
+                    if (snapshot != null && ChannelExists(snapshot, existing.DiscordChannelId!.Value))
+                    {
+                        channel.DiscordChannelId = existing.DiscordChannelId;
+                        return;
+                    }
+                    // Stale — clear and recreate
+                    existing.DiscordChannelId = null;
+                    await SaveCoLocationChannelAsync(existing);
+                }
+            }
+
             var rest = _botService.Client!.Rest;
             var guildId = await GetGuildIdAsync();
             if (guildId == null) return;
+
+            await EnsureCoLocationCategoryAsync();
 
             var categoryId = await GetCoLocationCategoryIdAsync();
             if (categoryId == null) return;
 
             var channelOverwrites = new List<PermissionOverwriteProperties>
+        {
+            new(guildId.Value, PermissionOverwriteType.Role)
             {
-                new(guildId.Value, PermissionOverwriteType.Role)
-                {
-                    Denied = Permissions.ViewChannel,
-                },
-            };
+                Denied = Permissions.ViewChannel,
+            },
+        };
 
             AddBotOverwrite(channelOverwrites);
 
@@ -619,7 +813,6 @@ public class DiscordChannelManager : IDiscordChannelManager
                 });
             }
 
-            // Chorister role: read-only observer access
             var choristerOverwrite = await BuildChoristerOverwriteAsync();
             if (choristerOverwrite != null)
                 channelOverwrites.Add(choristerOverwrite);
@@ -630,11 +823,12 @@ public class DiscordChannelManager : IDiscordChannelManager
                     ParentId = categoryId,
                     PermissionOverwrites = channelOverwrites,
                 });
-            channel.DiscordChannelId = discordChannel.Id;
 
+            channel.DiscordChannelId = discordChannel.Id;
             await SaveCoLocationChannelAsync(channel);
 
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Co-location channel '{channel.Name}' created: {discordChannel.Id}");
+            System.Diagnostics.Debug.WriteLine(
+                $"[DiscordChannelManager] Co-location channel '{channel.Name}' created: {discordChannel.Id}");
         }
         catch (Exception ex)
         {
@@ -691,15 +885,23 @@ public class DiscordChannelManager : IDiscordChannelManager
             await rest.ModifyGuildChannelPermissionsAsync(channel.DiscordChannelId.Value,
                 new PermissionOverwriteProperties(commander.DiscordUserId.Value, PermissionOverwriteType.User)
                 {
-                    Allowed = Permissions.ViewChannel | Permissions.SendMessages,
-                    Denied = Permissions.CreatePublicThreads | Permissions.ReadMessageHistory
+                    Allowed = Permissions.ViewChannel | Permissions.SendMessages
+                           | Permissions.ReadMessageHistory,
+                    Denied = Permissions.CreatePublicThreads
                            | Permissions.CreatePrivateThreads | Permissions.SendMessagesInThreads
                 });
             System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Commander '{commander.Name}' added to co-location '{channel.Name}'.");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderAddedToCoLocation failed: {ex.Message}");
+            if (IsNotFoundError(ex))
+            {
+                channel.DiscordChannelId = null;
+                await SaveCoLocationChannelAsync(channel);
+                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Cleared stale co-location channel ID: {ex.Message}");
+            }
+            else
+                System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] OnCommanderAddedToCoLocation failed: {ex.Message}");
         }
     }
 
@@ -1116,7 +1318,16 @@ public class DiscordChannelManager : IDiscordChannelManager
             var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
             var config = await db.DiscordConfigs.FindAsync(1);
             if (config == null || config.GuildId == null) return;
-            if (config.ChoristerRoleId.HasValue) return; // Already created
+
+            // Verify stored role still exists in Discord
+            if (config.ChoristerRoleId.HasValue)
+            {
+                var snapshot = await GetOrFetchSnapshotAsync();
+                if (snapshot != null && RoleExists(snapshot, config.ChoristerRoleId.Value))
+                    return;
+                config.ChoristerRoleId = null;
+                await db.SaveChangesAsync();
+            }
 
             var rest = _botService.Client!.Rest;
             var role = await rest.CreateGuildRoleAsync(config.GuildId.Value, new RoleProperties
@@ -1148,6 +1359,16 @@ public class DiscordChannelManager : IDiscordChannelManager
 
             var rest = _botService.Client!.Rest;
             var guildId = config.GuildId.Value;
+
+            // Verify stored IDs still exist in Discord
+            var snapshot = await GetOrFetchSnapshotAsync();
+            if (snapshot != null)
+            {
+                if (config.ChorusCategoryId.HasValue && !CategoryExists(snapshot, config.ChorusCategoryId.Value))
+                    config.ChorusCategoryId = null;
+                if (config.ChorusChannelId.HasValue && !ChannelExists(snapshot, config.ChorusChannelId.Value))
+                    config.ChorusChannelId = null;
+            }
 
             // 1. Create category if needed
             if (!config.ChorusCategoryId.HasValue)
@@ -1268,8 +1489,12 @@ public class DiscordChannelManager : IDiscordChannelManager
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[DiscordChannelManager] Chorister overwrite failed for channel {channelId}: {ex.Message}");
+                    if (IsNotFoundError(ex))
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[DiscordChannelManager] Skipping stale channel {channelId} during Chorister sync: {ex.Message}");
+                    else
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[DiscordChannelManager] Chorister overwrite failed for channel {channelId}: {ex.Message}");
                 }
             }
 
