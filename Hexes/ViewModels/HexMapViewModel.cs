@@ -39,6 +39,7 @@ public partial class HexMapViewModel : ObservableObject
     private readonly INewsService _newsService;
     private readonly INavyService _navyService;
     private readonly ICalendarService _calendarService;
+    private readonly ICalendarDefinitionService _calendarDefinitionService;
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -46,6 +47,28 @@ public partial class HexMapViewModel : ObservableObject
 
     [ObservableProperty]
     private string _currentCalendarDateText = string.Empty;
+
+    // Time picker state
+    [ObservableProperty]
+    private decimal _pickerYear;
+
+    [ObservableProperty]
+    private int _pickerMonthIndex;
+
+    [ObservableProperty]
+    private int _pickerDayIndex;
+
+    [ObservableProperty]
+    private int _pickerHourIndex;
+
+    [ObservableProperty]
+    private List<CalendarMonthDefinition> _calendarMonths = new();
+
+    [ObservableProperty]
+    private ObservableCollection<int> _pickerDays = new();
+
+    [ObservableProperty]
+    private ObservableCollection<int> _pickerHours = new();
 
     // Discord bot config
     [ObservableProperty]
@@ -282,7 +305,8 @@ public partial class HexMapViewModel : ObservableObject
         IDiscordMessageHandler discordMessageHandler,
         INewsService newsService,
         INavyService navyService,
-        ICalendarService calendarService)
+        ICalendarService calendarService,
+        ICalendarDefinitionService calendarDefinitionService)
     {
         _mapService = mapService;
         _factionService = factionService;
@@ -301,6 +325,7 @@ public partial class HexMapViewModel : ObservableObject
         _newsService = newsService;
         _navyService = navyService;
         _calendarService = calendarService;
+        _calendarDefinitionService = calendarDefinitionService;
 
         _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
     }
@@ -431,6 +456,17 @@ public partial class HexMapViewModel : ObservableObject
         var gameState = await _gameStateService.GetGameStateAsync();
         CurrentWorldHour = gameState.CurrentWorldHour;
         CurrentCalendarDateText = _calendarService.FormatDateTime(CurrentWorldHour);
+
+        // Initialize time picker
+        var calDef = _calendarDefinitionService.GetCalendarDefinition();
+        CalendarMonths = calDef.Months;
+        PickerHours = new ObservableCollection<int>(Enumerable.Range(0, calDef.HoursPerDay));
+        var currentDate = _calendarService.GetDate(CurrentWorldHour);
+        PickerYear = currentDate.Year;
+        PickerMonthIndex = currentDate.MonthNumber - 1;
+        RebuildPickerDays(calDef.Months[PickerMonthIndex].Days);
+        PickerDayIndex = currentDate.DayOfMonth - 1;
+        PickerHourIndex = currentDate.HourOfDay;
 
         var newsItems = await _newsService.GetAllAsync();
         NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
@@ -678,6 +714,35 @@ public partial class HexMapViewModel : ObservableObject
         }
         await RefreshAllAsync();  // Refresh everything
 
+    }
+
+    partial void OnPickerMonthIndexChanged(int value)
+    {
+        if (CalendarMonths.Count > 0 && value >= 0 && value < CalendarMonths.Count)
+        {
+            int maxDays = CalendarMonths[value].Days;
+            RebuildPickerDays(maxDays);
+            if (PickerDayIndex >= maxDays)
+                PickerDayIndex = maxDays - 1;
+        }
+    }
+
+    private void RebuildPickerDays(int count)
+    {
+        PickerDays = new ObservableCollection<int>(Enumerable.Range(1, count));
+    }
+
+    [RelayCommand]
+    async Task SetTimeAsync()
+    {
+        long newWorldHour = _calendarService.GetWorldHour(
+            (int)PickerYear, PickerMonthIndex + 1, PickerDayIndex + 1, PickerHourIndex);
+
+        await _gameStateService.SetCurrentWorldHourAsync(newWorldHour);
+        CurrentWorldHour = newWorldHour;
+        CurrentCalendarDateText = _calendarService.FormatDateTime(newWorldHour);
+        StatusMessage = $"Time set to {CurrentCalendarDateText}.";
+        await RefreshAllAsync();
     }
 
     [RelayCommand]

@@ -352,7 +352,8 @@ public class DiscordChannelManagerViewModelTests
             new Mock<IDiscordMessageHandler>().Object,
             newsService.Object,
             _navyService.Object,
-            calendarService);
+            calendarService,
+            mockCalDef.Object);
     }
 
     [Test]

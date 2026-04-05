@@ -232,7 +232,8 @@ public class CoLocationChannelViewModelTests
             new Mock<IDiscordMessageHandler>().Object,
             newsService.Object,
             new Mock<INavyService>().Object,
-            calendarService);
+            calendarService,
+            mockCalDef.Object);
     }
 
     [Test]

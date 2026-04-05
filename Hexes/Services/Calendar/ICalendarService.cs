@@ -22,4 +22,7 @@ public interface ICalendarService
 
     /// <summary>Formats the world-hour as a human-readable fictional date string.</summary>
     string FormatDateTime(long worldHour);
+
+    /// <summary>Converts calendar date components back to an absolute world-hour.</summary>
+    long GetWorldHour(int year, int monthNumber, int dayOfMonth, int hourOfDay);
 }

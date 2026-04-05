@@ -48,40 +48,41 @@
         <Border Grid.Row="0" Grid.ColumnSpan="5"
                 BorderBrush="Gray" BorderThickness="0,0,0,1"
                 Padding="5">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Content="Edit Map"
-                        Command="{Binding OpenMapEditorCommand}"/>
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*">
+                <!-- 1. Edit Map -->
+                <Button Grid.Row="0" Grid.Column="0"
+                        Content="Edit Map"
+                        Command="{Binding OpenMapEditorCommand}"
+                        VerticalAlignment="Center" Margin="0,0,10,0"/>
 
-                <Separator/>
+                <!-- 2. Zoom stacked, Overlay below -->
+                <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Button Content="Zoom +"
+                            Command="{Binding ZoomInCommand}"
+                            FontSize="11" Padding="8,2"
+                            HorizontalAlignment="Stretch"/>
+                    <Button Content="Zoom -"
+                            Command="{Binding ZoomOutCommand}"
+                            FontSize="11" Padding="8,2"
+                            HorizontalAlignment="Stretch"/>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="Overlay:" VerticalAlignment="Center" FontSize="11"/>
+                        <ComboBox Width="120"
+                                  SelectedIndex="0"
+                                  ItemsSource="{Binding HexMapViewModel.OverlayOptions}"
+                                  SelectedItem="{Binding HexMapViewModel.SelectedOverlay}"
+                                  FontSize="11"/>
+                    </StackPanel>
+                </StackPanel>
 
-                <Button Content="Zoom +"
-                        Command="{Binding ZoomInCommand}"/>
-                <Button Content="Zoom -"
-                        Command="{Binding ZoomOutCommand}"/>
+                <Separator Grid.Row="0" Grid.Column="2" Margin="0,0,10,0"/>
 
-                <Separator/>
-
-                <TextBlock Text="Overlay:" VerticalAlignment="Center"/>
-                <ComboBox Width="120"
-                          SelectedIndex="0"
-                          ItemsSource="{Binding HexMapViewModel.OverlayOptions}"
-                          SelectedItem="{Binding HexMapViewModel.SelectedOverlay}"/>
-
-                <Separator/>
-
-                <TextBlock Text="Status:" VerticalAlignment="Center" FontWeight="Bold"/>
-                <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
-                           VerticalAlignment="Center"
-                           MaxWidth="300"
-                           TextTrimming="CharacterEllipsis"/>
-
-                <Separator/>
-                <!-- Forage Controls Panel -->
-                <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
-                    Margin="0,10,0,0">
+                <!-- 3. Forage Controls Panel -->
+                <Border Grid.Row="0" Grid.Column="3"
+                        BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
+                        VerticalAlignment="Center" Margin="0,0,10,0">
                     <StackPanel Spacing="5">
                         <TextBlock Text="Forage" FontWeight="Bold" FontSize="12"/>
-                        <!-- Army selection dropdown -->
                         <ComboBox ItemsSource="{Binding HexMapViewModel.Armies}"
                                   SelectedItem="{Binding HexMapViewModel.ForageTargetArmy}"
                                   IsEnabled="{Binding !HexMapViewModel.IsForageModeActive}"
@@ -92,12 +93,10 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <!-- Start button (shown when not in forage mode) -->
                         <Button Content="Start Forage Selection"
                                 Command="{Binding HexMapViewModel.StartForageModeCommand}"
                                 IsVisible="{Binding !HexMapViewModel.IsForageModeActive}"
                                 HorizontalAlignment="Stretch"/>
-                        <!-- Confirm/Cancel (shown when in forage mode) -->
                         <StackPanel Orientation="Horizontal" Spacing="5"
                                     IsVisible="{Binding HexMapViewModel.IsForageModeActive}">
                             <Button Content="Confirm"
@@ -106,20 +105,20 @@
                             <Button Content="Cancel"
                                     Command="{Binding HexMapViewModel.CancelForageModeCommand}"/>
                         </StackPanel>
-                        <!-- Selected count (shown when in forage mode) -->
                         <TextBlock Text="{Binding HexMapViewModel.ForageSelectedCount, StringFormat='{}{0} hex(es) selected'}"
                                    IsVisible="{Binding HexMapViewModel.IsForageModeActive}"
                                    FontStyle="Italic"/>
                     </StackPanel>
                 </Border>
 
-                <Separator/>
-                <!-- Muster Controls Panel -->
-                <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
-                    Margin="0,10,0,0">
+                <Separator Grid.Row="0" Grid.Column="4" Margin="0,0,10,0"/>
+
+                <!-- 4. Muster Controls Panel -->
+                <Border Grid.Row="0" Grid.Column="5"
+                        BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
+                        VerticalAlignment="Center" Margin="0,0,10,0">
                     <StackPanel Spacing="5">
                         <TextBlock Text="Muster" FontWeight="Bold" FontSize="12"/>
-                        <!-- Faction dropdown -->
                         <ComboBox ItemsSource="{Binding HexMapViewModel.Factions}"
                                   SelectedItem="{Binding HexMapViewModel.MusterSelectedFaction}"
                                   IsEnabled="{Binding !HexMapViewModel.IsMusterModeActive}"
@@ -130,19 +129,16 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <!-- Option toggles -->
                         <CheckBox Content="Include Cavalry (25%)"
                                   IsChecked="{Binding HexMapViewModel.MusterIncludeCavalry}"
                                   IsEnabled="{Binding !HexMapViewModel.IsMusterModeActive}"/>
                         <CheckBox Content="Include Wagons (5%)"
                                   IsChecked="{Binding HexMapViewModel.MusterIncludeWagons}"
                                   IsEnabled="{Binding !HexMapViewModel.IsMusterModeActive}"/>
-                        <!-- Start button -->
                         <Button Content="Start Muster (use selected hex)"
                                 Command="{Binding HexMapViewModel.StartMusterModeCommand}"
                                 IsVisible="{Binding !HexMapViewModel.IsMusterModeActive}"
                                 HorizontalAlignment="Stretch"/>
-                        <!-- Confirm/Cancel -->
                         <StackPanel Orientation="Horizontal" Spacing="5"
                                     IsVisible="{Binding HexMapViewModel.IsMusterModeActive}">
                             <Button Content="Confirm"
@@ -151,7 +147,6 @@
                             <Button Content="Cancel"
                                     Command="{Binding HexMapViewModel.CancelMusterModeCommand}"/>
                         </StackPanel>
-                        <!-- Selected count + preview -->
                         <TextBlock Text="{Binding HexMapViewModel.MusterSelectedCount, StringFormat='{}{0} hex(es) selected'}"
                                    IsVisible="{Binding HexMapViewModel.IsMusterModeActive}"
                                    FontStyle="Italic"/>
@@ -161,12 +156,51 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Game Time Control -->
-                <TextBlock Text="Game Time:"/>
-                <TextBlock Text="{Binding HexMapViewModel.CurrentCalendarDateText}"/>
-                <Button Content="Advance Time" FontSize="11" Padding="8,3"
-                        Command="{Binding HexMapViewModel.AdvanceTimeCommand}"/> 
-            </StackPanel>
+                <Separator Grid.Row="0" Grid.Column="6" Margin="0,0,10,0"/>
+
+                <!-- 5. Game Time: fills remaining space via * column -->
+                <StackPanel Grid.Row="0" Grid.Column="7" Grid.ColumnSpan="2" Spacing="4" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Game Time:" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding HexMapViewModel.CurrentCalendarDateText}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Button Content="Advance Time" FontSize="11" Padding="8,3"
+                                Command="{Binding HexMapViewModel.AdvanceTimeCommand}"/>
+                        <TextBlock Text="Set:" VerticalAlignment="Center" FontSize="11"/>
+                        <NumericUpDown Value="{Binding HexMapViewModel.PickerYear}"
+                                       Minimum="0" Maximum="9999"
+                                       FormatString="0"
+                                       FontSize="11" Width="120" Padding="4,2"/>
+                        <ComboBox ItemsSource="{Binding HexMapViewModel.CalendarMonths}"
+                                  SelectedIndex="{Binding HexMapViewModel.PickerMonthIndex}"
+                                  FontSize="11" Width="140" Padding="4,2">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <ComboBox ItemsSource="{Binding HexMapViewModel.PickerDays}"
+                                  SelectedIndex="{Binding HexMapViewModel.PickerDayIndex}"
+                                  FontSize="11" Width="80" Padding="4,2"/>
+                        <ComboBox ItemsSource="{Binding HexMapViewModel.PickerHours}"
+                                  SelectedIndex="{Binding HexMapViewModel.PickerHourIndex}"
+                                  FontSize="11" Width="80" Padding="4,2"/>
+                        <Button Content="Set Time" FontSize="11" Padding="8,3"
+                                Command="{Binding HexMapViewModel.SetTimeCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Status bar: full width, row 1 -->
+                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="9"
+                            Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                    <TextBlock Text="Status:" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Row 1 Col 0: Left Panel - Selected Object Details (simplified with implicit DataTemplates) -->

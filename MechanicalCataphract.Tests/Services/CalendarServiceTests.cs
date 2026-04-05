@@ -295,4 +295,90 @@ public class CalendarServiceTests
         // hour 5 crossed at worldHour 15
         Assert.That(svc.CrossedHourOfDay(8, 15, 5), Is.True);
     }
+
+    // ── GetWorldHour (reverse conversion) ────────────────────────────────────
+
+    [Test]
+    public void GetWorldHour_AtEpoch_ReturnsZero()
+    {
+        var svc = BuildDefault();
+        Assert.That(svc.GetWorldHour(1024, 9, 1, 0), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void GetWorldHour_RoundTrips_WithGetDate()
+    {
+        var svc = BuildDefault();
+        for (long wh = 0; wh < 10000; wh += 137)
+        {
+            var date = svc.GetDate(wh);
+            long computed = svc.GetWorldHour(date.Year, date.MonthNumber, date.DayOfMonth, date.HourOfDay);
+            Assert.That(computed, Is.EqualTo(wh), $"Round-trip failed for worldHour={wh}");
+        }
+    }
+
+    [Test]
+    public void GetWorldHour_CustomCalendar_RoundTrips()
+    {
+        var svc = BuildCustom();
+        for (long wh = 0; wh < 500; wh += 17)
+        {
+            var date = svc.GetDate(wh);
+            long computed = svc.GetWorldHour(date.Year, date.MonthNumber, date.DayOfMonth, date.HourOfDay);
+            Assert.That(computed, Is.EqualTo(wh), $"Round-trip failed for worldHour={wh}");
+        }
+    }
+
+    // ── Negative world hours ─────────────────────────────────────────────────
+
+    [Test]
+    public void GetDate_NegativeWorldHour_GivesPositiveHourOfDay()
+    {
+        var svc = BuildDefault(); // H=24, epoch = 1024 Sept 1
+        // worldHour -1 should be hour 23 of the previous day
+        var d = svc.GetDate(-1);
+        Assert.That(d.HourOfDay, Is.EqualTo(23));
+        Assert.That(d.AbsoluteDayIndex, Is.EqualTo(-1));
+    }
+
+    [Test]
+    public void GetDate_NegativeWorldHour_GivesCorrectDate()
+    {
+        var svc = BuildDefault();
+        // worldHour -24 = exactly one day before epoch = August 31, 1024
+        var d = svc.GetDate(-24);
+        Assert.That(d.Year, Is.EqualTo(1024));
+        Assert.That(d.MonthName, Is.EqualTo("August"));
+        Assert.That(d.DayOfMonth, Is.EqualTo(31));
+        Assert.That(d.HourOfDay, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void GetHourOfDay_Negative_ReturnsPositive()
+    {
+        var svc = BuildDefault();
+        Assert.That(svc.GetHourOfDay(-1), Is.EqualTo(23));
+        Assert.That(svc.GetHourOfDay(-16), Is.EqualTo(8));
+    }
+
+    [Test]
+    public void GetWorldHour_NegativeRange_RoundTrips()
+    {
+        var svc = BuildDefault();
+        for (long wh = -10000; wh < 0; wh += 137)
+        {
+            var date = svc.GetDate(wh);
+            long computed = svc.GetWorldHour(date.Year, date.MonthNumber, date.DayOfMonth, date.HourOfDay);
+            Assert.That(computed, Is.EqualTo(wh), $"Round-trip failed for worldHour={wh}");
+        }
+    }
+
+    [Test]
+    public void FormatDateTime_NegativeWorldHour_ShowsPositiveHour()
+    {
+        var svc = BuildDefault();
+        var formatted = svc.FormatDateTime(-16);
+        Assert.That(formatted, Does.Contain("08:00"));
+        Assert.That(formatted, Does.Not.Contain("-"));
+    }
 }

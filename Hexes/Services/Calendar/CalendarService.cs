@@ -21,15 +21,15 @@ public class CalendarService : ICalendarService
         _epochDayOfYear += _cal.EpochDay - 1;
     }
 
-    public int GetHourOfDay(long worldHour) => (int)(worldHour % _cal.HoursPerDay);
+    public int GetHourOfDay(long worldHour) => (int)FloorMod(worldHour, _cal.HoursPerDay);
 
-    public long GetAbsoluteDayIndex(long worldHour) => worldHour / _cal.HoursPerDay;
+    public long GetAbsoluteDayIndex(long worldHour) => FloorDiv(worldHour, _cal.HoursPerDay);
 
     public CalendarDate GetDate(long worldHour)
     {
         int H = _cal.HoursPerDay;
-        long absoluteDayIndex = worldHour / H;
-        int hourOfDay = (int)(worldHour % H);
+        long absoluteDayIndex = FloorDiv(worldHour, H);
+        int hourOfDay = (int)FloorMod(worldHour, H);
 
         int W = _cal.WeekdayNames.Count;
         int weekdayIndex = (int)(((_cal.EpochWeekday + absoluteDayIndex) % W + W) % W);
@@ -37,8 +37,8 @@ public class CalendarService : ICalendarService
         // Total elapsed days from the start of epochYear
         long totalDaysFromYearStart = _epochDayOfYear + absoluteDayIndex;
 
-        long yearOffset = totalDaysFromYearStart / _daysPerYear;
-        int dayOfYearZeroBased = (int)(totalDaysFromYearStart % _daysPerYear);
+        long yearOffset = FloorDiv(totalDaysFromYearStart, _daysPerYear);
+        int dayOfYearZeroBased = (int)FloorMod(totalDaysFromYearStart, _daysPerYear);
 
         int year = (int)(_cal.EpochYear + yearOffset);
 
@@ -98,5 +98,23 @@ public class CalendarService : ICalendarService
     {
         var d = GetDate(worldHour);
         return $"Year {d.Year}, {d.MonthName} {d.DayOfMonth}, {d.WeekdayName}, {d.HourOfDay:D2}:00";
+    }
+
+    private static long FloorDiv(long a, long b) => a / b - (a % b < 0 ? 1 : 0);
+    private static long FloorMod(long a, long b) => ((a % b) + b) % b;
+
+    public long GetWorldHour(int year, int monthNumber, int dayOfMonth, int hourOfDay)
+    {
+        long yearOffset = year - _cal.EpochYear;
+        long totalDaysFromYearStart = yearOffset * _daysPerYear;
+
+        for (int i = 0; i < monthNumber - 1; i++)
+            totalDaysFromYearStart += _cal.Months[i].Days;
+
+        totalDaysFromYearStart += (dayOfMonth - 1);
+
+        long absoluteDayIndex = totalDaysFromYearStart - _epochDayOfYear;
+
+        return absoluteDayIndex * _cal.HoursPerDay + hourOfDay;
     }
 }
