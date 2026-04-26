@@ -31,11 +31,11 @@ Players command armies through a Discord bot interface while a referee manages t
 ┌──────────────▼───────────────────────────────▼────────────┐
 │                    ViewModel Layer                         │
 │                                                            │
-│  HexMapViewModel  (main coordinator)                       │
-│  ├─ ArmyViewModel      ├─ CommanderViewModel               │
-│  ├─ FactionViewModel   ├─ MessageViewModel                 │
-│  ├─ MapHexViewModel    └─ OrderViewModel                   │
-│  └─ CoLocationChannelViewModel                             │
+│  HexMapViewModel  (screen coordinator)                     │
+│  ├─ Editing        ├─ PathSelection                        │
+│  ├─ Discord        ├─ News                                 │
+│  ├─ EntityViewModelFactory                                 │
+│  └─ Detail VMs: Army, Commander, Faction, Message, Hex     │
 └─────────────────────────────┬──────────────────────────────┘
                               │ I*Service  (DI / scoped)
 ┌─────────────────────────────▼──────────────────────────────┐
