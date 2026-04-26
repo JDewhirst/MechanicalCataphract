@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels.HexMap;
 using GUI.ViewModels.EntityViewModels;
 using GUI.Windows;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
-using Microsoft.Extensions.DependencyInjection;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Discord;
 using Avalonia.Threading;
@@ -40,6 +40,12 @@ public partial class HexMapViewModel : ObservableObject
     private readonly INavyService _navyService;
     private readonly ICalendarService _calendarService;
     private readonly ICalendarDefinitionService _calendarDefinitionService;
+    private readonly EntityViewModelFactory _entityViewModelFactory;
+
+    public MapEditingCoordinator Editing { get; }
+    public PathSelectionCoordinator PathSelection { get; }
+    public DiscordConnectionViewModel Discord { get; }
+    public NewsDropCoordinator News { get; }
 
     // Database-backed gamestate data
     [ObservableProperty]
@@ -70,19 +76,6 @@ public partial class HexMapViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<int> _pickerHours = new();
 
-    // Discord bot config
-    [ObservableProperty]
-    private string _discordBotToken = string.Empty;
-
-    [ObservableProperty]
-    private string _discordGuildId = string.Empty;
-
-    [ObservableProperty]
-    private bool _isDiscordConnected;
-
-    [ObservableProperty]
-    private string _discordStatusMessage = "Not configured";
-
     // Database-backed hex data
     [ObservableProperty]
     private ObservableCollection<MapHex> _visibleHexes = new();
@@ -91,41 +84,16 @@ public partial class HexMapViewModel : ObservableObject
     private ObservableCollection<TerrainType> _terrainTypes = new();
 
     [ObservableProperty]
-    private TerrainType? _selectedTerrainType;
-
-    [ObservableProperty]
     private ObservableCollection<LocationType> _locationTypes = new();
-
-    [ObservableProperty]
-    private LocationType? _selectedLocationType;
-
-    [ObservableProperty]
-    private Faction? _selectedFactionForPainting;
 
     [ObservableProperty]
     private ObservableCollection<MechanicalCataphract.Data.Entities.Weather> _weatherTypes = new();
 
-    [ObservableProperty]
-    private MechanicalCataphract.Data.Entities.Weather? _selectedWeatherForPainting;
-
-    // Overlay options for map visualization
-    public ObservableCollection<string> OverlayOptions { get; } = new()
-    {
-        "None",
-        "Faction Control",
-        "Population Density",
-        "Times Foraged",
-        "Weather"
-    };
-
-    [ObservableProperty]
-    private string _selectedOverlay = "None";
-
     // Properties for forage mode
-    [ObservableProperty] 
+    [ObservableProperty]
     private bool _isForageModeActive;
 
-    [ObservableProperty] 
+    [ObservableProperty]
     private Army? _forageTargetArmy;
 
     [ObservableProperty]
@@ -159,22 +127,11 @@ public partial class HexMapViewModel : ObservableObject
         private set => SetProperty(ref _musterPreviewText, value);
     }
 
-    // Properties for path selection mode
-    [ObservableProperty]
-    private bool _isPathSelectionModeActive;
-
-    [ObservableProperty]
-    private IPathMovable? _pathSelectionTarget;
-
-    [ObservableProperty]
-    private ObservableCollection<Hex> _pathSelectionHexes = new();
-    public int PathSelectionCount => PathSelectionHexes.Count;
-
     // Sync guard: prevents OnSelectedXxxChanged from recreating entity VMs
     // when we replace items in collections during Saved-event sync.
     private bool _isSyncingCollection;
 
-    // Map dimensions — int.MaxValue means "unbounded" (no map loaded yet)
+    // Map dimensions â€” int.MaxValue means "unbounded" (no map loaded yet)
     private int _mapRows = int.MaxValue;
     private int _mapColumns = int.MaxValue;
 
@@ -185,15 +142,6 @@ public partial class HexMapViewModel : ObservableObject
     private Vector _panOffset = Vector.Zero;
 
     [ObservableProperty]
-    private int _brushSize = 1;
-
-    [ObservableProperty]
-    private int _selectedPopulationDensity = 20;
-
-    [ObservableProperty]
-    private string _currentTool = "Pan";
-
-    [ObservableProperty]
     private Hex? _selectedHex;
 
     [ObservableProperty]
@@ -201,14 +149,6 @@ public partial class HexMapViewModel : ObservableObject
 
     [ObservableProperty]
     private string _statusMessage = string.Empty;
-
-    // Road painting state - tracks first hex in two-click road creation
-    [ObservableProperty]
-    private Hex? _roadStartHex;
-
-    // River Painting state - tracks first hex in two-click river creation
-    [ObservableProperty]
-    private Hex? _riverStartHex;
 
     // Entity collections for admin panels
     [ObservableProperty]
@@ -258,9 +198,6 @@ public partial class HexMapViewModel : ObservableObject
     private CoLocationChannel? _selectedCoLocationChannel;
 
     // News Items
-    [ObservableProperty]
-    private ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem> _newsItems = new();
-
     // Order filtering
     [ObservableProperty]
     private bool _hideProcessedOrders;
@@ -279,14 +216,6 @@ public partial class HexMapViewModel : ObservableObject
 
     [ObservableProperty]
     private Navy? _selectedNavy;
-
-    [ObservableProperty]
-    private MechanicalCataphract.Data.Entities.NewsItem? _selectedNewsItem;
-
-    [ObservableProperty]
-    private ObservableCollection<Hex> _newsReachedHexes = new();
-
-    public int NewsReachedHexCount => NewsReachedHexes.Count;
 
     public HexMapViewModel(
         IMapService mapService,
@@ -326,6 +255,68 @@ public partial class HexMapViewModel : ObservableObject
         _navyService = navyService;
         _calendarService = calendarService;
         _calendarDefinitionService = calendarDefinitionService;
+
+        _entityViewModelFactory = new EntityViewModelFactory(
+            _factionService,
+            _armyService,
+            _commanderService,
+            _messageService,
+            _coLocationChannelService,
+            _navyService,
+            _mapService,
+            _pathfindingService,
+            _factionRuleService,
+            _discordChannelManager,
+            () => _mapRows,
+            () => _mapColumns,
+            () => Commanders,
+            () => Factions,
+            () => Armies,
+            () => LocationTypes,
+            () => WeatherTypes);
+
+        Editing = new MapEditingCoordinator(
+            _mapService,
+            () => VisibleHexes,
+            () => TerrainTypes,
+            () => LocationTypes,
+            () => SelectedHex,
+            hex => SelectedMapHex = hex,
+            message => StatusMessage = message);
+
+        PathSelection = new PathSelectionCoordinator(
+            _messageService,
+            _armyService,
+            _commanderService,
+            () => SelectedEntityViewModel,
+            vm => SelectedEntityViewModel = vm,
+            () => SelectedMessage,
+            () => SelectedArmy,
+            () => SelectedCommander,
+            CreateMessageViewModel,
+            CreateArmyViewModel,
+            CreateCommanderViewModel,
+            RefreshMessagesAsync,
+            message => StatusMessage = message,
+            tool => Editing.CurrentTool = tool);
+
+        Discord = new DiscordConnectionViewModel(
+            _discordBotService,
+            _discordChannelManager,
+            async () =>
+            {
+                await RefreshCommandersAsync();
+                await RefreshArmiesAsync();
+            });
+
+        News = new NewsDropCoordinator(
+            _newsService,
+            _factionService,
+            _gameStateService,
+            () => Factions,
+            () => CurrentWorldHour,
+            tool => Editing.CurrentTool = tool,
+            message => StatusMessage = message);
 
         _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
     }
@@ -383,14 +374,14 @@ public partial class HexMapViewModel : ObservableObject
         TerrainTypes = new ObservableCollection<TerrainType>(terrainTypes);
 
         if (TerrainTypes.Count > 0)
-            SelectedTerrainType = TerrainTypes[0];
+            Editing.SelectedTerrainType = TerrainTypes[0];
 
         // Load location types
         var locationTypes = await _mapService.GetLocationTypesAsync();
         LocationTypes = new ObservableCollection<LocationType>(locationTypes);
 
         if (LocationTypes.Count > 0)
-            SelectedLocationType = LocationTypes[0];
+            Editing.SelectedLocationType = LocationTypes[0];
 
         // Load weather types
         var weatherTypes = await _mapService.GetWeatherTypesAsync();
@@ -403,7 +394,7 @@ public partial class HexMapViewModel : ObservableObject
             await _mapService.InitializeMapAsync(newRows, newCols, TerrainTypes.Count > 0 ? TerrainTypes[0].Id : 1);
         }
 
-        // Get map dimensions (0 means "no map yet" — keep int.MaxValue so bounds check is skipped)
+        // Get map dimensions (0 means "no map yet" â€” keep int.MaxValue so bounds check is skipped)
         var (rows, cols) = await _mapService.GetMapDimensionsAsync();
         if (rows > 0) _mapRows = rows;
         if (cols > 0) _mapColumns = cols;
@@ -468,8 +459,7 @@ public partial class HexMapViewModel : ObservableObject
         PickerDayIndex = currentDate.DayOfMonth - 1;
         PickerHourIndex = currentDate.HourOfDay;
 
-        var newsItems = await _newsService.GetAllAsync();
-        NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
+        await RefreshNewsItemsAsync();
 
         var navies = await _navyService.GetAllAsync();
         Navies = new ObservableCollection<Navy>(navies);
@@ -477,87 +467,7 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadDiscordConfigAsync()
     {
-        try
-        {
-            using var scope = App.Services!.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<MechanicalCataphract.Data.WargameDbContext>();
-            var config = await db.DiscordConfigs.FindAsync(1);
-            if (config is not null)
-            {
-                DiscordBotToken = config.BotToken ?? string.Empty;
-                DiscordGuildId = config.GuildId?.ToString() ?? string.Empty;
-            }
-            IsDiscordConnected = _discordBotService.IsConnected;
-            DiscordStatusMessage = _discordBotService.StatusMessage;
-        }
-        catch (Exception ex)
-        {
-            DiscordStatusMessage = $"Error: {ex.Message}";
-        }
-    }
-
-    [RelayCommand]
-    private async Task ConnectDiscordAsync()
-    {
-        try
-        {
-            DiscordStatusMessage = "Connecting...";
-
-            // Parse guild ID
-            if (!ulong.TryParse(DiscordGuildId, out var guildId))
-            {
-                DiscordStatusMessage = "Invalid Guild ID";
-                return;
-            }
-
-            // Save config to DB
-            using (var scope = App.Services!.CreateScope())
-            {
-                var db = scope.ServiceProvider.GetRequiredService<MechanicalCataphract.Data.WargameDbContext>();
-                var config = await db.DiscordConfigs.FindAsync(1);
-                if (config is null)
-                {
-                    config = new MechanicalCataphract.Data.Entities.DiscordConfig { Id = 1 };
-                    db.DiscordConfigs.Add(config);
-                }
-                config.BotToken = DiscordBotToken;
-                config.GuildId = guildId;
-                await db.SaveChangesAsync();
-            }
-
-            // Start the bot — this now awaits the gateway Ready event
-            await _discordBotService.StartBotAsync();
-            IsDiscordConnected = _discordBotService.IsConnected;
-            DiscordStatusMessage = _discordBotService.StatusMessage;
-
-            // Catch up any entities created before Discord was configured
-            if (IsDiscordConnected)
-            {
-                await _discordChannelManager.SyncExistingEntitiesAsync();
-                await RefreshCommandersAsync();
-                await RefreshArmiesAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            DiscordStatusMessage = $"Error: {ex.Message}";
-            IsDiscordConnected = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task DisconnectDiscordAsync()
-    {
-        try
-        {
-            await _discordBotService.StopBotAsync();
-            IsDiscordConnected = false;
-            DiscordStatusMessage = "Disconnected";
-        }
-        catch (Exception ex)
-        {
-            DiscordStatusMessage = $"Error: {ex.Message}";
-        }
+        await Discord.LoadAsync();
     }
 
     /// <summary>
@@ -653,8 +563,7 @@ public partial class HexMapViewModel : ObservableObject
 
     public async Task RefreshNewsItemsAsync()
     {
-        var newsItems = await _newsService.GetAllAsync();
-        NewsItems = new ObservableCollection<MechanicalCataphract.Data.Entities.NewsItem>(newsItems);
+        await News.RefreshAsync();
     }
 
     public async Task RefreshNaviesAsync()
@@ -746,93 +655,6 @@ public partial class HexMapViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SelectTool()
-    {
-        CurrentTool = "Select";
-        StatusMessage = "Tool: Select";
-    }
-
-    [RelayCommand]
-    private void PanTool()
-    {
-        CurrentTool = "Pan";
-        StatusMessage = "Tool: Pan";
-    }
-
-    [RelayCommand]
-    private void TerrainPaintTool()
-    {
-        CurrentTool = "TerrainPaint";
-        StatusMessage = $"Tool: Terrain Paint - {SelectedTerrainType?.Name ?? "None"}";
-    }
-
-    [RelayCommand]
-    private void RoadPaintTool()
-    {
-        CurrentTool = "RoadPaint";
-        RoadStartHex = null;
-        StatusMessage = "Tool: Road - Click first hex";
-    }
-
-    [RelayCommand]
-    private void RiverPaintTool()
-    {
-        CurrentTool = "RiverPaint";
-        RiverStartHex = null;
-        StatusMessage = "Tool: River -  Click first hex";
-    }
-
-    [RelayCommand]
-    private void EraseTool()
-    {
-        CurrentTool = "Erase";
-        RoadStartHex = null;
-        StatusMessage = "Tool: Erase - Click hex to clear roads/rivers";
-    }
-
-    [RelayCommand]
-    private void LocationPaintTool()
-    {
-        CurrentTool = "LocationPaint";
-        StatusMessage = $"Tool: Location Paint - {SelectedLocationType?.Name ?? "None"}";
-    }
-
-    [RelayCommand]
-    private void PopulationPaintTool()
-    {
-        CurrentTool = "PopulationPaint";
-        SelectedOverlay = "Population Density";
-        StatusMessage = $"Tool: Population Paint - Density {SelectedPopulationDensity}";
-    }
-
-    [RelayCommand]
-    private void FactionControlPaintTool()
-    {
-        CurrentTool = "FactionControlPaint";
-        SelectedOverlay = "Faction Control";
-        StatusMessage = $"Tool: Faction Paint — {SelectedFactionForPainting?.Name ?? "None"}";
-    }
-
-    [RelayCommand]
-    private void WeatherPaintTool()
-    {
-        CurrentTool = "WeatherPaint";
-        SelectedOverlay = "Weather";
-        StatusMessage = $"Tool: Weather Paint — {SelectedWeatherForPainting?.Name ?? "None"}";
-    }
-
-    [RelayCommand]
-    private void SetPopulationDensity(string densityStr)
-    {
-        if (int.TryParse(densityStr, out var density))
-        {
-            SelectedPopulationDensity = density;
-            if (CurrentTool == "PopulationPaint")
-                StatusMessage = $"Tool: Population Paint - Density {SelectedPopulationDensity}";
-        }
-    }
-
-    [RelayCommand]
     private void SelectHex(Hex hex)
     {
         SelectedHex = hex;
@@ -844,431 +666,68 @@ public partial class HexMapViewModel : ObservableObject
         PanOffset = new Vector(PanOffset.X + delta.X, PanOffset.Y + delta.Y);
     }
 
-    [RelayCommand]
-    private async Task PaintTerrainAsync((Hex hex, int terrainTypeId) args)
-    {
-        // Build a fast lookup of hexes that actually exist in the grid
-        var existingCoords = new HashSet<(int q, int r)>(
-            VisibleHexes.Select(h => (h.Q, h.R)));
+    private FactionViewModel CreateFactionViewModel(Faction faction)
+        => _entityViewModelFactory.CreateFaction(
+            faction,
+            army => SelectedArmy = army,
+            commander => SelectedCommander = commander,
+            entity => SyncEntityInCollection(() => Factions, c => Factions = c, f => SelectedFaction = f, entity));
 
-        var toPaint = GetHexesInRadius(args.hex, BrushSize)
-            .Where(h => existingCoords.Contains((h.q, h.r)))
-            .ToList();
+    private ArmyViewModel CreateArmyViewModel(Army army)
+        => _entityViewModelFactory.CreateArmy(
+            army,
+            OnBrigadeTransferRequested,
+            PathSelection.Start,
+            PathSelection.ConfirmAsync,
+            PathSelection.Cancel,
+            OnScoutingReportRequested,
+            OnArmyReportRequested,
+            entity => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, entity));
 
-        foreach (var hex in toPaint)
-            await _mapService.SetTerrainAsync(hex, args.terrainTypeId);
+    private CommanderViewModel CreateCommanderViewModel(Commander commander)
+        => _entityViewModelFactory.CreateCommander(
+            commander,
+            PathSelection.Start,
+            PathSelection.ConfirmAsync,
+            PathSelection.Cancel,
+            () => Commanders = new ObservableCollection<Commander>(Commanders),
+            entity => SyncEntityInCollection(() => Commanders, c => Commanders = c, c => SelectedCommander = c, entity));
 
-        // Update in-memory collection directly — no DB re-fetch required
-        var terrainType = TerrainTypes.FirstOrDefault(t => t.Id == args.terrainTypeId);
-        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
+    private MessageViewModel CreateMessageViewModel(Message message)
+        => _entityViewModelFactory.CreateMessage(
+            message,
+            PathSelection.Start,
+            PathSelection.ConfirmAsync,
+            PathSelection.Cancel,
+            entity => SyncEntityInCollection(() => Messages, c => Messages = c, m => SelectedMessage = m, entity));
+
+    private CoLocationChannelViewModel CreateCoLocationChannelViewModel(CoLocationChannel channel)
+        => _entityViewModelFactory.CreateCoLocationChannel(
+            channel,
+            entity => SyncEntityInCollection(() => CoLocationChannels, c => CoLocationChannels = c, c => SelectedCoLocationChannel = c, entity));
+
+    private NavyViewModel CreateNavyViewModel(Navy navy)
+        => _entityViewModelFactory.CreateNavy(
+            navy,
+            OnNavyReportRequested,
+            entity => SyncEntityInCollection(() => Navies, c => Navies = c, n => SelectedNavy = n, entity));
+
+    private MapHexViewModel CreateMapHexViewModel(MapHex mapHex)
+        => _entityViewModelFactory.CreateMapHex(
+            mapHex,
+            entity =>
             {
-                mapHex.TerrainTypeId = args.terrainTypeId;
-                mapHex.TerrainType = terrainType;
-                VisibleHexes[i] = mapHex;
-            }
-        }
-
-        var terrainName = terrainType?.Name ?? "Unknown";
-        StatusMessage = BrushSize == 1
-            ? $"Painted {terrainName} at ({args.hex.q}, {args.hex.r})"
-            : $"Painted {terrainName} at ({args.hex.q}, {args.hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
-    }
-
-    [RelayCommand]
-    private async Task PaintFactionControlAsync(Hex hex)
-    {
-        if (SelectedFactionForPainting == null) return;
-
-        var existingCoords = new HashSet<(int q, int r)>(
-            VisibleHexes.Select(h => (h.Q, h.R)));
-
-        var waterTerrainIds = new HashSet<int>(TerrainTypes.Where(t => t.IsWater).Select(t => t.Id));
-        var hexLookup = VisibleHexes.ToDictionary(h => (h.Q, h.R));
-
-        var toPaint = GetHexesInRadius(hex, BrushSize)
-            .Where(h => existingCoords.Contains((h.q, h.r)))
-            .Where(h => {
-                var mh = hexLookup[(h.q, h.r)];
-                return !mh.TerrainTypeId.HasValue || !waterTerrainIds.Contains(mh.TerrainTypeId.Value);
-            })
-            .ToList();
-
-        foreach (var h in toPaint)
-            await _mapService.SetFactionControlAsync(h, SelectedFactionForPainting.Id);
-
-        // Update in-memory — no DB re-fetch required
-        var faction = SelectedFactionForPainting;
-        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
-            {
-                mapHex.ControllingFactionId = faction.Id;
-                mapHex.ControllingFaction = faction;
-                VisibleHexes[i] = mapHex;
-            }
-        }
-
-        StatusMessage = BrushSize == 1
-            ? $"Painted {faction.Name} at ({hex.q}, {hex.r})"
-            : $"Painted {faction.Name} at ({hex.q}, {hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
-    }
-
-    /// <summary>
-    /// Returns all cube-coordinate Hex values within distance (brushSize - 1) of center.
-    /// BrushSize 1 => center only. BrushSize 2 => center + ring-1 (7 hexes).
-    /// </summary>
-    private static IEnumerable<Hex> GetHexesInRadius(Hex center, int brushSize)
-    {
-        int radius = Math.Max(0, brushSize - 1);
-        for (int dq = -radius; dq <= radius; dq++)
-        {
-            int rMin = Math.Max(-radius, -dq - radius);
-            int rMax = Math.Min(radius, -dq + radius);
-            for (int dr = rMin; dr <= rMax; dr++)
-            {
-                yield return new Hex(center.q + dq, center.r + dr, -(center.q + dq) - (center.r + dr));
-            }
-        }
-    }
-
-    [RelayCommand]
-    private async Task PaintRoadAsync(Hex clickedHex)
-    {
-        if (!RoadStartHex.HasValue)
-        {
-            // First click - set start hex
-            RoadStartHex = clickedHex;
-            StatusMessage = $"Road start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
-            return;
-        }
-
-        var startHex = RoadStartHex.Value;
-
-        // Check if same hex clicked - cancel
-        if (startHex.q == clickedHex.q && startHex.r == clickedHex.r)
-        {
-            RoadStartHex = null;
-            StatusMessage = "Road cancelled - Click first hex";
-            return;
-        }
-
-        // Find direction from start to clicked hex
-        int? dirFromStart = GetNeighborDirection(startHex, clickedHex);
-        if (!dirFromStart.HasValue)
-        {
-            // Not adjacent - start over with this hex
-            RoadStartHex = clickedHex;
-            StatusMessage = $"Not adjacent. New start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
-            return;
-        }
-
-        // Get opposite direction for the other hex
-        int dirFromEnd = (dirFromStart.Value + 3) % 6;
-
-        // Check if road already exists - toggle off if so
-        var startMapHex = VisibleHexes.FirstOrDefault(h => h.Q == startHex.q && h.R == startHex.r);
-        bool hasRoad = startMapHex?.HasRoadInDirection(dirFromStart.Value) ?? false;
-
-        // Set road on both hexes
-        await _mapService.SetRoadAsync(startHex, dirFromStart.Value, !hasRoad);
-        await _mapService.SetRoadAsync(clickedHex, dirFromEnd, !hasRoad);
-
-        // Update local hexes in collection
-        await RefreshHexInCollection(startHex);
-        await RefreshHexInCollection(clickedHex);
-
-        // Advance chain: new start is the hex just painted to
-        RoadStartHex = clickedHex;
-        StatusMessage = hasRoad
-            ? $"Removed road. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel"
-            : $"Added road. Continue from ({clickedHex.q}, {clickedHex.r}) or click same hex to cancel";
-    }
-
-    /// <summary>
-    /// Gets the direction index (0-5) from hex A to hex B, or null if not adjacent.
-    /// </summary>
-    private static int? GetNeighborDirection(Hex from, Hex to)
-    {
-        for (int dir = 0; dir < 6; dir++)
-        {
-            var neighbor = from.Neighbor(dir);
-            if (neighbor.q == to.q && neighbor.r == to.r)
-                return dir;
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Checks if two hexes are adjacent (neighbors).
-    /// </summary>
-    private static bool IsAdjacent(Hex a, Hex b) => GetNeighborDirection(a, b).HasValue;
-
-    /// <summary>
-    /// Reloads a hex from the database and updates the local collection.
-    /// </summary>
-    private async Task RefreshHexInCollection(Hex hex)
-    {
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (mapHex.Q == hex.q && mapHex.R == hex.r)
-            {
-                var updatedHex = await _mapService.GetHexAsync(hex);
-                if (updatedHex != null)
+                for (int i = 0; i < VisibleHexes.Count; i++)
                 {
-                    VisibleHexes[i] = updatedHex;
-                }
-                break;
-            }
-        }
-    }
-
-    [RelayCommand]
-    private async Task PaintRiverAsync(Hex clickedHex)
-    {
-        if (!RiverStartHex.HasValue)
-        {
-            // First click - set start hex
-            RiverStartHex = clickedHex;
-            StatusMessage = $"River start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
-            return;
-        }
-
-        var startHex = RiverStartHex.Value;
-
-        // Check if same hex clicked - cancel
-        if (startHex.q == clickedHex.q && startHex.r == clickedHex.r)
-        {
-            RiverStartHex = null;
-            StatusMessage = "River cancelled - Click first hex";
-            return;
-        }
-
-        // Find direction from start to clicked hex
-        int? dirFromStart = GetNeighborDirection(startHex, clickedHex);
-        if (!dirFromStart.HasValue)
-        {
-            // Not adjacent - start over with this hex
-            RiverStartHex = clickedHex;
-            StatusMessage = $"Not adjacent. New start: ({clickedHex.q}, {clickedHex.r}) - Click adjacent hex";
-            return;
-        }
-
-        // Get opposite direction for the other hex
-        int dirFromEnd = (dirFromStart.Value + 3) % 6;
-
-        // Check if road already exists - toggle off if so
-        var startMapHex = VisibleHexes.FirstOrDefault(h => h.Q == startHex.q && h.R == startHex.r);
-        bool hasRiver = startMapHex?.HasRiverOnEdge(dirFromStart.Value) ?? false;
-
-        // Set river on both hexes
-        await _mapService.SetRiverAsync(startHex, dirFromStart.Value, !hasRiver);
-        await _mapService.SetRiverAsync(clickedHex, dirFromEnd, !hasRiver);
-
-        // Update local hexes in collection
-        await RefreshHexInCollection(startHex);
-        await RefreshHexInCollection(clickedHex);
-
-        // Reset — require two fresh clicks for each segment
-        RiverStartHex = null;
-        StatusMessage = hasRiver
-            ? "Removed river. Click first hex for next segment"
-            : "Added river. Click first hex for next segment";
-    }
-
-    [RelayCommand]
-    private async Task EraseAsync(Hex hex)
-    {
-        await _mapService.ClearRoadsAndRiversAsync(hex);
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (mapHex.Q == hex.q && mapHex.R == hex.r)
-            {
-                mapHex.RoadDirections = null;
-                mapHex.RiverEdges = null;
-                VisibleHexes[i] = mapHex;
-                break;
-            }
-        }
-        StatusMessage = $"Cleared roads/rivers at ({hex.q}, {hex.r})";
-    }
-
-    [RelayCommand]
-    private async Task PaintLocationAsync((Hex hex, string? locationName) args)
-    {
-        if (SelectedLocationType == null)
-        {
-            StatusMessage = "No location type selected";
-            return;
-        }
-
-        // Sentinel "No Location" (Id=1) clears the location
-        if (SelectedLocationType.Id == 1)
-        {
-            await _mapService.ClearLocationAsync(args.hex);
-            for (int i = 0; i < VisibleHexes.Count; i++)
-            {
-                var mapHex = VisibleHexes[i];
-                if (mapHex.Q == args.hex.q && mapHex.R == args.hex.r)
-                {
-                    mapHex.LocationTypeId = null;
-                    mapHex.LocationType = null;
-                    mapHex.LocationName = null;
-                    mapHex.LocationFactionId = null;
-                    VisibleHexes[i] = mapHex;
-                    if (SelectedHex.HasValue && SelectedHex.Value.q == args.hex.q && SelectedHex.Value.r == args.hex.r)
+                    if (VisibleHexes[i].Q == entity.Q && VisibleHexes[i].R == entity.R)
                     {
-                        SelectedMapHex = mapHex;
+                        VisibleHexes[i] = entity;
+                        break;
                     }
-                    break;
                 }
-            }
-            StatusMessage = $"Cleared location at ({args.hex.q}, {args.hex.r})";
-            return;
-        }
 
-        await _mapService.SetLocationAsync(args.hex, SelectedLocationType.Id, args.locationName);
-        var locType = LocationTypes.FirstOrDefault(l => l.Id == SelectedLocationType.Id);
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (mapHex.Q == args.hex.q && mapHex.R == args.hex.r)
-            {
-                mapHex.LocationTypeId = SelectedLocationType.Id;
-                mapHex.LocationType = locType;
-                mapHex.LocationName = args.locationName;
-                VisibleHexes[i] = mapHex;
-                if (SelectedHex.HasValue && SelectedHex.Value.q == args.hex.q && SelectedHex.Value.r == args.hex.r)
-                {
-                    SelectedMapHex = mapHex;
-                }
-                break;
-            }
-        }
-
-        var name = string.IsNullOrEmpty(args.locationName) ? SelectedLocationType.Name : args.locationName;
-        StatusMessage = $"Set location '{name}' ({SelectedLocationType.Name}) at ({args.hex.q}, {args.hex.r})";
-    }
-
-    [RelayCommand]
-    private async Task ClearLocationAsync(Hex hex)
-    {
-        await _mapService.ClearLocationAsync(hex);
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (mapHex.Q == hex.q && mapHex.R == hex.r)
-            {
-                mapHex.LocationTypeId = null;
-                mapHex.LocationType = null;
-                mapHex.LocationName = null;
-                mapHex.LocationFactionId = null;
-                VisibleHexes[i] = mapHex;
-                break;
-            }
-        }
-        StatusMessage = $"Cleared location at ({hex.q}, {hex.r})";
-    }
-
-    [RelayCommand]
-    private async Task PaintPopulationAsync(Hex hex)
-    {
-        var existingCoords = new HashSet<(int q, int r)>(
-            VisibleHexes.Select(h => (h.Q, h.R)));
-
-        var waterTerrainIds = new HashSet<int>(TerrainTypes.Where(t => t.IsWater).Select(t => t.Id));
-        var hexLookup = VisibleHexes.ToDictionary(h => (h.Q, h.R));
-
-        var toPaint = GetHexesInRadius(hex, BrushSize)
-            .Where(h => existingCoords.Contains((h.q, h.r)))
-            .Where(h => {
-                var mh = hexLookup[(h.q, h.r)];
-                return !mh.TerrainTypeId.HasValue || !waterTerrainIds.Contains(mh.TerrainTypeId.Value);
-            })
-            .ToList();
-
-        foreach (var h in toPaint)
-            await _mapService.SetPopulationDensityAsync(h, SelectedPopulationDensity);
-
-        // Update in-memory collection directly — no DB re-fetch required
-        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
-            {
-                mapHex.PopulationDensity = SelectedPopulationDensity;
-                VisibleHexes[i] = mapHex;
-            }
-        }
-
-        StatusMessage = BrushSize == 1
-            ? $"Painted density {SelectedPopulationDensity} at ({hex.q}, {hex.r})"
-            : $"Painted density {SelectedPopulationDensity} at ({hex.q}, {hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
-    }
-
-    [RelayCommand]
-    private async Task PaintWeatherAsync(Hex hex)
-    {
-        if (SelectedWeatherForPainting == null) return;
-
-        var existingCoords = new HashSet<(int q, int r)>(VisibleHexes.Select(h => (h.Q, h.R)));
-
-        var toPaint = GetHexesInRadius(hex, BrushSize)
-            .Where(h => existingCoords.Contains((h.q, h.r)))
-            .ToList();
-
-        foreach (var h in toPaint)
-            await _mapService.SetWeatherAsync(h, SelectedWeatherForPainting.Id);
-
-        var paintedCoords = new HashSet<(int q, int r)>(toPaint.Select(h => (h.q, h.r)));
-        var weather = SelectedWeatherForPainting;
-        for (int i = 0; i < VisibleHexes.Count; i++)
-        {
-            var mapHex = VisibleHexes[i];
-            if (paintedCoords.Contains((mapHex.Q, mapHex.R)))
-            {
-                mapHex.WeatherId = weather.Id;
-                mapHex.Weather = weather;
-                VisibleHexes[i] = mapHex;
-            }
-        }
-
-        StatusMessage = BrushSize == 1
-            ? $"Painted {weather.Name} at ({hex.q}, {hex.r})"
-            : $"Painted {weather.Name} at ({hex.q}, {hex.r}) — brush {BrushSize} ({toPaint.Count} hexes)";
-    }
-
-    partial void OnSelectedTerrainTypeChanged(TerrainType? value)
-    {
-        if (CurrentTool == "TerrainPaint" && value != null)
-        {
-            StatusMessage = $"Tool: Terrain Paint - {value.Name}";
-        }
-    }
-
-    partial void OnSelectedLocationTypeChanged(LocationType? value)
-    {
-        if (CurrentTool == "LocationPaint" && value != null)
-        {
-            StatusMessage = $"Tool: Location Paint - {value.Name}";
-        }
-    }
-
-    partial void OnSelectedFactionForPaintingChanged(Faction? value)
-    {
-        if (CurrentTool == "FactionControlPaint" && value != null)
-        {
-            StatusMessage = $"Tool: Faction Paint — {value.Name}";
-        }
-    }
+                SyncEntityInCollection(() => VisibleHexes, c => VisibleHexes = c, null, entity);
+            });
 
     // Selection clearing - when one entity type is selected, clear others
     private void ClearAllSelectionsExcept(string keep)
@@ -1287,7 +746,7 @@ public partial class HexMapViewModel : ObservableObject
     {
         if (_isSyncingCollection || value == null) return;
         ClearAllSelectionsExcept(nameof(SelectedFaction));
-        SelectedEntityViewModel = new FactionViewModel(value, _factionService, _factionRuleService, _discordChannelManager);
+        SelectedEntityViewModel = CreateFactionViewModel(value);
         StatusMessage = $"Selected faction: {value.Name}";
         _ = LoadFactionWithDetailsAsync(value.Id);
     }
@@ -1307,12 +766,7 @@ public partial class HexMapViewModel : ObservableObject
     _factionService.GetFactionWithArmiesAndCommandersAsync(factionId);
         if (factionWithDetails != null)
         {
-            var factionVm = new FactionViewModel(factionWithDetails, _factionService, _factionRuleService, _discordChannelManager);
-
-            // Wire up navigation events
-            factionVm.ArmySelected += army => SelectedArmy = army;
-            factionVm.CommanderSelected += commander => SelectedCommander = commander;
-            factionVm.Saved += () => SyncEntityInCollection(() => Factions, c => Factions = c, f => SelectedFaction = f, factionVm.Entity);
+            var factionVm = CreateFactionViewModel(factionWithDetails);
 
             SelectedEntityViewModel = factionVm;
             StatusMessage = $"Selected faction: {factionWithDetails.Name}";
@@ -1324,21 +778,14 @@ public partial class HexMapViewModel : ObservableObject
         var armyWithDetails = await _armyService.GetArmyWithBrigadesAsync(armyId);
         if (armyWithDetails != null)
         {
-            var armyVm = new ArmyViewModel(armyWithDetails, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService, _factionRuleService);
-            armyVm.TransferRequested += OnBrigadeTransferRequested;
-            armyVm.PathSelectionRequested += StartPathSelectionMode;
-            armyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-            armyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-            armyVm.ScoutingReportRequested += OnScoutingReportRequested;
-            armyVm.ArmyReportRequested += OnArmyReportRequested;
-            armyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, armyVm.Entity);
+            var armyVm = CreateArmyViewModel(armyWithDetails);
             SelectedEntityViewModel = armyVm;
         }
     }
 
     /// <summary>
     /// Shows the New Map dialog so the user can choose grid dimensions on first launch.
-    /// Falls back to 50×50 if the dialog is cancelled or the window is not yet available.
+    /// Falls back to 50Ã—50 if the dialog is cancelled or the window is not yet available.
     /// </summary>
     private static async Task<(int rows, int cols)> PromptMapSizeAsync()
     {
@@ -1357,7 +804,7 @@ public partial class HexMapViewModel : ObservableObject
 
         // Get all armies except the current one
         var otherArmies = Armies.Where(a => a.Id != SelectedArmy?.Id).ToList();
-        
+
         if (otherArmies.Count == 0)
         {
             StatusMessage = "No other armies to transfer to";
@@ -1500,12 +947,7 @@ public partial class HexMapViewModel : ObservableObject
     {
         if (_isSyncingCollection || value == null) return;
         ClearAllSelectionsExcept(nameof(SelectedCommander));
-        var cmdVm = new CommanderViewModel(value, _commanderService, Armies, Factions, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
-        cmdVm.PathSelectionRequested += StartPathSelectionMode;
-        cmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-        cmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-        cmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
-        cmdVm.Saved += () => SyncEntityInCollection(() => Commanders, c => Commanders = c, c => SelectedCommander = c, cmdVm.Entity);
+        var cmdVm = CreateCommanderViewModel(value);
         SelectedEntityViewModel = cmdVm;
         StatusMessage = $"Selected commander: {value.Name}";
     }
@@ -1522,13 +964,9 @@ public partial class HexMapViewModel : ObservableObject
     {
         if (_isSyncingCollection || value == null) return;
         ClearAllSelectionsExcept(nameof(SelectedMessage));
-        var messageVm = new MessageViewModel(value, _messageService, Commanders, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
-        messageVm.PathSelectionRequested += StartPathSelectionMode;
-        messageVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-        messageVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-        messageVm.Saved += () => SyncEntityInCollection(() => Messages, c => Messages = c, m => SelectedMessage = m, messageVm.Entity);
+        var messageVm = CreateMessageViewModel(value);
         SelectedEntityViewModel = messageVm;
-        StatusMessage = $"Selected message: {value.SenderCommander?.Name ?? "?"} → {value.TargetCommander?.Name ?? "?"}";
+        StatusMessage = $"Selected message: {value.SenderCommander?.Name ?? "?"} â†’ {value.TargetCommander?.Name ?? "?"}";
     }
 
     partial void OnSelectedCoLocationChannelChanged(CoLocationChannel? value)
@@ -1544,8 +982,7 @@ public partial class HexMapViewModel : ObservableObject
         var channel = await _coLocationChannelService.GetByIdAsync(channelId);
         if (channel != null)
         {
-            var vm = new CoLocationChannelViewModel(channel, _coLocationChannelService, Armies, Commanders, _discordChannelManager);
-            vm.Saved += () => SyncEntityInCollection(() => CoLocationChannels, c => CoLocationChannels = c, c => SelectedCoLocationChannel = c, vm.Entity);
+            var vm = CreateCoLocationChannelViewModel(channel);
             SelectedEntityViewModel = vm;
         }
     }
@@ -1563,9 +1000,7 @@ public partial class HexMapViewModel : ObservableObject
         var navyWithDetails = await _navyService.GetNavyWithShipsAsync(navyId);
         if (navyWithDetails != null)
         {
-            var navyVm = new NavyViewModel(navyWithDetails, _navyService, Commanders, Armies, Factions, _mapRows, _mapColumns);
-            navyVm.NavyReportRequested += OnNavyReportRequested;
-            navyVm.Saved += () => SyncEntityInCollection(() => Navies, c => Navies = c, n => SelectedNavy = n, navyVm.Entity);
+            var navyVm = CreateNavyViewModel(navyWithDetails);
             SelectedEntityViewModel = navyVm;
         }
     }
@@ -1574,7 +1009,7 @@ public partial class HexMapViewModel : ObservableObject
     {
         if (_isSyncingCollection || value == null) return;
         ClearAllSelectionsExcept(nameof(SelectedMapHex));
-        SelectedEntityViewModel = new MapHexViewModel(value, _mapService, Factions, LocationTypes, WeatherTypes);
+        SelectedEntityViewModel = CreateMapHexViewModel(value);
         StatusMessage = $"Selected Hex: {value.LocationName}";
         _ = LoadHexWithDetailsAsync(value.Q, value.R);
     }
@@ -1590,20 +1025,7 @@ public partial class HexMapViewModel : ObservableObject
             hexWithDetails.LocationFaction = Factions.FirstOrDefault(f => f.Id == hexWithDetails.LocationFactionId);
             hexWithDetails.Weather = WeatherTypes.FirstOrDefault(w => w.Id == hexWithDetails.WeatherId);
 
-            var hexVm = new MapHexViewModel(hexWithDetails, _mapService, Factions, LocationTypes, WeatherTypes);
-            hexVm.Saved += () =>
-            {
-                var entity = hexVm.Entity;
-                for (int i = 0; i < VisibleHexes.Count; i++)
-                {
-                    if (VisibleHexes[i].Q == entity.Q && VisibleHexes[i].R == entity.R)
-                    {
-                        VisibleHexes[i] = entity;
-                        break;
-                    }
-                }
-                SyncEntityInCollection(() => VisibleHexes, c => VisibleHexes = c, null, entity);
-            };
+            var hexVm = CreateMapHexViewModel(hexWithDetails);
 
             SelectedEntityViewModel = hexVm;
             StatusMessage = $"Selected hex: {hexWithDetails.Q}, {hexWithDetails.R}";
@@ -1633,7 +1055,7 @@ public partial class HexMapViewModel : ObservableObject
         if (faction == null) return;
         if (faction.Id == 1) { StatusMessage = "Cannot delete the No Faction sentinel."; return; }
 
-        // 1. Discord cleanup — removes roles from commanders, moves their channels out
+        // 1. Discord cleanup â€” removes roles from commanders, moves their channels out
         await _discordChannelManager.OnFactionDeletedAsync(faction);
 
         // 2. Reassign all commanders of this faction to "No Faction" (Id=1)
@@ -1883,7 +1305,7 @@ public partial class HexMapViewModel : ObservableObject
         }
         ForageSelectedHexes.Clear();
         IsForageModeActive = true;
-        CurrentTool = "ForageSelect";
+        Editing.CurrentTool = "ForageSelect";
         StatusMessage = $"Forage Mode: Click hexes to select for {ForageTargetArmy.Name}";
     }
 
@@ -1892,7 +1314,7 @@ public partial class HexMapViewModel : ObservableObject
     {
         ForageSelectedHexes.Clear();
         IsForageModeActive = false;
-        CurrentTool = "Pan";
+        Editing.CurrentTool = "Pan";
         StatusMessage = "Forage cancelled";
     }
 
@@ -1929,7 +1351,7 @@ public partial class HexMapViewModel : ObservableObject
         // Exit forage mode
         ForageSelectedHexes.Clear();
         IsForageModeActive = false;
-        CurrentTool = "Pan";
+        Editing.CurrentTool = "Pan";
 
         // Refresh if this army is currently selected
         if (SelectedEntityViewModel is ArmyViewModel armyVm && armyVm.Id ==
@@ -1961,7 +1383,7 @@ public partial class HexMapViewModel : ObservableObject
             StatusMessage = "Select a faction first";
             return;
         }
-        if (IsForageModeActive || IsPathSelectionModeActive)
+        if (IsForageModeActive || PathSelection.IsActive)
         {
             StatusMessage = "Finish or cancel the current mode first";
             return;
@@ -1970,7 +1392,7 @@ public partial class HexMapViewModel : ObservableObject
         MusterDestinationHex = SelectedHex;
         MusterSelectedHexes.Clear();
         IsMusterModeActive = true;
-        CurrentTool = "MusterSelect";
+        Editing.CurrentTool = "MusterSelect";
         UpdateMusterPreview();
         StatusMessage = $"Muster Mode: Click/drag hexes to select levy sources. Destination: ({MusterDestinationHex.Value.q}, {MusterDestinationHex.Value.r})";
     }
@@ -1981,7 +1403,7 @@ public partial class HexMapViewModel : ObservableObject
         MusterSelectedHexes.Clear();
         IsMusterModeActive = false;
         MusterDestinationHex = null;
-        CurrentTool = "Pan";
+        Editing.CurrentTool = "Pan";
         MusterPreviewText = "";
         StatusMessage = "Muster cancelled";
     }
@@ -2004,7 +1426,7 @@ public partial class HexMapViewModel : ObservableObject
 
     public void AddMusterHexSelection(Hex hex)
     {
-        // Add-only variant for drag painting — does not toggle off
+        // Add-only variant for drag painting â€” does not toggle off
         var mapHex = VisibleHexes.FirstOrDefault(h => h.Q == hex.q && h.R == hex.r);
         if (mapHex?.TerrainType?.IsWater == true) return;
         if (MusterSelectedHexes.Contains(hex)) return;
@@ -2017,23 +1439,10 @@ public partial class HexMapViewModel : ObservableObject
 
     private void UpdateMusterPreview()
     {
-        int totalInfantry = 0;
-        int totalCavalry = 0;
-        int totalWagons = 0;
-
-        foreach (var hex in MusterSelectedHexes)
-        {
-            var mapHex = VisibleHexes.FirstOrDefault(h => h.Q == hex.q && h.R == hex.r);
-            if (mapHex == null) continue;
-            int pop = mapHex.PopulationDensity;
-            totalInfantry += pop;
-            if (MusterIncludeCavalry) totalCavalry += (int)(pop * 0.25);
-            if (MusterIncludeWagons) totalWagons += (int)(pop * 0.05);
-        }
-
-        var parts = new List<string> { $"Inf: {totalInfantry}" };
-        if (MusterIncludeCavalry) parts.Add($"Cav: {totalCavalry}");
-        if (MusterIncludeWagons) parts.Add($"Wag: {totalWagons}");
+        var totals = MusterCalculator.Calculate(MusterSelectedHexes, VisibleHexes, MusterIncludeCavalry, MusterIncludeWagons);
+        var parts = new List<string> { $"Inf: {totals.Infantry}" };
+        if (MusterIncludeCavalry) parts.Add($"Cav: {totals.Cavalry}");
+        if (MusterIncludeWagons) parts.Add($"Wag: {totals.Wagons}");
         MusterPreviewText = string.Join(" | ", parts);
     }
 
@@ -2046,27 +1455,17 @@ public partial class HexMapViewModel : ObservableObject
             return;
         }
 
-        // Calculate totals from selected hexes
-        int totalInfantry = 0;
-        int totalCavalry = 0;
-        int totalWagons = 0;
-
-        foreach (var hex in MusterSelectedHexes)
-        {
-            var mapHex = VisibleHexes.FirstOrDefault(h => h.Q == hex.q && h.R == hex.r);
-            if (mapHex == null) continue;
-            int pop = mapHex.PopulationDensity;
-            totalInfantry += pop;
-            if (MusterIncludeCavalry) totalCavalry += (int)(pop * 0.25);
-            if (MusterIncludeWagons) totalWagons += (int)(pop * 0.05);
-        }
+        var totals = MusterCalculator.Calculate(MusterSelectedHexes, VisibleHexes, MusterIncludeCavalry, MusterIncludeWagons);
+        int totalInfantry = totals.Infantry;
+        int totalCavalry = totals.Cavalry;
+        int totalWagons = totals.Wagons;
 
         if (totalInfantry == 0 && totalCavalry == 0)
         {
             StatusMessage = "Selected hexes have no population to muster";
             MusterSelectedHexes.Clear();
             IsMusterModeActive = false;
-            CurrentTool = "Pan";
+            Editing.CurrentTool = "Pan";
             MusterPreviewText = "";
             return;
         }
@@ -2131,7 +1530,7 @@ public partial class HexMapViewModel : ObservableObject
         MusterSelectedHexes.Clear();
         IsMusterModeActive = false;
         MusterDestinationHex = null;
-        CurrentTool = "Pan";
+        Editing.CurrentTool = "Pan";
         MusterPreviewText = "";
 
         // Refresh entities
@@ -2145,267 +1544,4 @@ public partial class HexMapViewModel : ObservableObject
 
     #endregion
 
-    #region Path Selection Commands
-
-    public void StartPathSelectionMode(Message message) => StartPathSelectionModeForEntity(message, "Message");
-    public void StartPathSelectionMode(Army army) => StartPathSelectionModeForEntity(army, "Army");
-    public void StartPathSelectionMode(Commander commander) => StartPathSelectionModeForEntity(commander, "Commander");
-
-    private void StartPathSelectionModeForEntity(IPathMovable entity, string entityName)
-    {
-        if (entity.CoordinateQ == null || entity.CoordinateR == null)
-        {
-            StatusMessage = $"{entityName} must have a location before selecting a path";
-            return;
-        }
-
-        PathSelectionTarget = entity;
-        PathSelectionHexes.Clear();
-        IsPathSelectionModeActive = true;
-        CurrentTool = "PathSelect";
-        StatusMessage = "Click hexes to build path (must be adjacent)";
-
-        // Update ViewModel state if it's the current selection
-        if (SelectedEntityViewModel is IPathSelectableViewModel psvm)
-        {
-            psvm.IsPathSelectionActive = true;
-            psvm.PathSelectionCount = 0;
-        }
-    }
-
-    public void AddPathHex(Hex hex)
-    {
-        if (PathSelectionTarget == null) return;
-
-        // Determine the last hex in the chain (message location or last selected hex)
-        Hex lastHex;
-        if (PathSelectionHexes.Count == 0)
-        {
-            lastHex = new Hex(
-                PathSelectionTarget.CoordinateQ!.Value,
-                PathSelectionTarget.CoordinateR!.Value,
-                -PathSelectionTarget.CoordinateQ!.Value - PathSelectionTarget.CoordinateR!.Value);
-        }
-        else
-        {
-            lastHex = PathSelectionHexes.Last();
-        }
-
-        // Validate adjacency using the shared helper
-        if (!IsAdjacent(lastHex, hex))
-        {
-            StatusMessage = "Hex must be adjacent to previous hex in path";
-            return;
-        }
-
-        PathSelectionHexes.Add(hex);
-        OnPropertyChanged(nameof(PathSelectionCount));
-        StatusMessage = $"Path: {PathSelectionCount} hex(es)";
-
-        // Update ViewModel count
-        if (SelectedEntityViewModel is IPathSelectableViewModel psvm)
-            psvm.PathSelectionCount = PathSelectionHexes.Count;
-    }
-
-    [RelayCommand]
-    private async Task ConfirmPathSelectionAsync()
-    {
-        if (PathSelectionTarget == null)
-        {
-            CancelPathSelectionMode();
-            return;
-        }
-
-        // Empty confirm = clear existing path
-        if (PathSelectionHexes.Count == 0)
-        {
-            PathSelectionTarget.Path = null;
-
-            if (PathSelectionTarget is Message clearMsg)
-                await _messageService.UpdateAsync(clearMsg);
-            else if (PathSelectionTarget is Army clearArmy)
-                await _armyService.UpdateAsync(clearArmy);
-            else if (PathSelectionTarget is Commander clearCmdr)
-                await _commanderService.UpdateAsync(clearCmdr);
-        }
-        else
-        {
-            PathSelectionTarget.Path = PathSelectionHexes.ToList();
-        }
-
-        var pathLength = PathSelectionHexes.Count;
-
-        // Save based on entity type and refresh ViewModel
-        if (PathSelectionTarget is Message msg)
-        {
-            if (pathLength > 0) await _messageService.UpdateAsync(msg);
-            await RefreshMessagesAsync();
-
-            // Recreate the MessageViewModel to reflect the updated Path
-            if (SelectedMessage != null)
-            {
-                var refreshedMsgVm = new MessageViewModel(SelectedMessage, _messageService, Commanders, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
-                refreshedMsgVm.PathSelectionRequested += StartPathSelectionMode;
-                refreshedMsgVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-                refreshedMsgVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-                refreshedMsgVm.Saved += () => SyncEntityInCollection(() => Messages, c => Messages = c, m => SelectedMessage = m, refreshedMsgVm.Entity);
-                SelectedEntityViewModel = refreshedMsgVm;
-            }
-        }
-        else if (PathSelectionTarget is Army army)
-        {
-            if (pathLength > 0) await _armyService.UpdateAsync(army);
-
-            // Recreate the ArmyViewModel to reflect the updated Path
-            if (SelectedArmy != null)
-            {
-                var refreshedArmyVm = new ArmyViewModel(SelectedArmy, _armyService, Commanders, Factions, _mapRows, _mapColumns, _pathfindingService, _factionRuleService);
-                refreshedArmyVm.TransferRequested += OnBrigadeTransferRequested;
-                refreshedArmyVm.PathSelectionRequested += StartPathSelectionMode;
-                refreshedArmyVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-                refreshedArmyVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-                refreshedArmyVm.ScoutingReportRequested += OnScoutingReportRequested;
-                refreshedArmyVm.ArmyReportRequested += OnArmyReportRequested;
-                refreshedArmyVm.Saved += () => SyncEntityInCollection(() => Armies, c => Armies = c, a => SelectedArmy = a, refreshedArmyVm.Entity);
-                SelectedEntityViewModel = refreshedArmyVm;
-            }
-        }
-        else if (PathSelectionTarget is Commander commander)
-        {
-            if (pathLength > 0) await _commanderService.UpdateAsync(commander);
-
-            // Recreate the CommanderViewModel to reflect the updated Path
-            if (SelectedCommander != null)
-            {
-                var refreshedCmdVm = new CommanderViewModel(SelectedCommander, _commanderService, Armies, Factions, _mapRows, _mapColumns, _pathfindingService, _discordChannelManager);
-                refreshedCmdVm.PathSelectionRequested += StartPathSelectionMode;
-                refreshedCmdVm.PathSelectionConfirmRequested += ConfirmPathSelectionAsync;
-                refreshedCmdVm.PathSelectionCancelRequested += CancelPathSelectionMode;
-                refreshedCmdVm.MapRefreshRequested += () => Commanders = new ObservableCollection<Commander>(Commanders);
-                refreshedCmdVm.Saved += () => SyncEntityInCollection(() => Commanders, c => Commanders = c, c => SelectedCommander = c, refreshedCmdVm.Entity);
-                SelectedEntityViewModel = refreshedCmdVm;
-            }
-        }
-
-        CancelPathSelectionMode();
-        StatusMessage = pathLength > 0 ? $"Path set: {pathLength} hex(es)" : "Path cleared";
-    }
-
-    [RelayCommand]
-    private void CancelPathSelectionMode()
-    {
-        // Update ViewModel state before clearing
-        if (SelectedEntityViewModel is IPathSelectableViewModel psvm)
-        {
-            psvm.IsPathSelectionActive = false;
-            psvm.PathSelectionCount = 0;
-        }
-
-        PathSelectionHexes.Clear();
-        PathSelectionTarget = null;
-        IsPathSelectionModeActive = false;
-        CurrentTool = "Pan";
-        OnPropertyChanged(nameof(PathSelectionCount));
-    }
-
-    #endregion
-
-    #region News Commands
-
-    [RelayCommand]
-    private void NewsDropTool()
-    {
-        CurrentTool = "NewsDrop";
-        StatusMessage = "Tool: NewsDrop – click a hex to drop an event";
-    }
-
-    [RelayCommand]
-    private async Task DropNewsItemAsync(Hex hex)
-    {
-        if (App.MainWindow == null) return;
-        var gameState = await _gameStateService.GetGameStateAsync();
-
-        var dialog = new GUI.Windows.NewsDropDialog(hex, Factions);
-        var result = await dialog.ShowDialog<Dictionary<int, string>?>(App.MainWindow);
-
-        // Always revert to Pan tool so the map stays interactive
-        CurrentTool = "Pan";
-        StatusMessage = "Tool: Pan";
-
-        if (result == null || result.Count == 0) return;
-
-        await _newsService.CreateEventAsync(dialog.ResultTitle ?? string.Empty, hex.q, hex.r, gameState.CurrentWorldHour, result);
-        await RefreshNewsItemsAsync();
-        StatusMessage = $"Event dropped at ({hex.q}, {hex.r})";
-    }
-
-    [RelayCommand]
-    private async Task DeleteNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? e)
-    {
-        if (e == null) return;
-        await _newsService.DeleteEventAsync(e.Id);
-        if (SelectedNewsItem?.Id == e.Id)
-        {
-            SelectedNewsItem = null;
-        }
-        await RefreshNewsItemsAsync();
-        StatusMessage = $"Deleted event {e.Id}";
-    }
-
-    [RelayCommand]
-    private async Task EditNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? item)
-    {
-        if (item == null || App.MainWindow == null) return;
-        var factions = await _factionService.GetAllAsync();
-        var dialog = new GUI.Windows.NewsDropDialog(item, factions);
-        var result = await dialog.ShowDialog<Dictionary<int, string>?>(App.MainWindow);
-
-        if (result == null) return;
-
-        item.Title = dialog.ResultTitle ?? item.Title;
-        item.FactionMessages = result;
-        await _newsService.UpdateAsync(item);
-        await RefreshNewsItemsAsync();
-        StatusMessage = $"Updated event: {item.Title}";
-    }
-
-    [RelayCommand]
-    private async Task DeactivateNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? e)
-    {
-        if (e == null) return;
-        await _newsService.DeactivateEventAsync(e.Id);
-        await RefreshNewsItemsAsync();
-        StatusMessage = $"Deactivated event {e.Id}";
-    }
-
-    [RelayCommand]
-    private async Task ReactivateNewsItemAsync(MechanicalCataphract.Data.Entities.NewsItem? e)
-    {
-        if (e == null) return;
-        await _newsService.ReactivateEventAsync(e.Id);
-        await RefreshNewsItemsAsync();
-        StatusMessage = $"Reactivated event: {e.Title}";
-    }
-
-    partial void OnSelectedNewsItemChanged(MechanicalCataphract.Data.Entities.NewsItem? value)
-    {
-        if (value == null || value.HexArrivals == null)
-        {
-            NewsReachedHexes = new ObservableCollection<Hex>();
-            OnPropertyChanged(nameof(NewsReachedHexCount));
-            return;
-        }
-
-        double elapsedHours = CurrentWorldHour - value.CreatedAtWorldHour;
-
-        var reached = value.HexArrivals
-            .Where(a => a.Hours <= elapsedHours)
-            .Select(a => new Hex(a.Q, a.R, -a.Q - a.R))
-            .ToList();
-
-        NewsReachedHexes = new ObservableCollection<Hex>(reached);
-        OnPropertyChanged(nameof(NewsReachedHexCount));
-    }
-
-    #endregion
 }

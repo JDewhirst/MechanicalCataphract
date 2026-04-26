@@ -16,9 +16,9 @@ public partial class MainWindow : Window
         HexMapView.HexClicked += (s, hex) =>
         {
             // Check if we're in path selection mode
-            if (viewModel.HexMapViewModel.IsPathSelectionModeActive)
+            if (viewModel.HexMapViewModel.PathSelection.IsActive)
             {
-                viewModel.HexMapViewModel.AddPathHex(hex);
+                viewModel.HexMapViewModel.PathSelection.AddHex(hex);
                 return;
             }
 
@@ -74,23 +74,23 @@ public partial class MainWindow : Window
         HexMapView.PanCompleted += (s, delta) =>
             viewModel.HexMapViewModel.CompletePanCommand.Execute(delta);
         HexMapView.TerrainPainted += (s, args) =>
-            viewModel.HexMapViewModel.PaintTerrainCommand.Execute(args);
+            _ = viewModel.HexMapViewModel.Editing.PaintTerrainAsync(args.hex, args.terrainTypeId);
         HexMapView.RoadPainted += (s, hex) =>
-            viewModel.HexMapViewModel.PaintRoadCommand.Execute(hex);
+            _ = viewModel.HexMapViewModel.Editing.PaintRoadAsync(hex);
         HexMapView.RiverPainted += (s, hex) =>
-            viewModel.HexMapViewModel.PaintRiverCommand.Execute(hex);
+            _ = viewModel.HexMapViewModel.Editing.PaintRiverAsync(hex);
         HexMapView.EraseRequested += (s, hex) =>
-            viewModel.HexMapViewModel.EraseCommand.Execute(hex);
+            _ = viewModel.HexMapViewModel.Editing.EraseAsync(hex);
         HexMapView.LocationPainted += (s, args) =>
-            viewModel.HexMapViewModel.PaintLocationCommand.Execute(args);
+            _ = viewModel.HexMapViewModel.Editing.PaintLocationAsync(args.hex, args.locationName);
         HexMapView.PopulationPainted += (s, hex) =>
-            viewModel.HexMapViewModel.PaintPopulationCommand.Execute(hex);
+            _ = viewModel.HexMapViewModel.Editing.PaintPopulationAsync(hex);
         HexMapView.FactionControlPainted += (s, hex) =>
-            viewModel.HexMapViewModel.PaintFactionControlCommand.Execute(hex);
+            _ = viewModel.HexMapViewModel.Editing.PaintFactionControlAsync(hex);
         HexMapView.WeatherPainted += (s, hex) =>
-            viewModel.HexMapViewModel.PaintWeatherCommand.Execute(hex);
+            _ = viewModel.HexMapViewModel.Editing.PaintWeatherAsync(hex);
         HexMapView.NewsDropRequested += (s, hex) =>
-            viewModel.HexMapViewModel.DropNewsItemCommand.Execute(hex);
+            _ = viewModel.HexMapViewModel.News.DropAsync(hex);
 
         // Initialize ViewModel when window loads
         Loaded += async (s, e) =>

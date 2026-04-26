@@ -16,38 +16,38 @@
             <TextBlock Text="Tools" FontWeight="Bold" FontSize="14"/>
             <WrapPanel Orientation="Horizontal">
                 <ToggleButton Content="Terrain" Margin="2"
-                              Command="{Binding TerrainPaintToolCommand}"
-                              IsChecked="{Binding CurrentTool,
+                              Command="{Binding Editing.TerrainPaintToolCommand}"
+                              IsChecked="{Binding Editing.CurrentTool,
                                           Converter={StaticResource EqualityConverter},
                                           ConverterParameter=TerrainPaint,
                                           Mode=OneWay}"/>
                 <ToggleButton Content="Road" Margin="2"
-                              Command="{Binding RoadPaintToolCommand}"
-                              IsChecked="{Binding CurrentTool,
+                              Command="{Binding Editing.RoadPaintToolCommand}"
+                              IsChecked="{Binding Editing.CurrentTool,
                                           Converter={StaticResource EqualityConverter},
                                           ConverterParameter=RoadPaint,
                                           Mode=OneWay}"/>
                 <ToggleButton Content="River" Margin="2"
-                              Command="{Binding RiverPaintToolCommand}"
-                              IsChecked="{Binding CurrentTool,
+                              Command="{Binding Editing.RiverPaintToolCommand}"
+                              IsChecked="{Binding Editing.CurrentTool,
                                           Converter={StaticResource EqualityConverter},
                                           ConverterParameter=RiverPaint,
                                           Mode=OneWay}"/>
                 <ToggleButton Content="Location" Margin="2"
-                              Command="{Binding LocationPaintToolCommand}"
-                              IsChecked="{Binding CurrentTool,
+                              Command="{Binding Editing.LocationPaintToolCommand}"
+                              IsChecked="{Binding Editing.CurrentTool,
                                           Converter={StaticResource EqualityConverter},
                                           ConverterParameter=LocationPaint,
                                           Mode=OneWay}"/>
                 <ToggleButton Content="Erase" Margin="2"
-                              Command="{Binding EraseToolCommand}"
-                              IsChecked="{Binding CurrentTool,
+                              Command="{Binding Editing.EraseToolCommand}"
+                              IsChecked="{Binding Editing.CurrentTool,
                                           Converter={StaticResource EqualityConverter},
                                           ConverterParameter=Erase,
                                           Mode=OneWay}"/>
                 <ToggleButton Content="Faction" Margin="2"
-                              Command="{Binding FactionControlPaintToolCommand}"
-                              IsChecked="{Binding CurrentTool,
+                              Command="{Binding Editing.FactionControlPaintToolCommand}"
+                              IsChecked="{Binding Editing.CurrentTool,
                                           Converter={StaticResource EqualityConverter},
                                           ConverterParameter=FactionControlPaint,
                                           Mode=OneWay}"/>
@@ -68,7 +68,7 @@
             <!-- Brush Size -->
             <StackPanel Orientation="Horizontal" Spacing="5">
                 <TextBlock Text="Brush size:" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding BrushSize, Mode=TwoWay}"
+                <NumericUpDown Value="{Binding Editing.BrushSize, Mode=TwoWay}"
                                Minimum="1" Maximum="10" Increment="1"
                                Width="120"/>
             </StackPanel>
@@ -78,7 +78,7 @@
             <!-- Terrain Palette -->
             <TextBlock Text="Terrain Types" FontWeight="Bold" FontSize="14"/>
             <ListBox ItemsSource="{Binding TerrainTypes}"
-                     SelectedItem="{Binding SelectedTerrainType}"
+                     SelectedItem="{Binding Editing.SelectedTerrainType}"
                      MaxHeight="250">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -103,7 +103,7 @@
             <!-- Location Palette -->
             <TextBlock Text="Location Types" FontWeight="Bold" FontSize="14"/>
             <ListBox ItemsSource="{Binding LocationTypes}"
-                     SelectedItem="{Binding SelectedLocationType}"
+                     SelectedItem="{Binding Editing.SelectedLocationType}"
                      MaxHeight="150">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -130,35 +130,35 @@
             <!-- Population Density Palette -->
             <TextBlock Text="Population Density" FontWeight="Bold" FontSize="14"/>
             <ToggleButton Content="Population Brush" Margin="2"
-                          Command="{Binding PopulationPaintToolCommand}"
-                          IsChecked="{Binding CurrentTool,
+                          Command="{Binding Editing.PopulationPaintToolCommand}"
+                          IsChecked="{Binding Editing.CurrentTool,
                                       Converter={StaticResource EqualityConverter},
                                       ConverterParameter=PopulationPaint,
                                       Mode=OneWay}"/>
             <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
                 <Button Content="0" Margin="2" Width="45"
-                        Command="{Binding SetPopulationDensityCommand}"
+                        Command="{Binding Editing.SetPopulationDensityCommand}"
                         CommandParameter="0"/>
                 <Button Content="10" Margin="2" Width="45"
-                        Command="{Binding SetPopulationDensityCommand}"
+                        Command="{Binding Editing.SetPopulationDensityCommand}"
                         CommandParameter="10"/>
                 <Button Content="20" Margin="2" Width="45"
-                        Command="{Binding SetPopulationDensityCommand}"
+                        Command="{Binding Editing.SetPopulationDensityCommand}"
                         CommandParameter="20"/>
                 <Button Content="40" Margin="2" Width="45"
-                        Command="{Binding SetPopulationDensityCommand}"
+                        Command="{Binding Editing.SetPopulationDensityCommand}"
                         CommandParameter="40"/>
                 <Button Content="60" Margin="2" Width="45"
-                        Command="{Binding SetPopulationDensityCommand}"
+                        Command="{Binding Editing.SetPopulationDensityCommand}"
                         CommandParameter="60"/>
                 <Button Content="80" Margin="2" Width="45"
-                        Command="{Binding SetPopulationDensityCommand}"
+                        Command="{Binding Editing.SetPopulationDensityCommand}"
                         CommandParameter="80"/>
                 <Button Content="100" Margin="2" Width="45"
-                        Command="{Binding SetPopulationDensityCommand}"
+                        Command="{Binding Editing.SetPopulationDensityCommand}"
                         CommandParameter="100"/>
             </WrapPanel>
-            <TextBlock Text="{Binding SelectedPopulationDensity, StringFormat='Selected: {0}'}"
+            <TextBlock Text="{Binding Editing.SelectedPopulationDensity, StringFormat='Selected: {0}'}"
                        FontSize="11" Foreground="Gray"/>
 
             <Separator/>
@@ -166,13 +166,13 @@
             <!-- Weather Palette -->
             <TextBlock Text="Weather" FontWeight="Bold" FontSize="14"/>
             <ToggleButton Content="Weather Brush" Margin="2"
-                          Command="{Binding WeatherPaintToolCommand}"
-                          IsChecked="{Binding CurrentTool,
+                          Command="{Binding Editing.WeatherPaintToolCommand}"
+                          IsChecked="{Binding Editing.CurrentTool,
                                       Converter={StaticResource EqualityConverter},
                                       ConverterParameter=WeatherPaint,
                                       Mode=OneWay}"/>
             <ListBox ItemsSource="{Binding WeatherTypes}"
-                     SelectedItem="{Binding SelectedWeatherForPainting}"
+                     SelectedItem="{Binding Editing.SelectedWeatherForPainting}"
                      MaxHeight="120">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -180,7 +180,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <TextBlock Text="{Binding SelectedWeatherForPainting.Name, StringFormat='Selected: {0}', FallbackValue='Selected: (none)'}"
+            <TextBlock Text="{Binding Editing.SelectedWeatherForPainting.Name, StringFormat='Selected: {0}', FallbackValue='Selected: (none)'}"
                        FontSize="11" Foreground="Gray"/>
 
             <Separator/>
@@ -188,7 +188,7 @@
             <!-- Faction Palette -->
             <TextBlock Text="Factions" FontWeight="Bold" FontSize="14"/>
             <ListBox ItemsSource="{Binding Factions}"
-                     SelectedItem="{Binding SelectedFactionForPainting}"
+                     SelectedItem="{Binding Editing.SelectedFactionForPainting}"
                      MaxHeight="150">
                 <ListBox.ItemTemplate>
                     <DataTemplate>

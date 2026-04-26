@@ -1,0 +1,182 @@
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Hexes;
+using GUI.ViewModels.EntityViewModels;
+using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Services;
+
+namespace GUI.ViewModels.HexMap;
+
+public partial class PathSelectionCoordinator : ObservableObject
+{
+    private readonly IMessageService _messageService;
+    private readonly IArmyService _armyService;
+    private readonly ICommanderService _commanderService;
+    private readonly Func<IEntityViewModel?> _getSelectedEntityViewModel;
+    private readonly Action<IEntityViewModel?> _setSelectedEntityViewModel;
+    private readonly Func<Message?> _getSelectedMessage;
+    private readonly Func<Army?> _getSelectedArmy;
+    private readonly Func<Commander?> _getSelectedCommander;
+    private readonly Func<Message, MessageViewModel> _createMessageViewModel;
+    private readonly Func<Army, ArmyViewModel> _createArmyViewModel;
+    private readonly Func<Commander, CommanderViewModel> _createCommanderViewModel;
+    private readonly Func<Task> _refreshMessagesAsync;
+    private readonly Action<string> _setStatusMessage;
+    private readonly Action<string> _setCurrentTool;
+
+    [ObservableProperty]
+    private bool _isActive;
+
+    [ObservableProperty]
+    private IPathMovable? _target;
+
+    [ObservableProperty]
+    private ObservableCollection<Hex> _hexes = new();
+
+    public int Count => Hexes.Count;
+
+    public PathSelectionCoordinator(
+        IMessageService messageService,
+        IArmyService armyService,
+        ICommanderService commanderService,
+        Func<IEntityViewModel?> getSelectedEntityViewModel,
+        Action<IEntityViewModel?> setSelectedEntityViewModel,
+        Func<Message?> getSelectedMessage,
+        Func<Army?> getSelectedArmy,
+        Func<Commander?> getSelectedCommander,
+        Func<Message, MessageViewModel> createMessageViewModel,
+        Func<Army, ArmyViewModel> createArmyViewModel,
+        Func<Commander, CommanderViewModel> createCommanderViewModel,
+        Func<Task> refreshMessagesAsync,
+        Action<string> setStatusMessage,
+        Action<string> setCurrentTool)
+    {
+        _messageService = messageService;
+        _armyService = armyService;
+        _commanderService = commanderService;
+        _getSelectedEntityViewModel = getSelectedEntityViewModel;
+        _setSelectedEntityViewModel = setSelectedEntityViewModel;
+        _getSelectedMessage = getSelectedMessage;
+        _getSelectedArmy = getSelectedArmy;
+        _getSelectedCommander = getSelectedCommander;
+        _createMessageViewModel = createMessageViewModel;
+        _createArmyViewModel = createArmyViewModel;
+        _createCommanderViewModel = createCommanderViewModel;
+        _refreshMessagesAsync = refreshMessagesAsync;
+        _setStatusMessage = setStatusMessage;
+        _setCurrentTool = setCurrentTool;
+    }
+
+    public void Start(Message message) => StartForEntity(message, "Message");
+    public void Start(Army army) => StartForEntity(army, "Army");
+    public void Start(Commander commander) => StartForEntity(commander, "Commander");
+
+    private void StartForEntity(IPathMovable entity, string entityName)
+    {
+        if (entity.CoordinateQ == null || entity.CoordinateR == null)
+        {
+            _setStatusMessage($"{entityName} must have a location before selecting a path");
+            return;
+        }
+
+        Target = entity;
+        Hexes.Clear();
+        IsActive = true;
+        _setCurrentTool("PathSelect");
+        _setStatusMessage("Click hexes to build path (must be adjacent)");
+        SyncSelectedPathViewModel(0, true);
+        OnPropertyChanged(nameof(Count));
+    }
+
+    public void AddHex(Hex hex)
+    {
+        if (Target == null) return;
+
+        Hex lastHex = Hexes.Count == 0
+            ? new Hex(Target.CoordinateQ!.Value, Target.CoordinateR!.Value, -Target.CoordinateQ!.Value - Target.CoordinateR!.Value)
+            : Hexes.Last();
+
+        if (!IsAdjacent(lastHex, hex))
+        {
+            _setStatusMessage("Hex must be adjacent to previous hex in path");
+            return;
+        }
+
+        Hexes.Add(hex);
+        OnPropertyChanged(nameof(Count));
+        _setStatusMessage($"Path: {Count} hex(es)");
+        SyncSelectedPathViewModel(Hexes.Count, true);
+    }
+
+    public async Task ConfirmAsync()
+    {
+        if (Target == null)
+        {
+            Cancel();
+            return;
+        }
+
+        int pathLength = Hexes.Count;
+        Target.Path = pathLength == 0 ? null : Hexes.ToList();
+
+        if (Target is Message msg)
+        {
+            await _messageService.UpdateAsync(msg);
+            await _refreshMessagesAsync();
+            var selected = _getSelectedMessage();
+            if (selected != null)
+                _setSelectedEntityViewModel(_createMessageViewModel(selected));
+        }
+        else if (Target is Army army)
+        {
+            await _armyService.UpdateAsync(army);
+            var selected = _getSelectedArmy();
+            if (selected != null)
+                _setSelectedEntityViewModel(_createArmyViewModel(selected));
+        }
+        else if (Target is Commander commander)
+        {
+            await _commanderService.UpdateAsync(commander);
+            var selected = _getSelectedCommander();
+            if (selected != null)
+                _setSelectedEntityViewModel(_createCommanderViewModel(selected));
+        }
+
+        Cancel();
+        _setStatusMessage(pathLength > 0 ? $"Path set: {pathLength} hex(es)" : "Path cleared");
+    }
+
+    public void Cancel()
+    {
+        SyncSelectedPathViewModel(0, false);
+        Hexes.Clear();
+        Target = null;
+        IsActive = false;
+        _setCurrentTool("Pan");
+        OnPropertyChanged(nameof(Count));
+    }
+
+    private void SyncSelectedPathViewModel(int count, bool isActive)
+    {
+        if (_getSelectedEntityViewModel() is IPathSelectableViewModel pathVm)
+        {
+            pathVm.IsPathSelectionActive = isActive;
+            pathVm.PathSelectionCount = count;
+        }
+    }
+
+    private static bool IsAdjacent(Hex a, Hex b)
+    {
+        for (int dir = 0; dir < 6; dir++)
+        {
+            var neighbor = a.Neighbor(dir);
+            if (neighbor.q == b.q && neighbor.r == b.r)
+                return true;
+        }
+
+        return false;
+    }
+}

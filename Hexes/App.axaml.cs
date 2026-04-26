@@ -185,8 +185,8 @@ public partial class App : Application
                 }
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    mainWindowViewModel.HexMapViewModel.IsDiscordConnected = botService.IsConnected;
-                    mainWindowViewModel.HexMapViewModel.DiscordStatusMessage = botService.StatusMessage;
+                    mainWindowViewModel.HexMapViewModel.Discord.IsConnected = botService.IsConnected;
+                    mainWindowViewModel.HexMapViewModel.Discord.StatusMessage = botService.StatusMessage;
                     if (botService.IsConnected)
                     {
                         await mainWindowViewModel.HexMapViewModel.RefreshCommandersAsync();

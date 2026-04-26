@@ -37,9 +37,9 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _mapEditorWindow = null;
             // Reset to Select tool when editor closes
-            HexMapViewModel.CurrentTool = "Select";
-            HexMapViewModel.RoadStartHex = null;
-            HexMapViewModel.RiverStartHex = null;
+            HexMapViewModel.Editing.CurrentTool = "Select";
+            HexMapViewModel.Editing.RoadStartHex = null;
+            HexMapViewModel.Editing.RiverStartHex = null;
             HexMapViewModel.StatusMessage = "Tool: Select";
         };
 
