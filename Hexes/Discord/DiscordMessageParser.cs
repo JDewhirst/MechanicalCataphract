@@ -29,7 +29,7 @@ public static class DiscordMessageParser
         if (ContainsEnvelopeEmoji(firstLine))
             return ParseEnvelope(lines);
 
-        if (ContainsScrollEmoji(firstLine))
+        if (TryConsumeScrollPrefix(firstLine, out _))
             return ParseScroll(lines);
 
         return null;
@@ -44,10 +44,24 @@ public static class DiscordMessageParser
             || line.Contains("\U0001F4E8"); // 📨
     }
 
-    private static bool ContainsScrollEmoji(string line)
+    private static bool TryConsumeScrollPrefix(string line, out string remainder)
     {
-        return line.Contains(":scroll:", StringComparison.OrdinalIgnoreCase)
-            || line.Contains("\U0001F4DC"); // 📜
+        line = line.TrimStart();
+        if (line.StartsWith(":scroll:", StringComparison.OrdinalIgnoreCase))
+        {
+            remainder = line[":scroll:".Length..].TrimStart();
+            return true;
+        }
+
+        const string scrollEmoji = "\U0001F4DC";
+        if (line.StartsWith(scrollEmoji, StringComparison.Ordinal))
+        {
+            remainder = line[scrollEmoji.Length..].TrimStart();
+            return true;
+        }
+
+        remainder = string.Empty;
+        return false;
     }
 
     /// <summary>
@@ -118,12 +132,18 @@ public static class DiscordMessageParser
 
     /// <summary>
     /// Parses a :scroll: order. Format:
-    ///   :scroll:
-    ///   Content (all remaining lines)
+    ///   :scroll: Content
+    ///   More content
     /// </summary>
     private static ParsedCommand ParseScroll(string[] lines)
     {
         var contentLines = new List<string>();
+        if (TryConsumeScrollPrefix(lines[0], out var firstLineContent)
+            && !string.IsNullOrWhiteSpace(firstLineContent))
+        {
+            contentLines.Add(firstLineContent);
+        }
+
         for (int i = 1; i < lines.Length; i++)
         {
             var line = lines[i];

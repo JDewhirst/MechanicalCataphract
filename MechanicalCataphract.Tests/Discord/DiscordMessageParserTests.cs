@@ -139,6 +139,38 @@ public class DiscordMessageParserTests
     }
 
     [Test]
+    public void Parse_ScrollWithSameLineContent_ReturnsOrder()
+    {
+        var input = ":scroll: Move the 3rd Brigade to hex 5,7 and hold position.";
+
+        var result = DiscordMessageParser.Parse(input);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Type, Is.EqualTo(CommandType.Scroll));
+        Assert.That(result.Content, Is.EqualTo("Move the 3rd Brigade to hex 5,7 and hold position."));
+    }
+
+    [Test]
+    public void Parse_ScrollWithSameLineAndFollowingLines_ReturnsCombinedOrder()
+    {
+        var input = ":scroll: First order.\nSecond order.\nThird order.";
+
+        var result = DiscordMessageParser.Parse(input);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Type, Is.EqualTo(CommandType.Scroll));
+        Assert.That(result.Content, Is.EqualTo("First order.\nSecond order.\nThird order."));
+    }
+
+    [Test]
+    public void Parse_ScrollMentionedLaterInFirstLine_ReturnsNull()
+    {
+        var result = DiscordMessageParser.Parse("Please use :scroll: for orders");
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
     public void Parse_ScrollMultiline()
     {
         var input = ":scroll:\nFirst order.\nSecond order.\nThird order.";
