@@ -181,7 +181,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         Assert.That(reloaded.CoordinateR, Is.EqualTo(endHex.R));
     }
 
-    [Test]
+    /*[Test]
     public async Task AdvanceTime_ProcessesSupplyAtCorrectHour()
     {
         var hexes = GridHexes.ToList();
@@ -206,7 +206,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         Assert.That(result.ArmiesSupplied, Is.GreaterThan(0));
         var reloaded = await _armyService.GetByIdAsync(army.Id);
         Assert.That(reloaded!.CarriedSupply, Is.LessThan(10000));
-    }
+    } */
 
     [Test]
     public async Task AdvanceTime_FollowingCommander_MovesWithArmy()

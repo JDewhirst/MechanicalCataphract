@@ -83,7 +83,7 @@ public class CalendarService : ICalendarService
 
         // Find the first worldHour >= oldWorldHour+1 with (worldHour % H) == targetHour
         long adjustedOld = oldWorldHour + 1;
-        long dayIndex = adjustedOld / H;
+        long dayIndex = FloorDiv(adjustedOld, H);
         long candidate = dayIndex * H + targetHour;
         if (candidate < adjustedOld)
             candidate += H;
@@ -92,7 +92,7 @@ public class CalendarService : ICalendarService
     }
 
     public bool CrossedDayBoundary(long oldWorldHour, long newWorldHour)
-        => newWorldHour / _cal.HoursPerDay > oldWorldHour / _cal.HoursPerDay;
+        => FloorDiv(newWorldHour, _cal.HoursPerDay) > FloorDiv(oldWorldHour, _cal.HoursPerDay);
 
     public string FormatDateTime(long worldHour)
     {
