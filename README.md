@@ -57,11 +57,11 @@ The SQLite database (`wargame.db`) is created automatically on first run. Delete
 
 ## Published Beta
 
-The beta release is distributed as `MechanicalCataphract.zip`.
+The current beta release is available on GitHub: [MechanicalCataphract 0.1.0](https://github.com/JDewhirst/MechanicalCataphract/releases/tag/0.1.0).
 
-For non-technical users:
+To install and run it:
 
-1. Download `MechanicalCataphract.zip`.
+1. Download `MechanicalCataphract.zip` from the release page.
 2. Create a new empty folder somewhere convenient, such as Desktop or Documents.
 3. Right-click `MechanicalCataphract.zip` and choose **Extract All**.
 4. Extract into the new empty folder.
