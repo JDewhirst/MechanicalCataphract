@@ -6,17 +6,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GUI.ViewModels.EntityViewModels;
 
 public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewModel
 {
     private readonly CoLocationChannel _channel;
-    private readonly ICoLocationChannelService _service;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDiscordChannelManager? _discordChannelManager;
 
     private CancellationTokenSource? _discordDebounceCts;
@@ -163,7 +165,8 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
         if (SelectedCommanderToAdd == null) return;
         var commander = SelectedCommanderToAdd;
 
-        await _service.AddCommanderAsync(_channel.Id, commander.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().AddCommanderAsync(_channel.Id, commander.Id));
 
         if (!Commanders.Any(c => c.Id == commander.Id))
         {
@@ -182,7 +185,8 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
     {
         if (commander == null) return;
 
-        await _service.RemoveCommanderAsync(_channel.Id, commander.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().RemoveCommanderAsync(_channel.Id, commander.Id));
         Commanders.Remove(commander);
         OnPropertyChanged(nameof(CommanderCount));
 
@@ -222,19 +226,20 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
 
     private async Task SaveAsync()
     {
-        await _service.UpdateAsync(_channel);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().UpdateAsync(_channel));
         Saved?.Invoke();
     }
 
     public CoLocationChannelViewModel(
         CoLocationChannel channel,
-        ICoLocationChannelService service,
+        IServiceScopeFactory scopeFactory,
         IEnumerable<Army> availableArmies,
         IEnumerable<Commander> availableCommanders,
         IDiscordChannelManager? discordChannelManager = null)
     {
         _channel = channel;
-        _service = service;
+        _scopeFactory = scopeFactory;
         AvailableArmies = availableArmies;
         AvailableCommanders = availableCommanders;
         _discordChannelManager = discordChannelManager;

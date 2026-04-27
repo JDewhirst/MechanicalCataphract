@@ -1,9 +1,11 @@
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,8 +20,8 @@ namespace GUI.ViewModels.EntityViewModels;
 public partial class FactionViewModel : ObservableObject, IEntityViewModel
 {
     private readonly Faction _faction;
-    private readonly IFactionService _service;
-    private readonly IFactionRuleService? _factionRuleService;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly bool _enableFactionRules;
     private readonly IDiscordChannelManager? _discordChannelManager;
 
     // Debounce Discord API calls — channel rename has a 2-per-10min rate limit
@@ -135,7 +137,7 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
     [RelayCommand]
     private async Task AddFactionRuleAsync()
     {
-        if (_factionRuleService == null) return;
+        if (!_enableFactionRules) return;
 
         var rule = new FactionRule
         {
@@ -143,22 +145,25 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
             RuleKey = FactionRuleKeys.AllKeys[0],
             Value = 1.0
         };
-        await _factionRuleService.AddRuleAsync(rule);
-        FactionRules.Add(new FactionRuleViewModel(rule, _factionRuleService));
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionRuleService>().AddRuleAsync(rule));
+        FactionRules.Add(new FactionRuleViewModel(rule, _scopeFactory));
     }
 
     [RelayCommand]
     private async Task RemoveFactionRuleAsync(FactionRuleViewModel? ruleVm)
     {
-        if (_factionRuleService == null || ruleVm == null) return;
+        if (!_enableFactionRules || ruleVm == null) return;
 
-        await _factionRuleService.DeleteRuleAsync(ruleVm.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionRuleService>().DeleteRuleAsync(ruleVm.Id));
         FactionRules.Remove(ruleVm);
     }
 
     private async Task SaveAsync()
     {
-        await _service.UpdateAsync(_faction);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionService>().UpdateAsync(_faction));
         Saved?.Invoke();
     }
 
@@ -202,28 +207,29 @@ public partial class FactionViewModel : ObservableObject, IEntityViewModel
 
     public FactionViewModel(
         Faction faction,
-        IFactionService service,
-        IFactionRuleService? factionRuleService = null,
+        IServiceScopeFactory scopeFactory,
+        bool enableFactionRules = true,
         IDiscordChannelManager? discordChannelManager = null)
     {
         _faction = faction;
-        _service = service;
-        _factionRuleService = factionRuleService;
+        _scopeFactory = scopeFactory;
+        _enableFactionRules = enableFactionRules;
         _discordChannelManager = discordChannelManager;
         Armies = new ObservableCollection<Army>(_faction.Armies);
         Commanders = new ObservableCollection<Commander>(_faction.Commanders);
 
-        if (_factionRuleService != null)
+        if (_enableFactionRules)
             _ = LoadFactionRulesAsync();
     }
 
     private async Task LoadFactionRulesAsync()
     {
-        if (_factionRuleService == null) return;
+        if (!_enableFactionRules) return;
 
-        var rules = await _factionRuleService.GetRulesForFactionAsync(_faction.Id);
+        var rules = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionRuleService>().GetRulesForFactionAsync(_faction.Id));
         FactionRules.Clear();
         foreach (var rule in rules)
-            FactionRules.Add(new FactionRuleViewModel(rule, _factionRuleService));
+            FactionRules.Add(new FactionRuleViewModel(rule, _scopeFactory));
     }
 }

@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using GUI.ViewModels;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
 
 namespace GUI.ViewModels.EntityViewModels;
@@ -11,7 +13,7 @@ namespace GUI.ViewModels.EntityViewModels;
 public partial class FactionRuleViewModel : ObservableObject
 {
     private readonly FactionRule _rule;
-    private readonly IFactionRuleService _service;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public int Id => _rule.Id;
     public FactionRule Entity => _rule;
@@ -46,12 +48,13 @@ public partial class FactionRuleViewModel : ObservableObject
 
     private async Task SaveAsync()
     {
-        await _service.UpdateRuleAsync(_rule);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionRuleService>().UpdateRuleAsync(_rule));
     }
 
-    public FactionRuleViewModel(FactionRule rule, IFactionRuleService service)
+    public FactionRuleViewModel(FactionRule rule, IServiceScopeFactory scopeFactory)
     {
         _rule = rule;
-        _service = service;
+        _scopeFactory = scopeFactory;
     }
 }

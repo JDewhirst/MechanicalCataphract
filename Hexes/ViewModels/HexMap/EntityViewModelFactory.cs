@@ -5,20 +5,12 @@ using System.Threading.Tasks;
 using GUI.ViewModels.EntityViewModels;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
-using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GUI.ViewModels.HexMap;
 
 public sealed class EntityViewModelFactory(
-    IFactionService factionService,
-    IArmyService armyService,
-    ICommanderService commanderService,
-    IMessageService messageService,
-    ICoLocationChannelService coLocationChannelService,
-    INavyService navyService,
-    IMapService mapService,
-    IPathfindingService pathfindingService,
-    IFactionRuleService factionRuleService,
+    IServiceScopeFactory scopeFactory,
     IDiscordChannelManager discordChannelManager,
     Func<int> getMapRows,
     Func<int> getMapColumns,
@@ -34,7 +26,7 @@ public sealed class EntityViewModelFactory(
         Action<Commander> selectCommander,
         Action<Faction> saved)
     {
-        var vm = new FactionViewModel(faction, factionService, factionRuleService, discordChannelManager);
+        var vm = new FactionViewModel(faction, scopeFactory, enableFactionRules: true, discordChannelManager);
         vm.ArmySelected += selectArmy;
         vm.CommanderSelected += selectCommander;
         vm.Saved += () => saved(vm.Entity);
@@ -53,13 +45,11 @@ public sealed class EntityViewModelFactory(
     {
         var vm = new ArmyViewModel(
             army,
-            armyService,
+            scopeFactory,
             getCommanders(),
             getFactions(),
             getMapRows(),
-            getMapColumns(),
-            pathfindingService,
-            factionRuleService);
+            getMapColumns());
 
         vm.TransferRequested += transferRequested;
         vm.PathSelectionRequested += pathSelectionRequested;
@@ -81,12 +71,11 @@ public sealed class EntityViewModelFactory(
     {
         var vm = new CommanderViewModel(
             commander,
-            commanderService,
+            scopeFactory,
             getArmies(),
             getFactions(),
             getMapRows(),
             getMapColumns(),
-            pathfindingService,
             discordChannelManager);
 
         vm.PathSelectionRequested += pathSelectionRequested;
@@ -106,11 +95,10 @@ public sealed class EntityViewModelFactory(
     {
         var vm = new MessageViewModel(
             message,
-            messageService,
+            scopeFactory,
             getCommanders(),
             getMapRows(),
             getMapColumns(),
-            pathfindingService,
             discordChannelManager);
 
         vm.PathSelectionRequested += pathSelectionRequested;
@@ -122,7 +110,7 @@ public sealed class EntityViewModelFactory(
 
     public CoLocationChannelViewModel CreateCoLocationChannel(CoLocationChannel channel, Action<CoLocationChannel> saved)
     {
-        var vm = new CoLocationChannelViewModel(channel, coLocationChannelService, getArmies(), getCommanders(), discordChannelManager);
+        var vm = new CoLocationChannelViewModel(channel, scopeFactory, getArmies(), getCommanders(), discordChannelManager);
         vm.Saved += () => saved(vm.Entity);
         return vm;
     }
@@ -131,7 +119,7 @@ public sealed class EntityViewModelFactory(
     {
         var vm = new NavyViewModel(
             navy,
-            navyService,
+            scopeFactory,
             getCommanders(),
             getArmies(),
             getFactions(),
@@ -145,7 +133,7 @@ public sealed class EntityViewModelFactory(
 
     public MapHexViewModel CreateMapHex(MapHex mapHex, Action<MapHex> saved)
     {
-        var vm = new MapHexViewModel(mapHex, mapService, getFactions(), getLocationTypes(), getWeatherTypes());
+        var vm = new MapHexViewModel(mapHex, scopeFactory, getFactions(), getLocationTypes(), getWeatherTypes());
         vm.Saved += () => saved(vm.Entity);
         return vm;
     }

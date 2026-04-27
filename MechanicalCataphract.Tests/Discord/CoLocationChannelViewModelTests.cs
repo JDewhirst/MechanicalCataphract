@@ -5,6 +5,7 @@ using MechanicalCataphract.Services;
 using MechanicalCataphract.Services.Calendar;
 using GUI.ViewModels;
 using GUI.ViewModels.EntityViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MechanicalCataphract.Tests.Discord;
 
@@ -25,11 +26,22 @@ public class CoLocationChannelViewModelTests
         _commanderService = new Mock<ICommanderService>();
     }
 
+    private IServiceScopeFactory CreateScopeFactory(params Action<IServiceCollection>[] configure)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => _coLocService.Object);
+        services.AddScoped(_ => _factionService.Object);
+        services.AddScoped(_ => _commanderService.Object);
+        foreach (var action in configure)
+            action(services);
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
+
     private CoLocationChannelViewModel CreateVM(CoLocationChannel channel)
     {
         return new CoLocationChannelViewModel(
             channel,
-            _coLocService.Object,
+            CreateScopeFactory(),
             Array.Empty<Army>(),
             Array.Empty<Commander>(),
             _channelMgr.Object);
@@ -43,7 +55,7 @@ public class CoLocationChannelViewModelTests
         var channel = new CoLocationChannel { Id = 1, Name = "Test Channel", DiscordChannelId = 500UL };
         var commander = new Commander { Id = 10, Name = "Cmdr", DiscordUserId = 111UL };
         var vm = new CoLocationChannelViewModel(
-            channel, _coLocService.Object,
+            channel, CreateScopeFactory(),
             Array.Empty<Army>(), new[] { commander },
             _channelMgr.Object);
 
@@ -178,7 +190,7 @@ public class CoLocationChannelViewModelTests
     {
         var channel = new CoLocationChannel { Id = 1, Name = "Test", DiscordChannelId = 500UL };
         var vm = new CoLocationChannelViewModel(
-            channel, _coLocService.Object,
+            channel, CreateScopeFactory(),
             Array.Empty<Army>(), Array.Empty<Commander>(),
             discordChannelManager: null);
 
@@ -215,24 +227,24 @@ public class CoLocationChannelViewModelTests
         mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
         var calendarService = new CalendarService(mockCalDef.Object);
 
+        var scopeFactory = CreateScopeFactory(
+            s => s.AddScoped(_ => mapService.Object),
+            s => s.AddScoped(_ => armyService.Object),
+            s => s.AddScoped(_ => orderService.Object),
+            s => s.AddScoped(_ => messageService.Object),
+            s => s.AddScoped(_ => gameStateService.Object),
+            s => s.AddScoped(_ => timeAdvanceService.Object),
+            s => s.AddScoped(_ => pathfindingService.Object),
+            s => s.AddScoped(_ => new Mock<IFactionRuleService>().Object),
+            s => s.AddScoped(_ => newsService.Object),
+            s => s.AddScoped(_ => new Mock<INavyService>().Object),
+            s => s.AddScoped<ICalendarService>(_ => calendarService));
+
         return new HexMapViewModel(
-            mapService.Object,
-            _factionService.Object,
-            armyService.Object,
-            _commanderService.Object,
-            orderService.Object,
-            messageService.Object,
-            gameStateService.Object,
-            timeAdvanceService.Object,
-            pathfindingService.Object,
-            _coLocService.Object,
-            new Mock<IFactionRuleService>().Object,
+            scopeFactory,
             botService.Object,
             _channelMgr.Object,
             new Mock<IDiscordMessageHandler>().Object,
-            newsService.Object,
-            new Mock<INavyService>().Object,
-            calendarService,
             mockCalDef.Object);
     }
 

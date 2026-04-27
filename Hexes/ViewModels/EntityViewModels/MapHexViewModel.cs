@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using GUI.ViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -15,7 +17,7 @@ namespace GUI.ViewModels.EntityViewModels;
 public partial class MapHexViewModel : ObservableObject, IEntityViewModel
 {
     private readonly MapHex _mapHex;
-    private readonly IMapService _service;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public string EntityTypeName => "Hex";
 
@@ -122,14 +124,15 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
 
     private async Task SaveAsync()
     {
-        await _service.UpdateHexAsync(_mapHex);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().UpdateHexAsync(_mapHex));
         Saved?.Invoke();
     }
 
-    public MapHexViewModel(MapHex mapHex, IMapService service, IEnumerable<Faction> availableFactions, IEnumerable<LocationType> availableLocationTypes, IEnumerable<Weather> availableWeatherTypes)
+    public MapHexViewModel(MapHex mapHex, IServiceScopeFactory scopeFactory, IEnumerable<Faction> availableFactions, IEnumerable<LocationType> availableLocationTypes, IEnumerable<Weather> availableWeatherTypes)
     {
         _mapHex = mapHex;
-        _service = service;
+        _scopeFactory = scopeFactory;
         _availableFactions = availableFactions;
         _availableLocationTypes = availableLocationTypes;
         _availableWeatherTypes = availableWeatherTypes.Where(w => !string.IsNullOrEmpty(w.IconPath));

@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -15,7 +17,7 @@ namespace GUI.ViewModels.EntityViewModels;
 public partial class NavyViewModel : ObservableObject, IEntityViewModel
 {
     private readonly Navy _navy;
-    private readonly INavyService _service;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly int _mapRows;
     private readonly int _mapCols;
 
@@ -149,7 +151,8 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
             Count = 1
         };
 
-        await _service.AddShipAsync(ship);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().AddShipAsync(ship));
         Ships.Add(ship);
         _navy.Ships.Add(ship);
         NotifyComputedPropertiesChanged();
@@ -159,7 +162,8 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     private async Task DeleteShipAsync(Ship? ship)
     {
         if (ship == null) return;
-        await _service.DeleteShipAsync(ship.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().DeleteShipAsync(ship.Id));
         _navy.Ships.Remove(ship);
         Ships.Remove(ship);
         NotifyComputedPropertiesChanged();
@@ -169,9 +173,13 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     private async Task EmbarkArmyAsync(Army? army)
     {
         if (army == null) return;
-        await _service.EmbarkArmyAsync(_navy.Id, army.Id);
+        var refreshed = await _scopeFactory.InScopeAsync(async sp =>
+        {
+            var service = sp.GetRequiredService<INavyService>();
+            await service.EmbarkArmyAsync(_navy.Id, army.Id);
+            return await service.GetNavyWithShipsAsync(_navy.Id);
+        });
         // Reload so CarriedArmy navigation is populated
-        var refreshed = await _service.GetNavyWithShipsAsync(_navy.Id);
         if (refreshed != null)
             _navy.CarriedArmy = refreshed.CarriedArmy;
         NotifyComputedPropertiesChanged();
@@ -181,7 +189,8 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     private async Task DisembarkArmyAsync()
     {
         if (_navy.CarriedArmy == null) return;
-        await _service.DisembarkArmyAsync(_navy.CarriedArmy.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().DisembarkArmyAsync(_navy.CarriedArmy.Id));
         _navy.CarriedArmy = null;
         NotifyComputedPropertiesChanged();
     }
@@ -190,7 +199,8 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
 
     private async Task SaveAsync()
     {
-        await _service.UpdateAsync(_navy);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().UpdateAsync(_navy));
         NotifyComputedPropertiesChanged();
         Saved?.Invoke();
     }
@@ -209,7 +219,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
 
     public NavyViewModel(
         Navy navy,
-        INavyService service,
+        IServiceScopeFactory scopeFactory,
         IEnumerable<Commander> availableCommanders,
         IEnumerable<Army> availableArmies,
         IEnumerable<Faction> availableFactions,
@@ -217,7 +227,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         int mapCols = int.MaxValue)
     {
         _navy = navy;
-        _service = service;
+        _scopeFactory = scopeFactory;
         _availableCommanders = availableCommanders;
         _availableArmies = availableArmies;
         _availableFactions = availableFactions;

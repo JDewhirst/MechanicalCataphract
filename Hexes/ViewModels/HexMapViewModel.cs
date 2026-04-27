@@ -16,29 +16,17 @@ using MechanicalCataphract.Discord;
 using Avalonia.Threading;
 using MechanicalCataphract.Services;
 using MechanicalCataphract.Services.Calendar;
+using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
 
 namespace GUI.ViewModels;
 
 public partial class HexMapViewModel : ObservableObject
 {
-    private readonly IMapService _mapService;
-    private readonly IFactionService _factionService;
-    private readonly IArmyService _armyService;
-    private readonly ICommanderService _commanderService;
-    private readonly IOrderService _orderService;
-    private readonly IMessageService _messageService;
-    private readonly IGameStateService _gameStateService;
-    private readonly ITimeAdvanceService _timeAdvanceService;
-    private readonly IPathfindingService _pathfindingService;
-    private readonly ICoLocationChannelService _coLocationChannelService;
-    private readonly IFactionRuleService _factionRuleService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDiscordBotService _discordBotService;
     private readonly IDiscordChannelManager _discordChannelManager;
     private readonly IDiscordMessageHandler _discordMessageHandler;
-    private readonly INewsService _newsService;
-    private readonly INavyService _navyService;
-    private readonly ICalendarService _calendarService;
     private readonly ICalendarDefinitionService _calendarDefinitionService;
     private readonly EntityViewModelFactory _entityViewModelFactory;
 
@@ -218,54 +206,20 @@ public partial class HexMapViewModel : ObservableObject
     private Navy? _selectedNavy;
 
     public HexMapViewModel(
-        IMapService mapService,
-        IFactionService factionService,
-        IArmyService armyService,
-        ICommanderService commanderService,
-        IOrderService orderService,
-        IMessageService messageService,
-        IGameStateService gameStateService,
-        ITimeAdvanceService timeAdvanceService,
-        IPathfindingService pathfindingService,
-        ICoLocationChannelService coLocationChannelService,
-        IFactionRuleService factionRuleService,
+        IServiceScopeFactory scopeFactory,
         IDiscordBotService discordBotService,
         IDiscordChannelManager discordChannelManager,
         IDiscordMessageHandler discordMessageHandler,
-        INewsService newsService,
-        INavyService navyService,
-        ICalendarService calendarService,
         ICalendarDefinitionService calendarDefinitionService)
     {
-        _mapService = mapService;
-        _factionService = factionService;
-        _armyService = armyService;
-        _commanderService = commanderService;
-        _orderService = orderService;
-        _messageService = messageService;
-        _gameStateService = gameStateService;
-        _timeAdvanceService = timeAdvanceService;
-        _pathfindingService = pathfindingService;
-        _coLocationChannelService = coLocationChannelService;
-        _factionRuleService = factionRuleService;
+        _scopeFactory = scopeFactory;
         _discordBotService = discordBotService;
         _discordChannelManager = discordChannelManager;
         _discordMessageHandler = discordMessageHandler;
-        _newsService = newsService;
-        _navyService = navyService;
-        _calendarService = calendarService;
         _calendarDefinitionService = calendarDefinitionService;
 
         _entityViewModelFactory = new EntityViewModelFactory(
-            _factionService,
-            _armyService,
-            _commanderService,
-            _messageService,
-            _coLocationChannelService,
-            _navyService,
-            _mapService,
-            _pathfindingService,
-            _factionRuleService,
+            _scopeFactory,
             _discordChannelManager,
             () => _mapRows,
             () => _mapColumns,
@@ -276,7 +230,7 @@ public partial class HexMapViewModel : ObservableObject
             () => WeatherTypes);
 
         Editing = new MapEditingCoordinator(
-            _mapService,
+            _scopeFactory,
             () => VisibleHexes,
             () => TerrainTypes,
             () => LocationTypes,
@@ -285,9 +239,7 @@ public partial class HexMapViewModel : ObservableObject
             message => StatusMessage = message);
 
         PathSelection = new PathSelectionCoordinator(
-            _messageService,
-            _armyService,
-            _commanderService,
+            _scopeFactory,
             () => SelectedEntityViewModel,
             vm => SelectedEntityViewModel = vm,
             () => SelectedMessage,
@@ -303,6 +255,7 @@ public partial class HexMapViewModel : ObservableObject
         Discord = new DiscordConnectionViewModel(
             _discordBotService,
             _discordChannelManager,
+            _scopeFactory,
             async () =>
             {
                 await RefreshCommandersAsync();
@@ -310,9 +263,7 @@ public partial class HexMapViewModel : ObservableObject
             });
 
         News = new NewsDropCoordinator(
-            _newsService,
-            _factionService,
-            _gameStateService,
+            _scopeFactory,
             () => Factions,
             () => CurrentWorldHour,
             tool => Editing.CurrentTool = tool,
@@ -320,6 +271,15 @@ public partial class HexMapViewModel : ObservableObject
 
         _discordMessageHandler.EntitiesChanged += OnDiscordEntitiesChanged;
     }
+
+    private Task InScopeAsync(Func<IServiceProvider, Task> operation)
+        => _scopeFactory.InScopeAsync(operation);
+
+    private Task<T> InScopeAsync<T>(Func<IServiceProvider, Task<T>> operation)
+        => _scopeFactory.InScopeAsync(operation);
+
+    private T InScope<T>(Func<IServiceProvider, T> operation)
+        => _scopeFactory.InScope(operation);
 
     /// <summary>
     /// Replaces the entire ObservableCollection to force DataGrid re-binding.
@@ -370,32 +330,37 @@ public partial class HexMapViewModel : ObservableObject
     private async Task InitializeAsync()
     {
         // Load terrain types
-        var terrainTypes = await _mapService.GetTerrainTypesAsync();
+        var terrainTypes = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().GetTerrainTypesAsync());
         TerrainTypes = new ObservableCollection<TerrainType>(terrainTypes);
 
         if (TerrainTypes.Count > 0)
             Editing.SelectedTerrainType = TerrainTypes[0];
 
         // Load location types
-        var locationTypes = await _mapService.GetLocationTypesAsync();
+        var locationTypes = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().GetLocationTypesAsync());
         LocationTypes = new ObservableCollection<LocationType>(locationTypes);
 
         if (LocationTypes.Count > 0)
             Editing.SelectedLocationType = LocationTypes[0];
 
         // Load weather types
-        var weatherTypes = await _mapService.GetWeatherTypesAsync();
+        var weatherTypes = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().GetWeatherTypesAsync());
         WeatherTypes = new ObservableCollection<MechanicalCataphract.Data.Entities.Weather>(weatherTypes);
 
         // Check if map exists, if not prompt for size and create one
-        if (!await _mapService.MapExistsAsync())
+        if (!await InScopeAsync(sp => sp.GetRequiredService<IMapService>().MapExistsAsync()))
         {
             var (newRows, newCols) = await PromptMapSizeAsync();
-            await _mapService.InitializeMapAsync(newRows, newCols, TerrainTypes.Count > 0 ? TerrainTypes[0].Id : 1);
+            await InScopeAsync(sp =>
+                sp.GetRequiredService<IMapService>().InitializeMapAsync(newRows, newCols, TerrainTypes.Count > 0 ? TerrainTypes[0].Id : 1));
         }
 
         // Get map dimensions (0 means "no map yet" â€” keep int.MaxValue so bounds check is skipped)
-        var (rows, cols) = await _mapService.GetMapDimensionsAsync();
+        var (rows, cols) = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().GetMapDimensionsAsync());
         if (rows > 0) _mapRows = rows;
         if (cols > 0) _mapColumns = cols;
 
@@ -403,7 +368,8 @@ public partial class HexMapViewModel : ObservableObject
         await LoadVisibleHexesAsync();
 
         // Seed water hexes with default population density
-        await _mapService.EnsureWaterPopulationDefaultsAsync();
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().EnsureWaterPopulationDefaultsAsync());
 
         // Load all entities for admin panels
         await LoadAllEntitiesAsync();
@@ -416,43 +382,49 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadAllEntitiesAsync()
     {
-        var factions = await _factionService.GetAllAsync();
+        var factions = await InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionService>().GetAllAsync());
         Factions = new ObservableCollection<Faction>(factions);
 
-        foreach (var f in factions)
-            await _factionRuleService.PreloadForFactionAsync(f.Id);
-
-        var armies = await _armyService.GetAllAsync();
+        var armies = await InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().GetAllAsync());
         Armies = new ObservableCollection<Army>(armies);
 
-        var commanders = await _commanderService.GetAllAsync();
+        var commanders = await InScopeAsync(sp =>
+            sp.GetRequiredService<ICommanderService>().GetAllAsync());
         Commanders = new ObservableCollection<Commander>(commanders);
 
-        var orders = await _orderService.GetAllAsync();
+        var orders = await InScopeAsync(sp =>
+            sp.GetRequiredService<IOrderService>().GetAllAsync());
         _allOrders = orders.Select(o =>
         {
-            var vm = new OrderViewModel(o, _orderService);
+            var vm = new OrderViewModel(o, _scopeFactory);
             vm.Saved += () => Dispatcher.UIThread.Post(ApplyOrderFilter);
             return vm;
         }).ToList();
         ApplyOrderFilter();
 
-        var messages = await _messageService.GetAllAsync();
+        var messages = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMessageService>().GetAllAsync());
         _allMessages = messages.ToList();
         ApplyMessageFilter();
 
-        var coLocationChannels = await _coLocationChannelService.GetAllAsync();
+        var coLocationChannels = await InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().GetAllAsync());
         CoLocationChannels = new ObservableCollection<CoLocationChannel>(coLocationChannels);
 
-        var gameState = await _gameStateService.GetGameStateAsync();
+        var gameState = await InScopeAsync(sp =>
+            sp.GetRequiredService<IGameStateService>().GetGameStateAsync());
         CurrentWorldHour = gameState.CurrentWorldHour;
-        CurrentCalendarDateText = _calendarService.FormatDateTime(CurrentWorldHour);
+        CurrentCalendarDateText = InScope(sp =>
+            sp.GetRequiredService<ICalendarService>().FormatDateTime(CurrentWorldHour));
 
         // Initialize time picker
         var calDef = _calendarDefinitionService.GetCalendarDefinition();
         CalendarMonths = calDef.Months;
         PickerHours = new ObservableCollection<int>(Enumerable.Range(0, calDef.HoursPerDay));
-        var currentDate = _calendarService.GetDate(CurrentWorldHour);
+        var currentDate = InScope(sp =>
+            sp.GetRequiredService<ICalendarService>().GetDate(CurrentWorldHour));
         PickerYear = currentDate.Year;
         PickerMonthIndex = currentDate.MonthNumber - 1;
         RebuildPickerDays(calDef.Months[PickerMonthIndex].Days);
@@ -461,7 +433,8 @@ public partial class HexMapViewModel : ObservableObject
 
         await RefreshNewsItemsAsync();
 
-        var navies = await _navyService.GetAllAsync();
+        var navies = await InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().GetAllAsync());
         Navies = new ObservableCollection<Navy>(navies);
     }
 
@@ -500,28 +473,32 @@ public partial class HexMapViewModel : ObservableObject
     }
     public async Task RefreshFactionsAsync()
     {
-        var factions = await _factionService.GetAllAsync();
+        var factions = await InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionService>().GetAllAsync());
         Factions = new ObservableCollection<Faction>(factions);
     }
 
     public async Task RefreshArmiesAsync()
     {
-        var armies = await _armyService.GetAllAsync();
+        var armies = await InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().GetAllAsync());
         Armies = new ObservableCollection<Army>(armies);
     }
 
     public async Task RefreshCommandersAsync()
     {
-        var commanders = await _commanderService.GetAllAsync();
+        var commanders = await InScopeAsync(sp =>
+            sp.GetRequiredService<ICommanderService>().GetAllAsync());
         Commanders = new ObservableCollection<Commander>(commanders);
     }
 
     public async Task RefreshOrdersAsync()
     {
-        var orders = await _orderService.GetAllAsync();
+        var orders = await InScopeAsync(sp =>
+            sp.GetRequiredService<IOrderService>().GetAllAsync());
         _allOrders = orders.Select(o =>
         {
-            var vm = new OrderViewModel(o, _orderService);
+            var vm = new OrderViewModel(o, _scopeFactory);
             vm.Saved += () => Dispatcher.UIThread.Post(ApplyOrderFilter);
             return vm;
         }).ToList();
@@ -540,7 +517,8 @@ public partial class HexMapViewModel : ObservableObject
 
     public async Task RefreshMessagesAsync()
     {
-        var messages = await _messageService.GetAllAsync();
+        var messages = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMessageService>().GetAllAsync());
         _allMessages = messages.ToList();
         ApplyMessageFilter();
     }
@@ -557,7 +535,8 @@ public partial class HexMapViewModel : ObservableObject
 
     public async Task RefreshCoLocationChannelsAsync()
     {
-        var channels = await _coLocationChannelService.GetAllAsync();
+        var channels = await InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().GetAllAsync());
         CoLocationChannels = new ObservableCollection<CoLocationChannel>(channels);
     }
 
@@ -568,13 +547,15 @@ public partial class HexMapViewModel : ObservableObject
 
     public async Task RefreshNaviesAsync()
     {
-        var navies = await _navyService.GetAllAsync();
+        var navies = await InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().GetAllAsync());
         Navies = new ObservableCollection<Navy>(navies);
     }
 
     private async Task LoadVisibleHexesAsync()
     {
-        var hexes = await _mapService.GetAllHexesAsync();
+        var hexes = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().GetAllHexesAsync());
         VisibleHexes = new ObservableCollection<MapHex>(hexes);
     }
 
@@ -609,7 +590,8 @@ public partial class HexMapViewModel : ObservableObject
     [RelayCommand]
     async Task AdvanceTimeAsync()
     {
-        var result = await _timeAdvanceService.AdvanceTimeAsync(1);
+        var result = await InScopeAsync(sp =>
+            sp.GetRequiredService<ITimeAdvanceService>().AdvanceTimeAsync(1));
         if (result.Success)
         {
             CurrentWorldHour++;
@@ -644,12 +626,15 @@ public partial class HexMapViewModel : ObservableObject
     [RelayCommand]
     async Task SetTimeAsync()
     {
-        long newWorldHour = _calendarService.GetWorldHour(
-            (int)PickerYear, PickerMonthIndex + 1, PickerDayIndex + 1, PickerHourIndex);
+        long newWorldHour = InScope(sp =>
+            sp.GetRequiredService<ICalendarService>().GetWorldHour(
+                (int)PickerYear, PickerMonthIndex + 1, PickerDayIndex + 1, PickerHourIndex));
 
-        await _gameStateService.SetCurrentWorldHourAsync(newWorldHour);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IGameStateService>().SetCurrentWorldHourAsync(newWorldHour));
         CurrentWorldHour = newWorldHour;
-        CurrentCalendarDateText = _calendarService.FormatDateTime(newWorldHour);
+        CurrentCalendarDateText = InScope(sp =>
+            sp.GetRequiredService<ICalendarService>().FormatDateTime(newWorldHour));
         StatusMessage = $"Time set to {CurrentCalendarDateText}.";
         await RefreshAllAsync();
     }
@@ -762,8 +747,8 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadFactionWithDetailsAsync(int factionId)
     {
-        var factionWithDetails = await
-    _factionService.GetFactionWithArmiesAndCommandersAsync(factionId);
+        var factionWithDetails = await InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionService>().GetFactionWithArmiesAndCommandersAsync(factionId));
         if (factionWithDetails != null)
         {
             var factionVm = CreateFactionViewModel(factionWithDetails);
@@ -775,7 +760,8 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadArmyWithDetails(int armyId)
     {
-        var armyWithDetails = await _armyService.GetArmyWithBrigadesAsync(armyId);
+        var armyWithDetails = await InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().GetArmyWithBrigadesAsync(armyId));
         if (armyWithDetails != null)
         {
             var armyVm = CreateArmyViewModel(armyWithDetails);
@@ -855,10 +841,13 @@ public partial class HexMapViewModel : ObservableObject
                 -army.CoordinateQ.Value - army.CoordinateR.Value);
 
             // Gather map data
-            var allHexes = await _mapService.GetAllHexesAsync();
+            var allHexes = await InScopeAsync(sp =>
+                sp.GetRequiredService<IMapService>().GetAllHexesAsync());
             var hexesInRange = allHexes.Where(h => centerHex.Distance(h.ToHex()) <= scoutingRange).ToList();
-            var terrainTypes = await _mapService.GetTerrainTypesAsync();
-            var locationTypes = await _mapService.GetLocationTypesAsync();
+            var terrainTypes = await InScopeAsync(sp =>
+                sp.GetRequiredService<IMapService>().GetTerrainTypesAsync());
+            var locationTypes = await InScopeAsync(sp =>
+                sp.GetRequiredService<IMapService>().GetLocationTypesAsync());
 
             // Filter armies within scouting range
             var armiesInRange = Armies
@@ -979,7 +968,8 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadCoLocationChannelWithDetailsAsync(int channelId)
     {
-        var channel = await _coLocationChannelService.GetByIdAsync(channelId);
+        var channel = await InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().GetByIdAsync(channelId));
         if (channel != null)
         {
             var vm = CreateCoLocationChannelViewModel(channel);
@@ -997,7 +987,8 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadNavyWithDetailsAsync(int navyId)
     {
-        var navyWithDetails = await _navyService.GetNavyWithShipsAsync(navyId);
+        var navyWithDetails = await InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().GetNavyWithShipsAsync(navyId));
         if (navyWithDetails != null)
         {
             var navyVm = CreateNavyViewModel(navyWithDetails);
@@ -1016,7 +1007,8 @@ public partial class HexMapViewModel : ObservableObject
 
     private async Task LoadHexWithDetailsAsync(int Q, int R)
     {
-        var hexWithDetails = await _mapService.GetHexAsync(Q, R);
+        var hexWithDetails = await InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().GetHexAsync(Q, R));
         if (hexWithDetails != null)
         {
             // Reconcile nav props to in-memory instances for ComboBox reference equality
@@ -1043,7 +1035,8 @@ public partial class HexMapViewModel : ObservableObject
             ColorHex = "#808080",
             IsPlayerFaction = true
         };
-        await _factionService.CreateAsync(faction);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionService>().CreateAsync(faction));
         await _discordChannelManager.OnFactionCreatedAsync(faction);
         await RefreshFactionsAsync();
         StatusMessage = $"Created faction: {faction.Name}";
@@ -1060,31 +1053,39 @@ public partial class HexMapViewModel : ObservableObject
 
         // 2. Reassign all commanders of this faction to "No Faction" (Id=1)
         //    Must happen before faction delete due to FK restrict constraint.
-        var commanders = await _commanderService.GetAllAsync();
-        foreach (var cmd in commanders.Where(c => c.FactionId == faction.Id))
+        await InScopeAsync(async sp =>
         {
-            cmd.FactionId = 1;
-            await _commanderService.UpdateAsync(cmd);
-        }
+            var commanderService = sp.GetRequiredService<ICommanderService>();
+            var armyService = sp.GetRequiredService<IArmyService>();
+            var navyService = sp.GetRequiredService<INavyService>();
+            var factionService = sp.GetRequiredService<IFactionService>();
 
-        // 3. Reassign all armies of this faction to "No Faction" (same Restrict constraint).
-        var armies = await _armyService.GetAllAsync();
-        foreach (var army in armies.Where(a => a.FactionId == faction.Id))
-        {
-            army.FactionId = 1;
-            await _armyService.UpdateAsync(army);
-        }
+            var commanders = await commanderService.GetAllAsync();
+            foreach (var cmd in commanders.Where(c => c.FactionId == faction.Id))
+            {
+                cmd.FactionId = 1;
+                await commanderService.UpdateAsync(cmd);
+            }
 
-        // 4. Reassign all navies of this faction to "No Faction" (same Restrict constraint).
-        var navies = await _navyService.GetAllAsync();
-        foreach (var navy in navies.Where(n => n.FactionId == faction.Id))
-        {
-            navy.FactionId = 1;
-            await _navyService.UpdateAsync(navy);
-        }
+            // 3. Reassign all armies of this faction to "No Faction" (same Restrict constraint).
+            var armies = await armyService.GetAllAsync();
+            foreach (var army in armies.Where(a => a.FactionId == faction.Id))
+            {
+                army.FactionId = 1;
+                await armyService.UpdateAsync(army);
+            }
 
-        // 5. Delete the faction itself
-        await _factionService.DeleteAsync(faction.Id);
+            // 4. Reassign all navies of this faction to "No Faction" (same Restrict constraint).
+            var navies = await navyService.GetAllAsync();
+            foreach (var navy in navies.Where(n => n.FactionId == faction.Id))
+            {
+                navy.FactionId = 1;
+                await navyService.UpdateAsync(navy);
+            }
+
+            // 5. Delete the faction itself
+            await factionService.DeleteAsync(faction.Id);
+        });
         await RefreshFactionsAsync();
         await RefreshCommandersAsync();
         await RefreshArmiesAsync();
@@ -1107,7 +1108,8 @@ public partial class HexMapViewModel : ObservableObject
             Wagons = 0,
             CarriedSupply = 0
         };
-        await _armyService.CreateAsync(army);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().CreateAsync(army));
         await RefreshArmiesAsync();
         StatusMessage = $"Created army: {army.Name}";
     }
@@ -1116,7 +1118,8 @@ public partial class HexMapViewModel : ObservableObject
     private async Task DeleteArmyAsync(Army army)
     {
         if (army == null) return;
-        await _armyService.DeleteAsync(army.Id);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().DeleteAsync(army.Id));
         await RefreshArmiesAsync();
         StatusMessage = $"Deleted army: {army.Name}";
     }
@@ -1133,7 +1136,8 @@ public partial class HexMapViewModel : ObservableObject
             FactionId = defaultFaction?.Id ?? 1,
             CarriedSupply = 0
         };
-        await _navyService.CreateAsync(navy);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().CreateAsync(navy));
         await RefreshNaviesAsync();
         StatusMessage = $"Created navy: {navy.Name}";
     }
@@ -1142,7 +1146,8 @@ public partial class HexMapViewModel : ObservableObject
     private async Task DeleteNavyAsync(Navy navy)
     {
         if (navy == null) return;
-        await _navyService.DeleteAsync(navy.Id);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<INavyService>().DeleteAsync(navy.Id));
         await RefreshNaviesAsync();
         StatusMessage = $"Deleted navy: {navy.Name}";
     }
@@ -1157,7 +1162,8 @@ public partial class HexMapViewModel : ObservableObject
             FactionId = defaultFaction?.Id ?? 1,
             Age = 30
         };
-        await _commanderService.CreateAsync(commander);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<ICommanderService>().CreateAsync(commander));
         var cmdFaction = Factions.FirstOrDefault(f => f.Id == commander.FactionId);
         if (cmdFaction != null)
             await _discordChannelManager.OnCommanderCreatedAsync(commander, cmdFaction);
@@ -1170,7 +1176,8 @@ public partial class HexMapViewModel : ObservableObject
     {
         if (commander == null) return;
         await _discordChannelManager.OnCommanderDeletedAsync(commander);
-        await _commanderService.DeleteAsync(commander.Id);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<ICommanderService>().DeleteAsync(commander.Id));
         await RefreshCommandersAsync();
         StatusMessage = $"Deleted commander: {commander.Name}";
     }
@@ -1191,11 +1198,13 @@ public partial class HexMapViewModel : ObservableObject
 
         // Need a brigade service - for now use DbContext directly via army service
         // This is a temporary workaround until we add IBrigadeService
-        var armyWithBrigades = await _armyService.GetArmyWithBrigadesAsync(army.Id);
+        var armyWithBrigades = await InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().GetArmyWithBrigadesAsync(army.Id));
         if (armyWithBrigades != null)
         {
             armyWithBrigades.Brigades.Add(brigade);
-            await _armyService.UpdateAsync(armyWithBrigades);
+            await InScopeAsync(sp =>
+                sp.GetRequiredService<IArmyService>().UpdateAsync(armyWithBrigades));
             await RefreshArmiesAsync();
             StatusMessage = $"Added brigade to {army.Name}";
         }
@@ -1218,7 +1227,8 @@ public partial class HexMapViewModel : ObservableObject
             Processed = false,
             CreatedAt = System.DateTime.UtcNow
         };
-        await _orderService.CreateAsync(order);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IOrderService>().CreateAsync(order));
         await RefreshOrdersAsync();
         StatusMessage = $"Created order for {defaultCommander.Name}";
     }
@@ -1227,7 +1237,8 @@ public partial class HexMapViewModel : ObservableObject
     private async Task DeleteOrderAsync(OrderViewModel? orderVm)
     {
         if (orderVm == null) return;
-        await _orderService.DeleteAsync(orderVm.Id);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IOrderService>().DeleteAsync(orderVm.Id));
         await RefreshOrdersAsync();
         StatusMessage = "Deleted order";
     }
@@ -1254,7 +1265,8 @@ public partial class HexMapViewModel : ObservableObject
             Delivered = false,
             CreatedAt = System.DateTime.UtcNow
         };
-        await _messageService.CreateAsync(message);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IMessageService>().CreateAsync(message));
         await RefreshMessagesAsync();
         StatusMessage = $"Created message from {commanders[0].Name} to {commanders[1].Name}";
     }
@@ -1263,7 +1275,8 @@ public partial class HexMapViewModel : ObservableObject
     private async Task DeleteMessageAsync(Message message)
     {
         if (message == null) return;
-        await _messageService.DeleteAsync(message.Id);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<IMessageService>().DeleteAsync(message.Id));
         await RefreshMessagesAsync();
         StatusMessage = "Deleted message";
     }
@@ -1275,7 +1288,8 @@ public partial class HexMapViewModel : ObservableObject
         {
             Name = "New Channel",
         };
-        await _coLocationChannelService.CreateAsync(channel);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().CreateAsync(channel));
         await _discordChannelManager.OnCoLocationChannelCreatedAsync(channel);
         await RefreshCoLocationChannelsAsync();
         StatusMessage = $"Created co-location channel: {channel.Name}";
@@ -1286,7 +1300,8 @@ public partial class HexMapViewModel : ObservableObject
     {
         if (channel == null) return;
         await _discordChannelManager.OnCoLocationChannelDeletedAsync(channel);
-        await _coLocationChannelService.DeleteAsync(channel.Id);
+        await InScopeAsync(sp =>
+            sp.GetRequiredService<ICoLocationChannelService>().DeleteAsync(channel.Id));
         await RefreshCoLocationChannelsAsync();
         StatusMessage = $"Deleted co-location channel: {channel.Name}";
     }
@@ -1338,12 +1353,15 @@ public partial class HexMapViewModel : ObservableObject
             return;
         }
 
-        // Calculate supply and update hexes
-        var supplyGained = await _mapService.ForageHexesAsync(ForageSelectedHexes);
-
-        // Update army's carried supply
-        ForageTargetArmy.CarriedSupply += supplyGained;
-        await _armyService.UpdateAsync(ForageTargetArmy);
+        var supplyGained = await InScopeAsync(async sp =>
+        {
+            var mapService = sp.GetRequiredService<IMapService>();
+            var armyService = sp.GetRequiredService<IArmyService>();
+            var gained = await mapService.ForageHexesAsync(ForageSelectedHexes);
+            ForageTargetArmy.CarriedSupply += gained;
+            await armyService.UpdateAsync(ForageTargetArmy);
+            return gained;
+        });
 
         var armyName = ForageTargetArmy.Name;
         var hexCount = ForageSelectedHexes.Count;
@@ -1483,7 +1501,8 @@ public partial class HexMapViewModel : ObservableObject
             Wagons = totalWagons,
             CarriedSupply = 0
         };
-        var created = await _armyService.CreateAsync(army);
+        var created = await InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().CreateAsync(army));
 
         // Create infantry brigades (max 1000 per brigade)
         int brigadeNum = 1;
@@ -1491,14 +1510,14 @@ public partial class HexMapViewModel : ObservableObject
         while (remaining > 0)
         {
             int count = Math.Min(remaining, 1000);
-            await _armyService.AddBrigadeAsync(new Brigade
+            await InScopeAsync(sp => sp.GetRequiredService<IArmyService>().AddBrigadeAsync(new Brigade
             {
                 ArmyId = created.Id,
                 Name = $"Infantry {brigadeNum}",
                 UnitType = UnitType.Infantry,
                 Number = count,
                 FactionId = MusterSelectedFaction.Id
-            });
+            }));
             remaining -= count;
             brigadeNum++;
         }
@@ -1511,14 +1530,14 @@ public partial class HexMapViewModel : ObservableObject
             while (remaining > 0)
             {
                 int count = Math.Min(remaining, 250);
-                await _armyService.AddBrigadeAsync(new Brigade
+                await InScopeAsync(sp => sp.GetRequiredService<IArmyService>().AddBrigadeAsync(new Brigade
                 {
                     ArmyId = created.Id,
                     Name = $"Cavalry {cavBrigadeNum}",
                     UnitType = UnitType.Cavalry,
                     Number = count,
                     FactionId = MusterSelectedFaction.Id
-                });
+                }));
                 remaining -= count;
                 cavBrigadeNum++;
             }

@@ -7,14 +7,13 @@ using Hexes;
 using GUI.ViewModels.EntityViewModels;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GUI.ViewModels.HexMap;
 
 public partial class PathSelectionCoordinator : ObservableObject
 {
-    private readonly IMessageService _messageService;
-    private readonly IArmyService _armyService;
-    private readonly ICommanderService _commanderService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly Func<IEntityViewModel?> _getSelectedEntityViewModel;
     private readonly Action<IEntityViewModel?> _setSelectedEntityViewModel;
     private readonly Func<Message?> _getSelectedMessage;
@@ -39,9 +38,7 @@ public partial class PathSelectionCoordinator : ObservableObject
     public int Count => Hexes.Count;
 
     public PathSelectionCoordinator(
-        IMessageService messageService,
-        IArmyService armyService,
-        ICommanderService commanderService,
+        IServiceScopeFactory scopeFactory,
         Func<IEntityViewModel?> getSelectedEntityViewModel,
         Action<IEntityViewModel?> setSelectedEntityViewModel,
         Func<Message?> getSelectedMessage,
@@ -54,9 +51,7 @@ public partial class PathSelectionCoordinator : ObservableObject
         Action<string> setStatusMessage,
         Action<string> setCurrentTool)
     {
-        _messageService = messageService;
-        _armyService = armyService;
-        _commanderService = commanderService;
+        _scopeFactory = scopeFactory;
         _getSelectedEntityViewModel = getSelectedEntityViewModel;
         _setSelectedEntityViewModel = setSelectedEntityViewModel;
         _getSelectedMessage = getSelectedMessage;
@@ -124,7 +119,8 @@ public partial class PathSelectionCoordinator : ObservableObject
 
         if (Target is Message msg)
         {
-            await _messageService.UpdateAsync(msg);
+            await _scopeFactory.InScopeAsync(sp =>
+                sp.GetRequiredService<IMessageService>().UpdateAsync(msg));
             await _refreshMessagesAsync();
             var selected = _getSelectedMessage();
             if (selected != null)
@@ -132,14 +128,16 @@ public partial class PathSelectionCoordinator : ObservableObject
         }
         else if (Target is Army army)
         {
-            await _armyService.UpdateAsync(army);
+            await _scopeFactory.InScopeAsync(sp =>
+                sp.GetRequiredService<IArmyService>().UpdateAsync(army));
             var selected = _getSelectedArmy();
             if (selected != null)
                 _setSelectedEntityViewModel(_createArmyViewModel(selected));
         }
         else if (Target is Commander commander)
         {
-            await _commanderService.UpdateAsync(commander);
+            await _scopeFactory.InScopeAsync(sp =>
+                sp.GetRequiredService<ICommanderService>().UpdateAsync(commander));
             var selected = _getSelectedCommander();
             if (selected != null)
                 _setSelectedEntityViewModel(_createCommanderViewModel(selected));

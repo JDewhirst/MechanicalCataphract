@@ -5,10 +5,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GUI.ViewModels.EntityViewModels;
 
@@ -18,8 +20,7 @@ namespace GUI.ViewModels.EntityViewModels;
 public partial class CommanderViewModel : ObservableObject, IEntityViewModel, IPathSelectableViewModel
 {
     private readonly Commander _commander;
-    private readonly ICommanderService _service;
-    private readonly IPathfindingService? _pathfindingService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDiscordChannelManager? _discordChannelManager;
     private readonly int _mapRows;
     private readonly int _mapCols;
@@ -262,12 +263,6 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel, IP
     [RelayCommand]
     private async Task ComputePath()
     {
-        if (_pathfindingService == null)
-        {
-            PathComputeStatus = "Pathfinding not available";
-            return;
-        }
-
         if (CoordinateQ == null || CoordinateR == null)
         {
             PathComputeStatus = "Current location not set";
@@ -285,7 +280,8 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel, IP
         var start = new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value);
         var end = new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value);
 
-        var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Commander);
+        var result = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IPathfindingService>().FindPathAsync(start, end, TravelEntityType.Commander));
 
         if (result.Success)
         {
@@ -397,19 +393,19 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel, IP
 
     private async Task SaveAsync()
     {
-        await _service.UpdateAsync(_commander);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<ICommanderService>().UpdateAsync(_commander));
         Saved?.Invoke();
     }
 
-    public CommanderViewModel(Commander commander, ICommanderService service, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
+    public CommanderViewModel(Commander commander, IServiceScopeFactory scopeFactory, IEnumerable<Army> availableArmies, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IDiscordChannelManager? discordChannelManager = null)
     {
         _commander = commander;
-        _service = service;
+        _scopeFactory = scopeFactory;
         AvailableArmies = availableArmies;
         AvailableFactions = availableFactions;
         _mapRows = mapRows;
         _mapCols = mapCols;
-        _pathfindingService = pathfindingService;
         _discordChannelManager = discordChannelManager;
     }
 }
