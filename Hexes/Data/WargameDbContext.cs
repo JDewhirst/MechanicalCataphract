@@ -29,6 +29,9 @@ public class WargameDbContext : DbContext
     public DbSet<NewsItem> NewsItems { get; set; }
     public DbSet<Navy> Navies { get; set; }
     public DbSet<Ship> Ships { get; set; }
+    public DbSet<RefereeActionRun> RefereeActionRuns { get; set; }
+    public DbSet<RefereeActionAuditEvent> RefereeActionAuditEvents { get; set; }
+    public DbSet<DiscordOutboxMessage> DiscordOutboxMessages { get; set; }
 
     public WargameDbContext(DbContextOptions<WargameDbContext> options)
         : base(options) { }
@@ -268,6 +271,27 @@ public class WargameDbContext : DbContext
             .WithMany(n => n.Ships)
             .HasForeignKey(s => s.NavyId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // RefereeActionAuditEvent -> RefereeActionRun
+        modelBuilder.Entity<RefereeActionAuditEvent>()
+            .HasOne(e => e.Run)
+            .WithMany()
+            .HasForeignKey(e => e.RunId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // DiscordOutboxMessage -> RefereeActionRun
+        modelBuilder.Entity<DiscordOutboxMessage>()
+            .HasOne(m => m.Run)
+            .WithMany()
+            .HasForeignKey(m => m.RunId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DiscordOutboxMessage>()
+            .HasIndex(m => m.RunId);
+
+        modelBuilder.Entity<DiscordOutboxMessage>()
+            .HasIndex(m => m.DeduplicationKey)
+            .IsUnique();
 
         // Army -> Navy (SetNull on delete; CarriedArmy back-reference)
         modelBuilder.Entity<Army>()

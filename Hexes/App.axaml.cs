@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Services;
 using MechanicalCataphract.Services.Calendar;
+using MechanicalCataphract.Services.Operations;
 using MechanicalCataphract.Discord;
 using GUI.ViewModels;
 
@@ -267,6 +268,10 @@ public partial class App : Application
         services.AddScoped<INewsService, NewsService>();
         services.AddScoped<IWeatherService, WeatherService>();
         services.AddScoped<INavyService, NavyService>();
+        services.AddScoped<IArmyReportService, ArmyReportService>();
+        services.AddScoped<IDiscordOutboxPublisher, DiscordOutboxPublisher>();
+        services.AddScoped<IRefereeActionExecutor, RefereeActionExecutor>();
+        services.AddScoped<IRefereeActionHandler, SendArmyReportsAction>();
 
         // Discord (singletons — long-lived gateway connection)
         services.AddSingleton<IDiscordBotService, DiscordBotService>();

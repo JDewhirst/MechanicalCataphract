@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ using Hexes;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services.Calendar;
+using MechanicalCataphract.Services.Operations;
 
 namespace MechanicalCataphract.Discord;
 
@@ -964,35 +966,21 @@ public class DiscordChannelManager : IDiscordChannelManager
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var commanderService = scope.ServiceProvider.GetRequiredService<Services.ICommanderService>();
-            var gameStateService = scope.ServiceProvider.GetRequiredService<Services.IGameStateService>();
-            var calendarService = scope.ServiceProvider.GetRequiredService<ICalendarService>();
-
-            var commander = await commanderService.GetCommanderWithArmiesAsync(commanderId);
-            if (commander == null || !commander.DiscordChannelId.HasValue) return;
-            if (!_botService.IsConnected) return;
-
-            var gameState = await gameStateService.GetGameStateAsync();
-            string formattedTime = calendarService.FormatDateTime(gameState.CurrentWorldHour);
-
-            var embeds = commander.CommandedArmies
-                .Select(army => ArmyReportEmbedBuilder.BuildArmyReport(army, commander, formattedTime))
-                .ToList();
-
-            if (embeds.Count == 0) return;
-
-            // Discord allows up to 10 embeds per message — batch all army reports into one call
-            // instead of one API call per army, reducing message API usage as armies scale.
-            const int MaxEmbedsPerMessage = 10;
-            var rest = _botService.Client!.Rest;
-            for (int i = 0; i < embeds.Count; i += MaxEmbedsPerMessage)
+            var executor = scope.ServiceProvider.GetRequiredService<IRefereeActionExecutor>();
+            var result = await executor.ExecuteAsync(new RefereeActionRequest
             {
-                var batch = embeds.GetRange(i, Math.Min(MaxEmbedsPerMessage, embeds.Count - i));
-                await rest.SendMessageAsync(commander.DiscordChannelId.Value,
-                    new NetCord.Rest.MessageProperties { Embeds = batch });
-            }
+                ActionType = RefereeActionType.SendArmyReports,
+                TriggerType = RefereeActionTriggerType.Manual,
+                RequestedBy = nameof(DiscordChannelManager),
+                ParametersJson = JsonSerializer.Serialize(new SendArmyReportsParameters
+                {
+                    CommanderId = commanderId
+                }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                PublishOutboxImmediately = true
+            });
 
-            System.Diagnostics.Debug.WriteLine($"[DiscordChannelManager] Army reports sent to '{commander.Name}': {embeds.Count} report(s).");
+            System.Diagnostics.Debug.WriteLine(
+                $"[DiscordChannelManager] Army report run #{result.RunId} for commander {commanderId}: {result.Status}.");
         }
         catch (Exception ex)
         {

@@ -16,8 +16,10 @@ using MechanicalCataphract.Discord;
 using Avalonia.Threading;
 using MechanicalCataphract.Services;
 using MechanicalCataphract.Services.Calendar;
+using MechanicalCataphract.Services.Operations;
 using Microsoft.Extensions.DependencyInjection;
 using SkiaSharp;
+using System.Text.Json;
 
 namespace GUI.ViewModels;
 
@@ -905,8 +907,29 @@ public partial class HexMapViewModel : ObservableObject
         }
         try
         {
-            await _discordChannelManager.SendArmyReportsToCommanderAsync(army.CommanderId.Value);
-            StatusMessage = $"Army report sent for {army.Name}";
+            var request = new RefereeActionRequest
+            {
+                ActionType = RefereeActionType.SendArmyReports,
+                TriggerType = RefereeActionTriggerType.Manual,
+                RequestedBy = "Avalonia UI",
+                ParametersJson = JsonSerializer.Serialize(new SendArmyReportsParameters
+                {
+                    CommanderId = army.CommanderId.Value,
+                    SourceArmyId = army.Id
+                }),
+                PublishOutboxImmediately = true
+            };
+
+            var result = await InScopeAsync(sp =>
+                sp.GetRequiredService<IRefereeActionExecutor>().ExecuteAsync(request));
+
+            StatusMessage = result.Status switch
+            {
+                RefereeActionRunStatus.Succeeded => $"Army report run #{result.RunId} sent for {army.Name}",
+                RefereeActionRunStatus.PartiallySucceeded => $"Army report run #{result.RunId} partially sent: {result.OutboxMessagesSent} sent, {result.OutboxMessagesFailed} failed",
+                RefereeActionRunStatus.Failed => $"Army report run #{result.RunId} failed: {result.ErrorMessage ?? $"{result.OutboxMessagesFailed} message(s) failed"}",
+                _ => $"Army report run #{result.RunId}: {result.Status}"
+            };
         }
         catch (Exception ex)
         {

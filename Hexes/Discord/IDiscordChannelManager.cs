@@ -52,12 +52,12 @@ public interface IDiscordChannelManager
 
     // Army status reports
     /// <summary>
-    /// Sends army status report embeds for all armies commanded by the given commander.
+    /// Runs the army report referee action for all armies commanded by the given commander.
     /// </summary>
     Task SendArmyReportsToCommanderAsync(int commanderId);
 
     /// <summary>
-    /// Sends army status reports to all commanders who have Discord channels. Used by daily tick.
+    /// Runs army report referee actions for all commanders who have Discord channels.
     /// </summary>
     Task SendAllArmyReportsAsync();
 
