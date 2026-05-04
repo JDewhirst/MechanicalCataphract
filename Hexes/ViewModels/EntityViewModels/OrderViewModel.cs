@@ -1,8 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using GUI.ViewModels;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GUI.ViewModels.EntityViewModels;
 
@@ -12,7 +14,7 @@ namespace GUI.ViewModels.EntityViewModels;
 public partial class OrderViewModel : ObservableObject, IEntityViewModel
 {
     private readonly Order _order;
-    private readonly IOrderService _service;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public string EntityTypeName => "Order";
 
@@ -58,13 +60,14 @@ public partial class OrderViewModel : ObservableObject, IEntityViewModel
 
     private async Task SaveAsync()
     {
-        await _service.UpdateAsync(_order);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IOrderService>().UpdateAsync(_order));
         Saved?.Invoke();
     }
 
-    public OrderViewModel(Order order, IOrderService service)
+    public OrderViewModel(Order order, IServiceScopeFactory scopeFactory)
     {
         _order = order;
-        _service = service;
+        _scopeFactory = scopeFactory;
     }
 }

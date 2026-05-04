@@ -5,6 +5,7 @@ using MechanicalCataphract.Services;
 using MechanicalCataphract.Services.Calendar;
 using GUI.ViewModels;
 using GUI.ViewModels.EntityViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MechanicalCataphract.Tests.Discord;
 
@@ -31,13 +32,25 @@ public class DiscordChannelManagerViewModelTests
         _navyService = new Mock<INavyService>();
     }
 
+    private IServiceScopeFactory CreateScopeFactory(params Action<IServiceCollection>[] configure)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => _factionService.Object);
+        services.AddScoped(_ => _commanderService.Object);
+        services.AddScoped(_ => _coLocService.Object);
+        services.AddScoped(_ => _navyService.Object);
+        foreach (var action in configure)
+            action(services);
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
+
     #region FactionViewModel Tests
 
     [Test]
     public async Task FactionViewModel_NameChange_TriggersDiscordUpdate()
     {
         var faction = new Faction { Id = 5, Name = "Old Name", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, CreateScopeFactory(), enableFactionRules: false, _channelMgr.Object);
 
         vm.Name = "New Name";
 
@@ -54,7 +67,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_ColorChange_TriggersDiscordUpdate()
     {
         var faction = new Faction { Id = 5, Name = "Test", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, CreateScopeFactory(), enableFactionRules: false, _channelMgr.Object);
 
         vm.ColorHex = "#00FF00";
 
@@ -70,7 +83,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_NameAndColorChange_DebouncesIntoSingleCall()
     {
         var faction = new Faction { Id = 5, Name = "Old", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, CreateScopeFactory(), enableFactionRules: false, _channelMgr.Object);
 
         vm.Name = "New";
         vm.ColorHex = "#00FF00";
@@ -88,7 +101,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_RapidNameChanges_DebouncesFinalValue()
     {
         var faction = new Faction { Id = 5, Name = "Original", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, CreateScopeFactory(), enableFactionRules: false, _channelMgr.Object);
 
         vm.Name = "First";
         vm.Name = "Second";
@@ -110,7 +123,7 @@ public class DiscordChannelManagerViewModelTests
     public void FactionViewModel_NoDiscordManager_DoesNotThrow()
     {
         var faction = new Faction { Id = 5, Name = "Test", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, discordChannelManager: null);
+        var vm = new FactionViewModel(faction, CreateScopeFactory(), enableFactionRules: false, discordChannelManager: null);
 
         Assert.DoesNotThrow(() => vm.Name = "Changed");
         Assert.DoesNotThrow(() => vm.ColorHex = "#00FF00");
@@ -120,7 +133,7 @@ public class DiscordChannelManagerViewModelTests
     public async Task FactionViewModel_RulesChange_DoesNotTriggerDiscordUpdate()
     {
         var faction = new Faction { Id = 5, Name = "Test", ColorHex = "#FF0000", Armies = [], Commanders = [] };
-        var vm = new FactionViewModel(faction, _factionService.Object, null, _channelMgr.Object);
+        var vm = new FactionViewModel(faction, CreateScopeFactory(), enableFactionRules: false, _channelMgr.Object);
 
         vm.Rules = "Some rules text";
 
@@ -143,10 +156,9 @@ public class DiscordChannelManagerViewModelTests
 
         return new CommanderViewModel(
             commander,
-            _commanderService.Object,
+            CreateScopeFactory(),
             armies,
             factions,
-            pathfindingService: null,
             discordChannelManager: _channelMgr.Object);
     }
 
@@ -296,9 +308,9 @@ public class DiscordChannelManagerViewModelTests
     {
         var commander = new Commander { Id = 1, Name = "Test", DiscordChannelId = 999UL };
         var vm = new CommanderViewModel(
-            commander, _commanderService.Object,
+            commander, CreateScopeFactory(),
             Array.Empty<Army>(), Array.Empty<Faction>(),
-            pathfindingService: null, discordChannelManager: null);
+            discordChannelManager: null);
 
         Assert.DoesNotThrow(() => vm.Name = "Changed");
         Assert.DoesNotThrow(() => vm.DiscordUserId = "12345");
@@ -335,24 +347,23 @@ public class DiscordChannelManagerViewModelTests
         mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
         var calendarService = new CalendarService(mockCalDef.Object);
 
+        var scopeFactory = CreateScopeFactory(
+            s => s.AddScoped(_ => mapService.Object),
+            s => s.AddScoped(_ => armyService.Object),
+            s => s.AddScoped(_ => orderService.Object),
+            s => s.AddScoped(_ => messageService.Object),
+            s => s.AddScoped(_ => gameStateService.Object),
+            s => s.AddScoped(_ => timeAdvanceService.Object),
+            s => s.AddScoped(_ => pathfindingService.Object),
+            s => s.AddScoped(_ => new Mock<IFactionRuleService>().Object),
+            s => s.AddScoped(_ => newsService.Object),
+            s => s.AddScoped<ICalendarService>(_ => calendarService));
+
         return new HexMapViewModel(
-            mapService.Object,
-            _factionService.Object,
-            armyService.Object,
-            _commanderService.Object,
-            orderService.Object,
-            messageService.Object,
-            gameStateService.Object,
-            timeAdvanceService.Object,
-            pathfindingService.Object,
-            _coLocService.Object,
-            new Mock<IFactionRuleService>().Object,
+            scopeFactory,
             botService.Object,
             _channelMgr.Object,
             new Mock<IDiscordMessageHandler>().Object,
-            newsService.Object,
-            _navyService.Object,
-            calendarService,
             mockCalDef.Object);
     }
 
@@ -487,8 +498,11 @@ public class DiscordChannelManagerViewModelTests
             Content = "Advance immediately!",
         };
         var mockMsgService = new Mock<IMessageService>();
-        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
-            pathfindingService: null, discordChannelManager: _channelMgr.Object);
+        var vm = new MessageViewModel(
+            message,
+            CreateScopeFactory(s => s.AddScoped(_ => mockMsgService.Object)),
+            Array.Empty<Commander>(),
+            discordChannelManager: _channelMgr.Object);
 
         await vm.SendToDiscordCommand.ExecuteAsync(null);
 
@@ -505,8 +519,11 @@ public class DiscordChannelManagerViewModelTests
     {
         var message = new Message { Id = 1, Content = "Hello", TargetCommander = null };
         var mockMsgService = new Mock<IMessageService>();
-        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
-            pathfindingService: null, discordChannelManager: _channelMgr.Object);
+        var vm = new MessageViewModel(
+            message,
+            CreateScopeFactory(s => s.AddScoped(_ => mockMsgService.Object)),
+            Array.Empty<Commander>(),
+            discordChannelManager: _channelMgr.Object);
 
         await vm.SendToDiscordCommand.ExecuteAsync(null);
 
@@ -522,8 +539,11 @@ public class DiscordChannelManagerViewModelTests
         var target = new Commander { Id = 2, Name = "Target", DiscordChannelId = null };
         var message = new Message { Id = 1, Content = "Hello", TargetCommander = target };
         var mockMsgService = new Mock<IMessageService>();
-        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
-            pathfindingService: null, discordChannelManager: _channelMgr.Object);
+        var vm = new MessageViewModel(
+            message,
+            CreateScopeFactory(s => s.AddScoped(_ => mockMsgService.Object)),
+            Array.Empty<Commander>(),
+            discordChannelManager: _channelMgr.Object);
 
         await vm.SendToDiscordCommand.ExecuteAsync(null);
 
@@ -539,8 +559,11 @@ public class DiscordChannelManagerViewModelTests
         var target = new Commander { Id = 2, Name = "Target", DiscordChannelId = 999UL };
         var message = new Message { Id = 1, Content = "Hello", TargetCommander = target };
         var mockMsgService = new Mock<IMessageService>();
-        var vm = new MessageViewModel(message, mockMsgService.Object, Array.Empty<Commander>(),
-            pathfindingService: null, discordChannelManager: null);
+        var vm = new MessageViewModel(
+            message,
+            CreateScopeFactory(s => s.AddScoped(_ => mockMsgService.Object)),
+            Array.Empty<Commander>(),
+            discordChannelManager: null);
 
         await vm.SendToDiscordCommand.ExecuteAsync(null);
 

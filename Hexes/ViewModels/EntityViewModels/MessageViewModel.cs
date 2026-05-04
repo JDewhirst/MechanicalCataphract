@@ -1,9 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,8 +19,7 @@ namespace GUI.ViewModels.EntityViewModels;
 public partial class MessageViewModel : ObservableObject, IEntityViewModel, IPathSelectableViewModel
 {
     private readonly Message _message;
-    private readonly IMessageService _service;
-    private readonly IPathfindingService? _pathfindingService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDiscordChannelManager? _discordChannelManager;
     private readonly int _mapRows;
     private readonly int _mapCols;
@@ -227,12 +228,6 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel, IPat
     [RelayCommand]
     private async Task ComputePath()
     {
-        if (_pathfindingService == null)
-        {
-            PathComputeStatus = "Pathfinding not available";
-            return;
-        }
-
         if (CoordinateQ == null || CoordinateR == null)
         {
             PathComputeStatus = "Current location not set";
@@ -250,7 +245,8 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel, IPat
         var start = new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value);
         var end = new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value);
 
-        var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Message);
+        var result = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IPathfindingService>().FindPathAsync(start, end, TravelEntityType.Message));
 
         if (result.Success)
         {
@@ -317,21 +313,21 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel, IPat
 
     private async Task SaveAsync()
     {
-        await _service.UpdateAsync(_message);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IMessageService>().UpdateAsync(_message));
         Saved?.Invoke();
     }
 
     public MessageViewModel(
-        Message message, IMessageService service, IEnumerable<Commander> availableCommanders,
+        Message message, IServiceScopeFactory scopeFactory, IEnumerable<Commander> availableCommanders,
         int mapRows = int.MaxValue, int mapCols = int.MaxValue,
-        IPathfindingService? pathfindingService = null, IDiscordChannelManager? discordChannelManager = null)
+        IDiscordChannelManager? discordChannelManager = null)
     {
         _message = message;
-        _service = service;
+        _scopeFactory = scopeFactory;
         _availableCommanders = availableCommanders;
         _mapRows = mapRows;
         _mapCols = mapCols;
-        _pathfindingService = pathfindingService;
         _discordChannelManager = discordChannelManager;
     }
 }

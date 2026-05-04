@@ -5,16 +5,18 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Weather = MechanicalCataphract.Data.Entities.Weather;
 
 namespace GUI.ViewModels.HexMap;
 
 public partial class MapEditingCoordinator : ObservableObject
 {
-    private readonly IMapService _mapService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly Func<ObservableCollection<MapHex>> _getVisibleHexes;
     private readonly Func<ObservableCollection<TerrainType>> _getTerrainTypes;
     private readonly Func<ObservableCollection<LocationType>> _getLocationTypes;
@@ -62,7 +64,7 @@ public partial class MapEditingCoordinator : ObservableObject
     };
 
     public MapEditingCoordinator(
-        IMapService mapService,
+        IServiceScopeFactory scopeFactory,
         Func<ObservableCollection<MapHex>> getVisibleHexes,
         Func<ObservableCollection<TerrainType>> getTerrainTypes,
         Func<ObservableCollection<LocationType>> getLocationTypes,
@@ -70,7 +72,7 @@ public partial class MapEditingCoordinator : ObservableObject
         Action<MapHex?> setSelectedMapHex,
         Action<string> setStatusMessage)
     {
-        _mapService = mapService;
+        _scopeFactory = scopeFactory;
         _getVisibleHexes = getVisibleHexes;
         _getTerrainTypes = getTerrainTypes;
         _getLocationTypes = getLocationTypes;
@@ -127,8 +129,12 @@ public partial class MapEditingCoordinator : ObservableObject
             .Where(h => visibleHexes.Any(v => v.Q == h.q && v.R == h.r))
             .ToList();
 
-        foreach (var h in toPaint)
-            await _mapService.SetTerrainAsync(h, terrainTypeId);
+        await _scopeFactory.InScopeAsync(async sp =>
+        {
+            var mapService = sp.GetRequiredService<IMapService>();
+            foreach (var h in toPaint)
+                await mapService.SetTerrainAsync(h, terrainTypeId);
+        });
 
         var terrainType = _getTerrainTypes().FirstOrDefault(t => t.Id == terrainTypeId);
         UpdateVisibleHexes(toPaint, mapHex =>
@@ -148,8 +154,12 @@ public partial class MapEditingCoordinator : ObservableObject
         if (SelectedFactionForPainting == null) return;
         var toPaint = GetPaintableLandHexes(hex);
 
-        foreach (var h in toPaint)
-            await _mapService.SetFactionControlAsync(h, SelectedFactionForPainting.Id);
+        await _scopeFactory.InScopeAsync(async sp =>
+        {
+            var mapService = sp.GetRequiredService<IMapService>();
+            foreach (var h in toPaint)
+                await mapService.SetFactionControlAsync(h, SelectedFactionForPainting.Id);
+        });
 
         var faction = SelectedFactionForPainting;
         UpdateVisibleHexes(toPaint, mapHex =>
@@ -192,8 +202,12 @@ public partial class MapEditingCoordinator : ObservableObject
         var startMapHex = _getVisibleHexes().FirstOrDefault(h => h.Q == startHex.q && h.R == startHex.r);
         bool hasRoad = startMapHex?.HasRoadInDirection(dirFromStart.Value) ?? false;
 
-        await _mapService.SetRoadAsync(startHex, dirFromStart.Value, !hasRoad);
-        await _mapService.SetRoadAsync(clickedHex, dirFromEnd, !hasRoad);
+        await _scopeFactory.InScopeAsync(async sp =>
+        {
+            var mapService = sp.GetRequiredService<IMapService>();
+            await mapService.SetRoadAsync(startHex, dirFromStart.Value, !hasRoad);
+            await mapService.SetRoadAsync(clickedHex, dirFromEnd, !hasRoad);
+        });
         await RefreshHexInCollection(startHex);
         await RefreshHexInCollection(clickedHex);
 
@@ -232,8 +246,12 @@ public partial class MapEditingCoordinator : ObservableObject
         var startMapHex = _getVisibleHexes().FirstOrDefault(h => h.Q == startHex.q && h.R == startHex.r);
         bool hasRiver = startMapHex?.HasRiverOnEdge(dirFromStart.Value) ?? false;
 
-        await _mapService.SetRiverAsync(startHex, dirFromStart.Value, !hasRiver);
-        await _mapService.SetRiverAsync(clickedHex, dirFromEnd, !hasRiver);
+        await _scopeFactory.InScopeAsync(async sp =>
+        {
+            var mapService = sp.GetRequiredService<IMapService>();
+            await mapService.SetRiverAsync(startHex, dirFromStart.Value, !hasRiver);
+            await mapService.SetRiverAsync(clickedHex, dirFromEnd, !hasRiver);
+        });
         await RefreshHexInCollection(startHex);
         await RefreshHexInCollection(clickedHex);
 
@@ -245,7 +263,8 @@ public partial class MapEditingCoordinator : ObservableObject
 
     public async Task EraseAsync(Hex hex)
     {
-        await _mapService.ClearRoadsAndRiversAsync(hex);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().ClearRoadsAndRiversAsync(hex));
         UpdateVisibleHexes(new[] { hex }, mapHex =>
         {
             mapHex.RoadDirections = null;
@@ -268,7 +287,8 @@ public partial class MapEditingCoordinator : ObservableObject
             return;
         }
 
-        await _mapService.SetLocationAsync(hex, SelectedLocationType.Id, locationName);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().SetLocationAsync(hex, SelectedLocationType.Id, locationName));
         var locationType = _getLocationTypes().FirstOrDefault(l => l.Id == SelectedLocationType.Id);
         UpdateVisibleHexes(new[] { hex }, mapHex =>
         {
@@ -283,7 +303,8 @@ public partial class MapEditingCoordinator : ObservableObject
 
     public async Task ClearLocationAsync(Hex hex)
     {
-        await _mapService.ClearLocationAsync(hex);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IMapService>().ClearLocationAsync(hex));
         UpdateVisibleHexes(new[] { hex }, mapHex =>
         {
             mapHex.LocationTypeId = null;
@@ -297,8 +318,12 @@ public partial class MapEditingCoordinator : ObservableObject
     public async Task PaintPopulationAsync(Hex hex)
     {
         var toPaint = GetPaintableLandHexes(hex);
-        foreach (var h in toPaint)
-            await _mapService.SetPopulationDensityAsync(h, SelectedPopulationDensity);
+        await _scopeFactory.InScopeAsync(async sp =>
+        {
+            var mapService = sp.GetRequiredService<IMapService>();
+            foreach (var h in toPaint)
+                await mapService.SetPopulationDensityAsync(h, SelectedPopulationDensity);
+        });
 
         UpdateVisibleHexes(toPaint, mapHex => mapHex.PopulationDensity = SelectedPopulationDensity);
         _setStatusMessage(BrushSize == 1
@@ -313,8 +338,12 @@ public partial class MapEditingCoordinator : ObservableObject
             .Where(ExistsInVisibleHexes)
             .ToList();
 
-        foreach (var h in toPaint)
-            await _mapService.SetWeatherAsync(h, SelectedWeatherForPainting.Id);
+        await _scopeFactory.InScopeAsync(async sp =>
+        {
+            var mapService = sp.GetRequiredService<IMapService>();
+            foreach (var h in toPaint)
+                await mapService.SetWeatherAsync(h, SelectedWeatherForPainting.Id);
+        });
 
         var weather = SelectedWeatherForPainting;
         UpdateVisibleHexes(toPaint, mapHex =>
@@ -389,7 +418,8 @@ public partial class MapEditingCoordinator : ObservableObject
             var mapHex = visibleHexes[i];
             if (mapHex.Q == hex.q && mapHex.R == hex.r)
             {
-                var updatedHex = await _mapService.GetHexAsync(hex);
+                var updatedHex = await _scopeFactory.InScopeAsync(sp =>
+                    sp.GetRequiredService<IMapService>().GetHexAsync(hex));
                 if (updatedHex != null)
                     visibleHexes[i] = updatedHex;
                 break;

@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using MechanicalCataphract.Data;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
@@ -13,6 +14,7 @@ public partial class DiscordConnectionViewModel : ObservableObject
 {
     private readonly IDiscordBotService _discordBotService;
     private readonly IDiscordChannelManager _discordChannelManager;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly Func<Task> _refreshAfterConnectAsync;
 
     [ObservableProperty]
@@ -30,10 +32,12 @@ public partial class DiscordConnectionViewModel : ObservableObject
     public DiscordConnectionViewModel(
         IDiscordBotService discordBotService,
         IDiscordChannelManager discordChannelManager,
+        IServiceScopeFactory scopeFactory,
         Func<Task> refreshAfterConnectAsync)
     {
         _discordBotService = discordBotService;
         _discordChannelManager = discordChannelManager;
+        _scopeFactory = scopeFactory;
         _refreshAfterConnectAsync = refreshAfterConnectAsync;
     }
 
@@ -41,9 +45,11 @@ public partial class DiscordConnectionViewModel : ObservableObject
     {
         try
         {
-            using var scope = App.Services!.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
-            var config = await db.DiscordConfigs.FindAsync(1);
+            var config = await _scopeFactory.InScopeAsync(async sp =>
+            {
+                var db = sp.GetRequiredService<WargameDbContext>();
+                return await db.DiscordConfigs.FindAsync(1);
+            });
             if (config is not null)
             {
                 BotToken = config.BotToken ?? string.Empty;
@@ -72,9 +78,9 @@ public partial class DiscordConnectionViewModel : ObservableObject
                 return;
             }
 
-            using (var scope = App.Services!.CreateScope())
+            await _scopeFactory.InScopeAsync(async sp =>
             {
-                var db = scope.ServiceProvider.GetRequiredService<WargameDbContext>();
+                var db = sp.GetRequiredService<WargameDbContext>();
                 var config = await db.DiscordConfigs.FindAsync(1);
                 if (config is null)
                 {
@@ -85,7 +91,7 @@ public partial class DiscordConnectionViewModel : ObservableObject
                 config.BotToken = BotToken;
                 config.GuildId = parsedGuildId;
                 await db.SaveChangesAsync();
-            }
+            });
 
             await _discordBotService.StartBotAsync();
             IsConnected = _discordBotService.IsConnected;

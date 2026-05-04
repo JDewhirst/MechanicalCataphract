@@ -5,17 +5,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GUI.ViewModels.HexMap;
 
 public partial class NewsDropCoordinator : ObservableObject
 {
-    private readonly INewsService _newsService;
-    private readonly IFactionService _factionService;
-    private readonly IGameStateService _gameStateService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly Func<ObservableCollection<Faction>> _getFactions;
     private readonly Func<long> _getCurrentWorldHour;
     private readonly Action<string> _setCurrentTool;
@@ -33,17 +33,13 @@ public partial class NewsDropCoordinator : ObservableObject
     public int ReachedHexCount => ReachedHexes.Count;
 
     public NewsDropCoordinator(
-        INewsService newsService,
-        IFactionService factionService,
-        IGameStateService gameStateService,
+        IServiceScopeFactory scopeFactory,
         Func<ObservableCollection<Faction>> getFactions,
         Func<long> getCurrentWorldHour,
         Action<string> setCurrentTool,
         Action<string> setStatusMessage)
     {
-        _newsService = newsService;
-        _factionService = factionService;
-        _gameStateService = gameStateService;
+        _scopeFactory = scopeFactory;
         _getFactions = getFactions;
         _getCurrentWorldHour = getCurrentWorldHour;
         _setCurrentTool = setCurrentTool;
@@ -52,7 +48,8 @@ public partial class NewsDropCoordinator : ObservableObject
 
     public async Task RefreshAsync()
     {
-        var newsItems = await _newsService.GetAllAsync();
+        var newsItems = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INewsService>().GetAllAsync());
         Items = new ObservableCollection<NewsItem>(newsItems);
     }
 
@@ -66,7 +63,8 @@ public partial class NewsDropCoordinator : ObservableObject
     public async Task DropAsync(Hex hex)
     {
         if (App.MainWindow == null) return;
-        var gameState = await _gameStateService.GetGameStateAsync();
+        var gameState = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IGameStateService>().GetGameStateAsync());
 
         var dialog = new GUI.Windows.NewsDropDialog(hex, _getFactions());
         var result = await dialog.ShowDialog<Dictionary<int, string>?>(App.MainWindow);
@@ -76,7 +74,8 @@ public partial class NewsDropCoordinator : ObservableObject
 
         if (result == null || result.Count == 0) return;
 
-        await _newsService.CreateEventAsync(dialog.ResultTitle ?? string.Empty, hex.q, hex.r, gameState.CurrentWorldHour, result);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INewsService>().CreateEventAsync(dialog.ResultTitle ?? string.Empty, hex.q, hex.r, gameState.CurrentWorldHour, result));
         await RefreshAsync();
         _setStatusMessage($"Event dropped at ({hex.q}, {hex.r})");
     }
@@ -85,7 +84,8 @@ public partial class NewsDropCoordinator : ObservableObject
     public async Task DeleteAsync(NewsItem? item)
     {
         if (item == null) return;
-        await _newsService.DeleteEventAsync(item.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INewsService>().DeleteEventAsync(item.Id));
         if (SelectedItem?.Id == item.Id)
             SelectedItem = null;
         await RefreshAsync();
@@ -96,7 +96,8 @@ public partial class NewsDropCoordinator : ObservableObject
     public async Task EditAsync(NewsItem? item)
     {
         if (item == null || App.MainWindow == null) return;
-        var factions = await _factionService.GetAllAsync();
+        var factions = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionService>().GetAllAsync());
         var dialog = new GUI.Windows.NewsDropDialog(item, factions);
         var result = await dialog.ShowDialog<Dictionary<int, string>?>(App.MainWindow);
 
@@ -104,7 +105,8 @@ public partial class NewsDropCoordinator : ObservableObject
 
         item.Title = dialog.ResultTitle ?? item.Title;
         item.FactionMessages = result;
-        await _newsService.UpdateAsync(item);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INewsService>().UpdateAsync(item));
         await RefreshAsync();
         _setStatusMessage($"Updated event: {item.Title}");
     }
@@ -113,7 +115,8 @@ public partial class NewsDropCoordinator : ObservableObject
     public async Task DeactivateAsync(NewsItem? item)
     {
         if (item == null) return;
-        await _newsService.DeactivateEventAsync(item.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INewsService>().DeactivateEventAsync(item.Id));
         await RefreshAsync();
         _setStatusMessage($"Deactivated event {item.Id}");
     }
@@ -122,7 +125,8 @@ public partial class NewsDropCoordinator : ObservableObject
     public async Task ReactivateAsync(NewsItem? item)
     {
         if (item == null) return;
-        await _newsService.ReactivateEventAsync(item.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<INewsService>().ReactivateEventAsync(item.Id));
         await RefreshAsync();
         _setStatusMessage($"Reactivated event: {item.Title}");
     }

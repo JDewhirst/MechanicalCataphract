@@ -1,8 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GUI.ViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -25,11 +27,9 @@ public enum BrigadeSortMode
 public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSelectableViewModel
 {
     private readonly Army _army;
-    private readonly IArmyService _service;
-    private readonly IPathfindingService? _pathfindingService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly int _mapRows;
     private readonly int _mapCols;
-    private readonly IFactionRuleService? _factionRuleService;
     private double _wagonCarryCapacity;
 
     public string EntityTypeName => "Army";
@@ -209,12 +209,6 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
     [RelayCommand]
     private async Task ComputePath()
     {
-        if (_pathfindingService == null)
-        {
-            PathComputeStatus = "Pathfinding not available";
-            return;
-        }
-
         if (CoordinateQ == null || CoordinateR == null)
         {
             PathComputeStatus = "Current location not set";
@@ -232,7 +226,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         var start = new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value);
         var end = new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value);
 
-        var result = await _pathfindingService.FindPathAsync(start, end, TravelEntityType.Army);
+        var result = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IPathfindingService>().FindPathAsync(start, end, TravelEntityType.Army));
 
         if (result.Success)
         {
@@ -511,8 +506,9 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
 
         try
         {
-            // Use service to properly persist the new brigade
-            await _service.AddBrigadeAsync(brigade);
+            // Use service to properly persist the new brigade.
+            await _scopeFactory.InScopeAsync(sp =>
+                sp.GetRequiredService<IArmyService>().AddBrigadeAsync(brigade));
             System.Diagnostics.Debug.WriteLine($"Brigade saved with Id={brigade.Id}");
         }
         catch (Exception ex)
@@ -540,7 +536,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         if (targetArmy == null) return;  // User cancelled
 
         // Transfer via service (updates brigade.ArmyId and FactionId in database)
-        await _service.TransferBrigadeAsync(brigade.Id, targetArmy.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().TransferBrigadeAsync(brigade.Id, targetArmy.Id));
 
         // Remove from local collection (UI updates)
         _army.Brigades.Remove(brigade);
@@ -555,7 +552,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         if (brigade == null) return;
 
         // Use service to properly delete from database
-        await _service.DeleteBrigadeAsync(brigade.Id);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().DeleteBrigadeAsync(brigade.Id));
 
         // Update local collections for UI
         _army.Brigades.Remove(brigade);
@@ -613,7 +611,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         RenumberLocalBrigades();
         RebuildBrigadesView();
 
-        await _service.UpdateBrigadeOrderAsync(_army.Id, Brigades.Select(b => b.Id).ToList());
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().UpdateBrigadeOrderAsync(_army.Id, Brigades.Select(b => b.Id).ToList()));
         Saved?.Invoke();
     }
 
@@ -672,7 +671,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
 
     private async Task SaveAsync()
     {
-        await _service.UpdateAsync(_army);
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().UpdateAsync(_army));
         SortBrigadesByManualOrder();
         RebuildBrigadesView();
         NotifyComputedPropertiesChanged();
@@ -681,10 +681,18 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
 
     private void RefreshWagonCarryCapacity()
     {
-        _wagonCarryCapacity = _factionRuleService?.GetCachedRuleValue(
-            _army.FactionId, FactionRuleKeys.WagonCarryCapacity,
-            GameRules.Current.Supply.WagonCarryCapacity)
-            ?? GameRules.Current.Supply.WagonCarryCapacity;
+        _wagonCarryCapacity = GameRules.Current.Supply.WagonCarryCapacity;
+        _ = RefreshWagonCarryCapacityAsync();
+    }
+
+    private async Task RefreshWagonCarryCapacityAsync()
+    {
+        _wagonCarryCapacity = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IFactionRuleService>().GetRuleValueAsync(
+                _army.FactionId,
+                FactionRuleKeys.WagonCarryCapacity,
+                GameRules.Current.Supply.WagonCarryCapacity));
+        OnPropertyChanged(nameof(MaxCarry));
     }
 
     private void NotifyComputedPropertiesChanged()
@@ -698,16 +706,14 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         OnPropertyChanged(nameof(MarchingColumnLength));
       }
 
-    public ArmyViewModel(Army army, IArmyService service, IEnumerable<Commander> availableCommanders, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue, IPathfindingService? pathfindingService = null, IFactionRuleService? factionRuleService = null)
+    public ArmyViewModel(Army army, IServiceScopeFactory scopeFactory, IEnumerable<Commander> availableCommanders, IEnumerable<Faction> availableFactions, int mapRows = int.MaxValue, int mapCols = int.MaxValue)
     {
         _army = army;
-        _service = service;
+        _scopeFactory = scopeFactory;
         _availableCommanders = availableCommanders;
         _availableFactions = availableFactions;
         _mapRows = mapRows;
         _mapCols = mapCols;
-        _pathfindingService = pathfindingService;
-        _factionRuleService = factionRuleService;
         RefreshWagonCarryCapacity();
         Brigades = new ObservableCollection<Brigade>(_army.Brigades.OrderBy(b => b.SortOrder).ThenBy(b => b.Id));
         SaveCommand = new AsyncRelayCommand(SaveAsync);
