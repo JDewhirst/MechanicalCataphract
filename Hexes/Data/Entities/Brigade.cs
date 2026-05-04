@@ -19,6 +19,8 @@ public class Brigade
     // Stats
     public int Number { get; set; }
 
+    public int SortOrder { get; set; }
+
     // Computed from UnitType — Cavalry scouts farther
     public int ScoutingRange => UnitType.ScoutingRange();
 }

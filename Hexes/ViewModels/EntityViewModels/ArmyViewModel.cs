@@ -11,6 +11,14 @@ using System.Threading.Tasks;
 
 namespace GUI.ViewModels.EntityViewModels;
 
+public enum BrigadeSortMode
+{
+    ManualOrder,
+    Name,
+    UnitType,
+    Number
+}
+
 /// <summary>
 /// ViewModel wrapper for Army entity with Brigades management and auto-save.
 /// </summary>
@@ -375,6 +383,60 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
     /// </summary>
     public ObservableCollection<Brigade> Brigades { get; }
 
+    public ObservableCollection<Brigade> BrigadesView { get; } = new();
+
+    public IReadOnlyList<string> BrigadeUnitTypeFilterOptions { get; } =
+        new[] { "All" }.Concat(Enum.GetNames<UnitType>()).ToList();
+
+    public IReadOnlyList<BrigadeSortMode> BrigadeSortModes { get; } =
+        Enum.GetValues<BrigadeSortMode>().ToList();
+
+    private string _brigadeSearchText = string.Empty;
+    public string BrigadeSearchText
+    {
+        get => _brigadeSearchText;
+        set
+        {
+            if (SetProperty(ref _brigadeSearchText, value ?? string.Empty))
+                RebuildBrigadesView();
+        }
+    }
+
+    private string _selectedBrigadeUnitTypeFilter = "All";
+    public string SelectedBrigadeUnitTypeFilter
+    {
+        get => _selectedBrigadeUnitTypeFilter;
+        set
+        {
+            if (SetProperty(ref _selectedBrigadeUnitTypeFilter, value ?? "All"))
+                RebuildBrigadesView();
+        }
+    }
+
+    private BrigadeSortMode _brigadeSortMode = BrigadeSortMode.ManualOrder;
+    public BrigadeSortMode BrigadeSortMode
+    {
+        get => _brigadeSortMode;
+        set
+        {
+            if (SetProperty(ref _brigadeSortMode, value))
+                RebuildBrigadesView();
+        }
+    }
+
+    private bool _brigadeSortDescending;
+    public bool BrigadeSortDescending
+    {
+        get => _brigadeSortDescending;
+        set
+        {
+            if (SetProperty(ref _brigadeSortDescending, value))
+                RebuildBrigadesView();
+        }
+    }
+
+    public bool HasNoDisplayedBrigades => BrigadesView.Count == 0;
+
     public event Action? Saved;
 
     /// <summary>
@@ -419,6 +481,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         Brigades.Clear();
         foreach (var b in updated)
             Brigades.Add(b);
+        RebuildBrigadesView();
         await SaveAsync();
     }
 
@@ -461,6 +524,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
 
         // Update local collections for UI
         Brigades.Add(brigade);
+        SortBrigadesByManualOrder();
+        RebuildBrigadesView();
         NotifyComputedPropertiesChanged();
         System.Diagnostics.Debug.WriteLine($"Brigade added to local collections. Total brigades: {Brigades.Count}");
     }
@@ -480,6 +545,7 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         // Remove from local collection (UI updates)
         _army.Brigades.Remove(brigade);
         Brigades.Remove(brigade);
+        RebuildBrigadesView();
         NotifyComputedPropertiesChanged();
     }
 
@@ -494,7 +560,21 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         // Update local collections for UI
         _army.Brigades.Remove(brigade);
         Brigades.Remove(brigade);
+        RenumberLocalBrigades();
+        RebuildBrigadesView();
         NotifyComputedPropertiesChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveBrigadeUp))]
+    private async Task MoveBrigadeUpAsync(Brigade? brigade)
+    {
+        await MoveBrigadeAsync(brigade, -1);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveBrigadeDown))]
+    private async Task MoveBrigadeDownAsync(Brigade? brigade)
+    {
+        await MoveBrigadeAsync(brigade, 1);
     }
 
     /// <summary>
@@ -502,9 +582,99 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
     /// </summary>
     public IAsyncRelayCommand SaveCommand { get; }
 
+    private bool CanMoveBrigadeUp(Brigade? brigade)
+    {
+        return BrigadeSortMode == BrigadeSortMode.ManualOrder
+            && !BrigadeSortDescending
+            && brigade != null
+            && Brigades.IndexOf(brigade) > 0;
+    }
+
+    private bool CanMoveBrigadeDown(Brigade? brigade)
+    {
+        return BrigadeSortMode == BrigadeSortMode.ManualOrder
+            && !BrigadeSortDescending
+            && brigade != null
+            && Brigades.IndexOf(brigade) >= 0
+            && Brigades.IndexOf(brigade) < Brigades.Count - 1;
+    }
+
+    private async Task MoveBrigadeAsync(Brigade? brigade, int direction)
+    {
+        if (brigade == null || BrigadeSortMode != BrigadeSortMode.ManualOrder || BrigadeSortDescending)
+            return;
+
+        var oldIndex = Brigades.IndexOf(brigade);
+        var newIndex = oldIndex + direction;
+        if (oldIndex < 0 || newIndex < 0 || newIndex >= Brigades.Count)
+            return;
+
+        Brigades.Move(oldIndex, newIndex);
+        RenumberLocalBrigades();
+        RebuildBrigadesView();
+
+        await _service.UpdateBrigadeOrderAsync(_army.Id, Brigades.Select(b => b.Id).ToList());
+        Saved?.Invoke();
+    }
+
+    private void SortBrigadesByManualOrder()
+    {
+        var sorted = Brigades.OrderBy(b => b.SortOrder).ThenBy(b => b.Id).ToList();
+        Brigades.Clear();
+        foreach (var brigade in sorted)
+            Brigades.Add(brigade);
+    }
+
+    private void RenumberLocalBrigades()
+    {
+        for (var i = 0; i < Brigades.Count; i++)
+            Brigades[i].SortOrder = i;
+    }
+
+    private void RebuildBrigadesView()
+    {
+        IEnumerable<Brigade> query = Brigades;
+
+        if (!string.IsNullOrWhiteSpace(BrigadeSearchText))
+        {
+            query = query.Where(b => b.Name.Contains(BrigadeSearchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (Enum.TryParse<UnitType>(SelectedBrigadeUnitTypeFilter, out var unitType))
+        {
+            query = query.Where(b => b.UnitType == unitType);
+        }
+
+        query = BrigadeSortMode switch
+        {
+            BrigadeSortMode.Name => BrigadeSortDescending
+                ? query.OrderByDescending(b => b.Name).ThenBy(b => b.SortOrder).ThenBy(b => b.Id)
+                : query.OrderBy(b => b.Name).ThenBy(b => b.SortOrder).ThenBy(b => b.Id),
+            BrigadeSortMode.UnitType => BrigadeSortDescending
+                ? query.OrderByDescending(b => b.UnitType).ThenBy(b => b.SortOrder).ThenBy(b => b.Id)
+                : query.OrderBy(b => b.UnitType).ThenBy(b => b.SortOrder).ThenBy(b => b.Id),
+            BrigadeSortMode.Number => BrigadeSortDescending
+                ? query.OrderByDescending(b => b.Number).ThenBy(b => b.SortOrder).ThenBy(b => b.Id)
+                : query.OrderBy(b => b.Number).ThenBy(b => b.SortOrder).ThenBy(b => b.Id),
+            _ => BrigadeSortDescending
+                ? query.OrderByDescending(b => b.SortOrder).ThenByDescending(b => b.Id)
+                : query.OrderBy(b => b.SortOrder).ThenBy(b => b.Id)
+        };
+
+        BrigadesView.Clear();
+        foreach (var brigade in query)
+            BrigadesView.Add(brigade);
+
+        OnPropertyChanged(nameof(HasNoDisplayedBrigades));
+        MoveBrigadeUpCommand.NotifyCanExecuteChanged();
+        MoveBrigadeDownCommand.NotifyCanExecuteChanged();
+    }
+
     private async Task SaveAsync()
     {
         await _service.UpdateAsync(_army);
+        SortBrigadesByManualOrder();
+        RebuildBrigadesView();
         NotifyComputedPropertiesChanged();
         Saved?.Invoke();
     }
@@ -539,7 +709,8 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
         _pathfindingService = pathfindingService;
         _factionRuleService = factionRuleService;
         RefreshWagonCarryCapacity();
-        Brigades = new ObservableCollection<Brigade>(_army.Brigades);
+        Brigades = new ObservableCollection<Brigade>(_army.Brigades.OrderBy(b => b.SortOrder).ThenBy(b => b.Id));
         SaveCommand = new AsyncRelayCommand(SaveAsync);
+        RebuildBrigadesView();
     }
 }

@@ -56,6 +56,28 @@ public partial class BrigadeDetail : UserControl
         }
     }
 
+    private void OnMoveUpClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not Brigade brigade) return;
+
+        var armyDetail = this.FindAncestorOfType<ArmyDetail>();
+        if (armyDetail?.DataContext is ArmyViewModel armyVm)
+        {
+            armyVm.MoveBrigadeUpCommand.Execute(brigade);
+        }
+    }
+
+    private void OnMoveDownClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not Brigade brigade) return;
+
+        var armyDetail = this.FindAncestorOfType<ArmyDetail>();
+        if (armyDetail?.DataContext is ArmyViewModel armyVm)
+        {
+            armyVm.MoveBrigadeDownCommand.Execute(brigade);
+        }
+    }
+
     private void SaveViaParent()
     {
         // Find parent ArmyDetail and call its ViewModel's save command

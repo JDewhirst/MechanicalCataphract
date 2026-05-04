@@ -20,4 +20,5 @@ public interface IArmyService : IEntityService<Army>
     Task UpdateBrigadeAsync(Brigade brigade);
     Task DeleteBrigadeAsync(int brigadeId);
     Task TransferBrigadeAsync(int brigadeId, int targetArmyId);
+    Task UpdateBrigadeOrderAsync(int armyId, IReadOnlyList<int> orderedBrigadeIds);
 }

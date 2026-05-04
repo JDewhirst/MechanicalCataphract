@@ -39,6 +39,14 @@
                         Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Spacing="5">
+                <Button Content="↑"
+                        Click="OnMoveUpClicked"
+                        ToolTip.Tip="Move brigade up in manual order"
+                        FontSize="11"/>
+                <Button Content="↓"
+                        Click="OnMoveDownClicked"
+                        ToolTip.Tip="Move brigade down in manual order"
+                        FontSize="11"/>
                 <Button Content="Transfer"
                         Click="OnTransferClicked"
                         FontSize="11"/>

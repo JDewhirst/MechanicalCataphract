@@ -243,8 +243,30 @@
                             Command="{Binding AddBrigadeCommand}"/>
                 </StackPanel>
 
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="4">
+                    <TextBox Grid.Row="0" Grid.Column="0"
+                             Text="{Binding BrigadeSearchText, Mode=TwoWay}"
+                             Watermark="Filter brigades"
+                             FontSize="11"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1"
+                              ItemsSource="{Binding BrigadeUnitTypeFilterOptions}"
+                              SelectedItem="{Binding SelectedBrigadeUnitTypeFilter, Mode=TwoWay}"
+                              MinWidth="90"
+                              FontSize="11"/>
+                    <ComboBox Grid.Row="0" Grid.Column="2"
+                              ItemsSource="{Binding BrigadeSortModes}"
+                              SelectedItem="{Binding BrigadeSortMode, Mode=TwoWay}"
+                              MinWidth="95"
+                              FontSize="11"/>
+                    <CheckBox Grid.Row="0" Grid.Column="3"
+                              Content="Desc"
+                              IsChecked="{Binding BrigadeSortDescending, Mode=TwoWay}"
+                              VerticalAlignment="Center"
+                              FontSize="11"/>
+                </Grid>
+
                 <!-- Brigades list -->
-                <ItemsControl ItemsSource="{Binding Brigades}" x:Name="BrigadesItemsControl">
+                <ItemsControl ItemsSource="{Binding BrigadesView}" x:Name="BrigadesItemsControl">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="entities:Brigade">
                             <views:BrigadeDetail/>
@@ -253,7 +275,7 @@
                 </ItemsControl>
 
                 <TextBlock Text="(No brigades)"
-                           IsVisible="{Binding !Brigades.Count}"
+                           IsVisible="{Binding HasNoDisplayedBrigades}"
                            Foreground="Gray" FontStyle="Italic" FontSize="11"/>
             </StackPanel>
         </Border>

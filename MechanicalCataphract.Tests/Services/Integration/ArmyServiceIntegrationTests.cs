@@ -119,6 +119,72 @@ public class ArmyServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task AddBrigadeAsync_AssignsIncreasingSortOrder()
+    {
+        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+
+        var first = await _service.AddBrigadeAsync(new Brigade { ArmyId = army.Id, Name = "First", Number = 100 });
+        var second = await _service.AddBrigadeAsync(new Brigade { ArmyId = army.Id, Name = "Second", Number = 100 });
+        var third = await _service.AddBrigadeAsync(new Brigade { ArmyId = army.Id, Name = "Third", Number = 100 });
+
+        Assert.That(first.SortOrder, Is.EqualTo(0));
+        Assert.That(second.SortOrder, Is.EqualTo(1));
+        Assert.That(third.SortOrder, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task GetArmyWithBrigadesAsync_ReturnsBrigadesInSortOrder()
+    {
+        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        Context.Brigades.AddRange(
+            new Brigade { ArmyId = army.Id, Name = "Third", Number = 100, SortOrder = 2 },
+            new Brigade { ArmyId = army.Id, Name = "First", Number = 100, SortOrder = 0 },
+            new Brigade { ArmyId = army.Id, Name = "Second", Number = 100, SortOrder = 1 });
+        await Context.SaveChangesAsync();
+        Context.ChangeTracker.Clear();
+
+        var loaded = await _service.GetArmyWithBrigadesAsync(army.Id);
+
+        Assert.That(loaded!.Brigades.Select(b => b.Name), Is.EqualTo(new[] { "First", "Second", "Third" }));
+    }
+
+    [Test]
+    public async Task UpdateBrigadeOrderAsync_PersistsOrderAcrossReload()
+    {
+        var army = await _service.CreateAsync(new Army { Name = "Army", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var first = await _service.AddBrigadeAsync(new Brigade { ArmyId = army.Id, Name = "First", Number = 100 });
+        var second = await _service.AddBrigadeAsync(new Brigade { ArmyId = army.Id, Name = "Second", Number = 100 });
+        var third = await _service.AddBrigadeAsync(new Brigade { ArmyId = army.Id, Name = "Third", Number = 100 });
+
+        await _service.UpdateBrigadeOrderAsync(army.Id, new[] { third.Id, first.Id, second.Id });
+        Context.ChangeTracker.Clear();
+
+        var loaded = await _service.GetArmyWithBrigadesAsync(army.Id);
+
+        Assert.That(loaded!.Brigades.Select(b => b.Name), Is.EqualTo(new[] { "Third", "First", "Second" }));
+        Assert.That(loaded.Brigades.Select(b => b.SortOrder), Is.EqualTo(new[] { 0, 1, 2 }));
+    }
+
+    [Test]
+    public async Task TransferBrigadeAsync_AppendsToTargetArmyOrder()
+    {
+        var faction2 = await SeedHelpers.SeedFactionAsync(Context, "France");
+        var sourceArmy = await _service.CreateAsync(new Army { Name = "Source", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var targetArmy = await _service.CreateAsync(new Army { Name = "Target", FactionId = faction2.Id, CoordinateQ = _hexQ, CoordinateR = _hexR });
+        var targetFirst = await _service.AddBrigadeAsync(new Brigade { ArmyId = targetArmy.Id, Name = "Target First", Number = 100 });
+        var targetSecond = await _service.AddBrigadeAsync(new Brigade { ArmyId = targetArmy.Id, Name = "Target Second", Number = 100 });
+        var transferred = await _service.AddBrigadeAsync(new Brigade { ArmyId = sourceArmy.Id, Name = "Transferred", Number = 100 });
+
+        await _service.TransferBrigadeAsync(transferred.Id, targetArmy.Id);
+        Context.ChangeTracker.Clear();
+
+        var loaded = await _service.GetArmyWithBrigadesAsync(targetArmy.Id);
+
+        Assert.That(loaded!.Brigades.Select(b => b.Id), Is.EqualTo(new[] { targetFirst.Id, targetSecond.Id, transferred.Id }));
+        Assert.That(loaded.Brigades.Last().SortOrder, Is.EqualTo(2));
+    }
+
+    [Test]
     public async Task MoveArmyAsync_UpdatesLocation()
     {
         var army = await _service.CreateAsync(new Army { Name = "Moving", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });

@@ -89,6 +89,40 @@ public partial class App : Application
             }
             conn.Close();
 
+            // Add brigade manual ordering for running-game migration.
+            conn.Open();
+            try
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "ALTER TABLE Brigades ADD COLUMN SortOrder INTEGER NOT NULL DEFAULT 0";
+                cmd.ExecuteNonQuery();
+            }
+            catch { /* Column already exists */ }
+            conn.Close();
+
+            // Normalize empty/legacy order values per army while preserving any existing unique order.
+            var brigadesByArmy = dbContext.Brigades
+                .ToList()
+                .GroupBy(b => b.ArmyId);
+
+            foreach (var group in brigadesByArmy)
+            {
+                var ordered = group.OrderBy(b => b.SortOrder).ThenBy(b => b.Id).ToList();
+                var needsNormalization = ordered
+                    .Select((b, index) => b.SortOrder == index)
+                    .Any(isContiguous => !isContiguous);
+
+                if (!needsNormalization)
+                    continue;
+
+                for (var i = 0; i < ordered.Count; i++)
+                {
+                    ordered[i].SortOrder = i;
+                }
+            }
+
+            dbContext.SaveChanges();
+
             // Load terrain types from properties file if not already loaded
             if (!dbContext.TerrainTypes.Any())
             {

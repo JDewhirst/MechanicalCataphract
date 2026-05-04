@@ -31,7 +31,7 @@ public class ArmyService : IArmyService
     {
         return await _context.Armies
             .WithStandardIncludes()
-            .Include(a => a.Brigades)
+            .WithBrigades()
             .ToListAsync();
     }
 
@@ -77,7 +77,7 @@ public class ArmyService : IArmyService
     {
         return await _context.Armies
             .Include(a => a.Commander)
-            .Include(a => a.Brigades)
+            .WithBrigades()
             .Where(a => a.FactionId == factionId)
             .ToListAsync();
     }
@@ -86,7 +86,7 @@ public class ArmyService : IArmyService
     {
         return await _context.Armies
             .WithStandardIncludes()
-            .Include(a => a.Brigades)
+            .WithBrigades()
             .FirstOrDefaultAsync(a => a.Id == armyId);
     }
 
@@ -100,6 +100,7 @@ public class ArmyService : IArmyService
 
         brigade.ArmyId = targetArmyId;
         brigade.FactionId = targetArmy.FactionId;  // Brigade inherits target army's faction
+        brigade.SortOrder = await GetNextBrigadeSortOrderAsync(targetArmyId);
         await _context.SaveChangesAsync();
     }
 
@@ -133,6 +134,7 @@ public class ArmyService : IArmyService
 
     public async Task<Brigade> AddBrigadeAsync(Brigade brigade)
     {
+        brigade.SortOrder = await GetNextBrigadeSortOrderAsync(brigade.ArmyId);
         _context.Brigades.Add(brigade);
         await _context.SaveChangesAsync();
         return brigade;
@@ -149,9 +151,65 @@ public class ArmyService : IArmyService
         var brigade = await _context.Brigades.FindAsync(brigadeId);
         if (brigade != null)
         {
+            var armyId = brigade.ArmyId;
             _context.Brigades.Remove(brigade);
             await _context.SaveChangesAsync();
+            await NormalizeBrigadeSortOrdersAsync(armyId);
         }
+    }
+
+    public async Task UpdateBrigadeOrderAsync(int armyId, IReadOnlyList<int> orderedBrigadeIds)
+    {
+        var brigades = await _context.Brigades
+            .Where(b => b.ArmyId == armyId)
+            .ToListAsync();
+
+        var orderedIds = orderedBrigadeIds.ToHashSet();
+        var brigadeById = brigades.ToDictionary(b => b.Id);
+        for (var i = 0; i < orderedBrigadeIds.Count; i++)
+        {
+            if (brigadeById.TryGetValue(orderedBrigadeIds[i], out var brigade))
+            {
+                brigade.SortOrder = i;
+            }
+        }
+
+        var nextOrder = orderedBrigadeIds.Count;
+        foreach (var brigade in brigades
+                     .Where(b => !orderedIds.Contains(b.Id))
+                     .OrderBy(b => b.SortOrder)
+                     .ThenBy(b => b.Id))
+        {
+            brigade.SortOrder = nextOrder++;
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task<int> GetNextBrigadeSortOrderAsync(int armyId)
+    {
+        var hasBrigades = await _context.Brigades.AnyAsync(b => b.ArmyId == armyId);
+        if (!hasBrigades) return 0;
+
+        return await _context.Brigades
+            .Where(b => b.ArmyId == armyId)
+            .MaxAsync(b => b.SortOrder) + 1;
+    }
+
+    private async Task NormalizeBrigadeSortOrdersAsync(int armyId)
+    {
+        var brigades = await _context.Brigades
+            .Where(b => b.ArmyId == armyId)
+            .OrderBy(b => b.SortOrder)
+            .ThenBy(b => b.Id)
+            .ToListAsync();
+
+        for (var i = 0; i < brigades.Count; i++)
+        {
+            brigades[i].SortOrder = i;
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     public async Task<int> GetDailySupplyConsumptionAsync(int armyId)

@@ -13,6 +13,9 @@ public static class QueryExtensions
     public static IQueryable<Army> WithDetailIncludes(this IQueryable<Army> q)
         => q.WithStandardIncludes().Include(a => a.MapHex);
 
+    public static IQueryable<Army> WithBrigades(this IQueryable<Army> q)
+        => q.Include(a => a.Brigades.OrderBy(b => b.SortOrder).ThenBy(b => b.Id));
+
     // ── Navy ──
     public static IQueryable<Navy> WithStandardIncludes(this IQueryable<Navy> q)
         => q.Include(n => n.Faction).Include(n => n.Commander).Include(n => n.Ships);
