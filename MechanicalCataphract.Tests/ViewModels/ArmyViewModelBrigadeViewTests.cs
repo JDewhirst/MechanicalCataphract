@@ -2,6 +2,7 @@ using GUI.ViewModels.EntityViewModels;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
 namespace MechanicalCataphract.Tests.ViewModels;
@@ -26,8 +27,21 @@ public class ArmyViewModelBrigadeViewTests
             }
         };
 
-        var service = new Mock<IArmyService>();
-        return new ArmyViewModel(army, service.Object, Array.Empty<Commander>(), Array.Empty<Faction>());
+        var armyService = new Mock<IArmyService>();
+        var factionRuleService = new Mock<IFactionRuleService>();
+        factionRuleService
+            .Setup(s => s.GetRuleValueAsync(
+                It.IsAny<int>(),
+                It.IsAny<string>(),
+                It.IsAny<double>()))
+            .ReturnsAsync((int _, string _, double defaultValue) => defaultValue);
+
+        var services = new ServiceCollection();
+        services.AddScoped(_ => armyService.Object);
+        services.AddScoped(_ => factionRuleService.Object);
+        var scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+
+        return new ArmyViewModel(army, scopeFactory, Array.Empty<Commander>(), Array.Empty<Faction>());
     }
 
     [Test]
