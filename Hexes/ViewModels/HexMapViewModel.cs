@@ -302,7 +302,14 @@ public partial class HexMapViewModel : ObservableObject
             _isSyncingCollection = true;
             try
             {
-                setCollection(new ObservableCollection<T>(getCollection()));
+                var items = getCollection().ToList();
+                var index = items.FindIndex(existing => SameEntity(existing, entity));
+                if (index >= 0)
+                    items[index] = entity;
+                else
+                    items.Add(entity);
+
+                setCollection(new ObservableCollection<T>(items));
                 setSelected?.Invoke(entity);
             }
             finally
@@ -310,6 +317,23 @@ public partial class HexMapViewModel : ObservableObject
                 _isSyncingCollection = false;
             }
         });
+    }
+
+    private static bool SameEntity<T>(T existing, T updated)
+    {
+        if (existing == null || updated == null) return false;
+
+        return (existing, updated) switch
+        {
+            (MapHex a, MapHex b) => a.Q == b.Q && a.R == b.R,
+            (Army a, Army b) => a.Id == b.Id,
+            (Navy a, Navy b) => a.Id == b.Id,
+            (Commander a, Commander b) => a.Id == b.Id,
+            (Faction a, Faction b) => a.Id == b.Id,
+            (Message a, Message b) => a.Id == b.Id,
+            (CoLocationChannel a, CoLocationChannel b) => a.Id == b.Id,
+            _ => EqualityComparer<T>.Default.Equals(existing, updated)
+        };
     }
 
     private async void OnDiscordEntitiesChanged()
