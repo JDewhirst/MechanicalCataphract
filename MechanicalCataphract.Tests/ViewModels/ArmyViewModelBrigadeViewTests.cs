@@ -10,7 +10,7 @@ namespace MechanicalCataphract.Tests.ViewModels;
 [TestFixture]
 public class ArmyViewModelBrigadeViewTests
 {
-    private static ArmyViewModel CreateViewModel()
+    private static ArmyViewModel CreateViewModel(Mock<IArmyService>? armyService = null)
     {
         GameRules.SetForTesting(GameRulesService.CreateDefaults());
 
@@ -27,7 +27,7 @@ public class ArmyViewModelBrigadeViewTests
             }
         };
 
-        var armyService = new Mock<IArmyService>();
+        armyService ??= new Mock<IArmyService>();
         var factionRuleService = new Mock<IFactionRuleService>();
         factionRuleService
             .Setup(s => s.GetRuleValueAsync(
@@ -75,5 +75,21 @@ public class ArmyViewModelBrigadeViewTests
         Assert.That(vm.BrigadesView.Select(b => b.Name), Is.EqualTo(new[] { "Bravo", "Charlie", "Alpha" }));
         Assert.That(vm.Brigades.Select(b => b.SortOrder), Is.EqualTo(originalSortOrders));
         Assert.That(vm.Brigades.Select(b => b.Name), Is.EqualTo(new[] { "Alpha", "Bravo", "Charlie" }));
+    }
+
+    [Test]
+    public async Task SaveBrigadeCommand_PersistsEditedBrigade()
+    {
+        var armyService = new Mock<IArmyService>();
+        var vm = CreateViewModel(armyService);
+        var brigade = vm.Brigades.Single(b => b.Name == "Bravo");
+
+        brigade.UnitType = UnitType.Infantry;
+
+        await vm.SaveBrigadeCommand.ExecuteAsync(brigade);
+
+        armyService.Verify(s => s.UpdateBrigadeAsync(
+            It.Is<Brigade>(b => b.Id == brigade.Id && b.UnitType == UnitType.Infantry)),
+            Times.Once);
     }
 }

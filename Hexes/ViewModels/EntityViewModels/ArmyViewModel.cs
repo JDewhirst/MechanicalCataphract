@@ -580,6 +580,20 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
     /// </summary>
     public IAsyncRelayCommand SaveCommand { get; }
 
+    [RelayCommand]
+    private async Task SaveBrigadeAsync(Brigade? brigade)
+    {
+        if (brigade == null) return;
+
+        await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IArmyService>().UpdateBrigadeAsync(brigade));
+
+        SortBrigadesByManualOrder();
+        RebuildBrigadesView();
+        NotifyComputedPropertiesChanged();
+        Saved?.Invoke();
+    }
+
     private bool CanMoveBrigadeUp(Brigade? brigade)
     {
         return BrigadeSortMode == BrigadeSortMode.ManualOrder

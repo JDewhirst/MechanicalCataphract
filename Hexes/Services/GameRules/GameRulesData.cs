@@ -34,7 +34,8 @@ public record UnitTypeStats(
     int CombatPowerPerMan,
     int ScoutingRange,
     int MarchingColumnCapacity,
-    bool CountsForFordingLength);
+    bool CountsForFordingLength,
+    double MovementRate);
 
 public record NewsRules(
     double OffRoadHoursPerHex,

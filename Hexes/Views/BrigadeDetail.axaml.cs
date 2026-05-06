@@ -80,11 +80,13 @@ public partial class BrigadeDetail : UserControl
 
     private void SaveViaParent()
     {
-        // Find parent ArmyDetail and call its ViewModel's save command
+        if (DataContext is not Brigade brigade) return;
+
+        // Find parent ArmyDetail and call its ViewModel's brigade save command
         var armyDetail = this.FindAncestorOfType<ArmyDetail>();
         if (armyDetail?.DataContext is ArmyViewModel armyVm)
         {
-            armyVm.SaveCommand.Execute(null);
+            armyVm.SaveBrigadeCommand.Execute(brigade);
         }
     }
 }

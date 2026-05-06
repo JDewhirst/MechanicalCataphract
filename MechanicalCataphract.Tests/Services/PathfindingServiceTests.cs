@@ -489,6 +489,151 @@ public class PathfindingServiceTests
         Assert.That(army.Path, Is.Empty);
     }
 
+    [Test]
+    public async Task MoveArmy_CavalryOnly_OnRoad_MovesInFourHours()
+    {
+        var builder = new TestMapBuilder()
+            .AddHex(0, 0)
+            .AddHex(1, 0)
+            .AddRoad(0, 0, 0);
+        var service = CreateService(builder.BuildMockMapService());
+
+        var nextHex = new Hex(1, 0, -1);
+        var army = new Army
+        {
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            Path = new List<Hex> { nextHex },
+            Brigades =
+            {
+                new Brigade { UnitType = UnitType.Cavalry, Number = 100 }
+            }
+        };
+
+        // Road cost=6, cavalry rate=1.5 -> threshold=4 hours.
+        var result = await service.MoveArmy(army, 4, NoonWorldHour);
+
+        Assert.That(result, Is.EqualTo(1));
+        Assert.That(army.CoordinateQ, Is.EqualTo(1));
+        Assert.That(army.CoordinateR, Is.EqualTo(0));
+        Assert.That(army.Path, Is.Empty);
+    }
+
+    [Test]
+    public async Task MoveArmy_InfantryOnly_OnRoad_DoesNotMoveBeforeSixHours()
+    {
+        var builder = new TestMapBuilder()
+            .AddHex(0, 0)
+            .AddHex(1, 0)
+            .AddRoad(0, 0, 0);
+        var service = CreateService(builder.BuildMockMapService());
+
+        var army = new Army
+        {
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            Path = new List<Hex> { new Hex(1, 0, -1) },
+            Brigades =
+            {
+                new Brigade { UnitType = UnitType.Infantry, Number = 100 }
+            }
+        };
+
+        // Road cost=6, infantry rate=1.0 -> threshold=6 hours.
+        var result = await service.MoveArmy(army, 4, NoonWorldHour);
+
+        Assert.That(result, Is.EqualTo(0));
+        Assert.That(army.CoordinateQ, Is.EqualTo(0));
+        Assert.That(army.CoordinateR, Is.EqualTo(0));
+        Assert.That(army.Path, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task MoveArmy_MixedUnits_OnRoad_UsesSlowestRate()
+    {
+        var builder = new TestMapBuilder()
+            .AddHex(0, 0)
+            .AddHex(1, 0)
+            .AddRoad(0, 0, 0);
+        var service = CreateService(builder.BuildMockMapService());
+
+        var nextHex = new Hex(1, 0, -1);
+        var army = new Army
+        {
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            Path = new List<Hex> { nextHex },
+            Brigades =
+            {
+                new Brigade { UnitType = UnitType.Cavalry, Number = 100 },
+                new Brigade { UnitType = UnitType.Infantry, Number = 100 }
+            }
+        };
+
+        var earlyResult = await service.MoveArmy(army, 4, NoonWorldHour);
+
+        Assert.That(earlyResult, Is.EqualTo(0));
+        Assert.That(army.CoordinateQ, Is.EqualTo(0));
+        Assert.That(army.TimeInTransit, Is.EqualTo(4));
+
+        var finalResult = await service.MoveArmy(army, 2, NoonWorldHour);
+
+        Assert.That(finalResult, Is.EqualTo(1));
+        Assert.That(army.CoordinateQ, Is.EqualTo(1));
+        Assert.That(army.CoordinateR, Is.EqualTo(0));
+        Assert.That(army.Path, Is.Empty);
+    }
+
+    [Test]
+    public async Task MoveArmy_CavalryOnly_OnRoad_OutpacesInfantryOverSeveralMarchDays()
+    {
+        var builder = new TestMapBuilder();
+        for (int q = 0; q <= 6; q++)
+            builder.AddHex(q, 0);
+        for (int q = 0; q < 6; q++)
+            builder.AddRoad(q, 0, 0);
+
+        var service = CreateService(builder.BuildMockMapService());
+        var path = Enumerable.Range(1, 6)
+            .Select(q => new Hex(q, 0, -q))
+            .ToList();
+
+        var cavalryArmy = new Army
+        {
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            Path = path.ToList(),
+            Brigades =
+            {
+                new Brigade { UnitType = UnitType.Cavalry, Number = 100 }
+            }
+        };
+
+        var infantryArmy = new Army
+        {
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            Path = path.ToList(),
+            Brigades =
+            {
+                new Brigade { UnitType = UnitType.Infantry, Number = 100 }
+            }
+        };
+
+        // 24 valid march hours = two 12-hour march days.
+        // Cavalry should cover 6 road hexes; infantry should cover 4.
+        for (int i = 0; i < 24; i++)
+        {
+            await service.MoveArmy(cavalryArmy, 1, NoonWorldHour);
+            await service.MoveArmy(infantryArmy, 1, NoonWorldHour);
+        }
+
+        Assert.That(cavalryArmy.CoordinateQ, Is.EqualTo(6));
+        Assert.That(cavalryArmy.Path, Is.Empty);
+        Assert.That(infantryArmy.CoordinateQ, Is.EqualTo(4));
+        Assert.That(infantryArmy.Path, Has.Count.EqualTo(2));
+    }
+
     #endregion
 
     #region MoveCommander Tests

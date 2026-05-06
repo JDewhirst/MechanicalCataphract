@@ -397,6 +397,16 @@ public class HexMapView : Control
         SelectedHexProperty.Changed.AddClassHandler<HexMapView>((view, _) => view.InvalidateVisual());
         VisibleHexesProperty.Changed.AddClassHandler<HexMapView>((view, _) =>
         {
+            if (_.OldValue is INotifyCollectionChanged oldCollection)
+            {
+                oldCollection.CollectionChanged -= view.OnVisibleHexesCollectionChanged;
+            }
+
+            if (_.NewValue is INotifyCollectionChanged newCollection)
+            {
+                newCollection.CollectionChanged += view.OnVisibleHexesCollectionChanged;
+            }
+
             view._hexLookup = view.VisibleHexes?.ToDictionary(h => (h.Q, h.R));
             view.RebuildFactionColorCache();
             view.RebuildWeatherIconCache(view.VisibleHexes);
@@ -484,6 +494,14 @@ public class HexMapView : Control
         PointerMoved += OnPointerMoved;
         PointerReleased += OnPointerReleased;
         PointerWheelChanged += OnPointerWheelChanged;
+    }
+
+    private void OnVisibleHexesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        _hexLookup = VisibleHexes?.ToDictionary(h => (h.Q, h.R));
+        RebuildFactionColorCache();
+        RebuildWeatherIconCache(VisibleHexes);
+        InvalidateVisual();
     }
 
     private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)

@@ -54,15 +54,15 @@ public class GameRulesService : IGameRulesService
     {
         var unitStats = new Dictionary<UnitType, UnitTypeStats>
         {
-            [UnitType.Infantry]      = new(1, 15, 1, 1, 5000, true),
-            [UnitType.Skirmishers]   = new(1, 15, 1, 2, 5000, true),
-            [UnitType.Cavalry]       = new(10, 75, 2, 2, 2000, false),
-            [UnitType.Engineers]     = new(1, 15, 1, 1, 5000, true),
-            [UnitType.HeavyInfantry] = new(1, 15, 2, 1, 5000, true),
-            [UnitType.Huscarls]      = new(1, 15, 3, 1, 5000, true),
-            [UnitType.Otrangers]     = new(1, 15, 2, 2, 5000, true),
-            [UnitType.KnightLancers] = new(10, 75, 5, 2, 2000, false),
-            [UnitType.HeavyCavalry]  = new(10, 75, 4, 2, 2000, false),
+            [UnitType.Infantry]      = new(1, 15, 1, 1, 5000, true, 1.0),
+            [UnitType.Skirmishers]   = new(1, 15, 1, 2, 5000, true, 1.0),
+            [UnitType.Cavalry]       = new(10, 75, 2, 2, 2000, false, 1.5),
+            [UnitType.Engineers]     = new(1, 15, 1, 1, 5000, true, 1.0),
+            [UnitType.HeavyInfantry] = new(1, 15, 2, 1, 5000, true, 1.0),
+            [UnitType.Huscarls]      = new(1, 15, 3, 1, 5000, true, 1.0),
+            [UnitType.Otrangers]     = new(1, 15, 2, 2, 5000, true, 1.0),
+            [UnitType.KnightLancers] = new(10, 75, 5, 2, 2000, false, 1.5),
+            [UnitType.HeavyCavalry]  = new(10, 75, 4, 2, 2000, false, 1.5),
         };
 
         var shipTypes = new Dictionary<ShipType, ShipTypeStats>
@@ -199,6 +199,7 @@ public class GameRulesService : IGameRulesService
         int defScouting = isCavalry ? 2    : 1;
         int defColumn   = isCavalry ? 2000 : 5000;
         bool defFording = !isCavalry;
+        double defMovementRate = isCavalry ? 1.5 : 1.0;
 
         return new UnitTypeStats(
             dto.SupplyConsumptionPerMan ?? fallback?.SupplyConsumptionPerMan ?? defSupply,
@@ -206,7 +207,8 @@ public class GameRulesService : IGameRulesService
             dto.CombatPowerPerMan       ?? fallback?.CombatPowerPerMan       ?? defCombat,
             dto.ScoutingRange           ?? fallback?.ScoutingRange           ?? defScouting,
             dto.MarchingColumnCapacity  ?? fallback?.MarchingColumnCapacity  ?? defColumn,
-            dto.CountsForFordingLength  ?? fallback?.CountsForFordingLength  ?? defFording);
+            dto.CountsForFordingLength  ?? fallback?.CountsForFordingLength  ?? defFording,
+            dto.MovementRate            ?? fallback?.MovementRate            ?? defMovementRate);
     }
 
     private static ShipRules FromShipsDto(ShipsDto? dto, ShipRules defaults)
@@ -316,6 +318,7 @@ public class GameRulesService : IGameRulesService
         public int? ScoutingRange { get; set; }
         public int? MarchingColumnCapacity { get; set; }
         public bool? CountsForFordingLength { get; set; }
+        public double? MovementRate { get; set; }
     }
 
     private class ShipsDto

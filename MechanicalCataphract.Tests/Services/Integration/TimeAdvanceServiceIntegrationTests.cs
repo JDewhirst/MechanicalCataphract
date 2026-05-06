@@ -151,6 +151,52 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
+    public async Task AdvanceTime_CavalryOnlyArmy_MovesFasterThanInfantryArmy()
+    {
+        var hexes = GridHexes.ToList();
+        var startHex = hexes[0];
+        var endHex = hexes[1];
+
+        var dir = MapService.GetNeighborDirection(startHex.ToHex(), endHex.ToHex());
+        if (dir != null)
+            await _mapService.SetRoadAsync(startHex.ToHex(), dir.Value, true);
+
+        var cavalryArmy = await _armyService.CreateAsync(new Army
+        {
+            Name = "Cavalry",
+            FactionId = 1,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
+            Path = new List<Hex> { endHex.ToHex() }
+        });
+        await SeedHelpers.SeedBrigadeAsync(Context, cavalryArmy.Id, "Cav", 100, UnitType.Cavalry);
+
+        var infantryArmy = await _armyService.CreateAsync(new Army
+        {
+            Name = "Infantry",
+            FactionId = 1,
+            CoordinateQ = startHex.Q,
+            CoordinateR = startHex.R,
+            Path = new List<Hex> { endHex.ToHex() }
+        });
+        await SeedHelpers.SeedBrigadeAsync(Context, infantryArmy.Id, "Inf", 100, UnitType.Infantry);
+
+        // Road cost=6: cavalry rate=1.5 moves in 4 march hours, infantry rate=1.0 needs 6.
+        for (int i = 0; i < 4; i++)
+        {
+            await _timeAdvanceService.AdvanceTimeAsync(1);
+        }
+
+        var reloadedCavalry = await _armyService.GetByIdAsync(cavalryArmy.Id);
+        var reloadedInfantry = await _armyService.GetByIdAsync(infantryArmy.Id);
+
+        Assert.That(reloadedCavalry!.CoordinateQ, Is.EqualTo(endHex.Q));
+        Assert.That(reloadedCavalry.CoordinateR, Is.EqualTo(endHex.R));
+        Assert.That(reloadedInfantry!.CoordinateQ, Is.EqualTo(startHex.Q));
+        Assert.That(reloadedInfantry.CoordinateR, Is.EqualTo(startHex.R));
+    }
+
+    [Test]
     public async Task AdvanceTime_MovesCommanders()
     {
         var hexes = GridHexes.ToList();

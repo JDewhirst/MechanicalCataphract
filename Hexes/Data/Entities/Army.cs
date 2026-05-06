@@ -23,7 +23,9 @@ public class Army : IPathMovable
     // Movement
     public List<Hex>? Path { get; set; }
     public float TimeInTransit { get; set; }
-    public float MovementRate => (float)GameRules.Current.MovementRates.ArmyBaseRate;
+    public float MovementRate => Brigades.Count > 0
+        ? (float)Brigades.Min(b => b.UnitType.MovementRate())
+        : (float)GameRules.Current.MovementRates.ArmyBaseRate;
 
     // Ownership
     public int FactionId { get; set; }

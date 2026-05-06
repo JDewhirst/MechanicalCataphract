@@ -24,15 +24,15 @@
     "dailyReportHour": 6
   },
   "unitStats": {
-    "infantry":    { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "skirmishers":   { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 2, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "cavalry":       { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false },
-    "engineers":     { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "heavyInfantry": { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 2, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "huscarls":      { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 3, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "otrangers":     { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 5000, "countsForFordingLength": true  },
-    "knightLancers": { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 5, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false },
-    "heavyCavalry":  { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 4, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false }
+    "infantry":    { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true,  "movementRate": 1.0 },
+    "skirmishers":   { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 2, "marchingColumnCapacity": 5000, "countsForFordingLength": true,  "movementRate": 1.0 },
+    "cavalry":       { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false, "movementRate": 1.5 },
+    "engineers":     { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 1, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true,  "movementRate": 1.0 },
+    "heavyInfantry": { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 2, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true,  "movementRate": 1.0 },
+    "huscarls":      { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 3, "scoutingRange": 1, "marchingColumnCapacity": 5000, "countsForFordingLength": true,  "movementRate": 1.0 },
+    "otrangers":     { "supplyConsumptionPerMan": 1,  "carryCapacityPerMan": 15, "combatPowerPerMan": 2, "scoutingRange": 2, "marchingColumnCapacity": 5000, "countsForFordingLength": true,  "movementRate": 1.0 },
+    "knightLancers": { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 5, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false, "movementRate": 1.5 },
+    "heavyCavalry":  { "supplyConsumptionPerMan": 10, "carryCapacityPerMan": 75, "combatPowerPerMan": 4, "scoutingRange": 2, "marchingColumnCapacity": 2000, "countsForFordingLength": false, "movementRate": 1.5 }
   },
   "news": {
     "offRoadHoursPerHex": 24.0,

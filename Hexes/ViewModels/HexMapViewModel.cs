@@ -300,7 +300,18 @@ public partial class HexMapViewModel : ObservableObject
             _isSyncingCollection = true;
             try
             {
-                setCollection(new ObservableCollection<T>(getCollection()));
+                var collection = getCollection();
+                var entityId = GetEntityId(entity);
+                if (entityId.HasValue)
+                {
+                    setCollection(new ObservableCollection<T>(
+                        collection.Select(item => GetEntityId(item) == entityId ? entity : item)));
+                }
+                else
+                {
+                    setCollection(new ObservableCollection<T>(collection));
+                }
+
                 setSelected?.Invoke(entity);
             }
             finally
@@ -308,6 +319,12 @@ public partial class HexMapViewModel : ObservableObject
                 _isSyncingCollection = false;
             }
         });
+    }
+
+    private static int? GetEntityId<T>(T entity)
+    {
+        var value = entity?.GetType().GetProperty("Id")?.GetValue(entity);
+        return value is int id ? id : null;
     }
 
     private async void OnDiscordEntitiesChanged()
