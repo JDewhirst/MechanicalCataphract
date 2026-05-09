@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace GUI.ViewModels.EntityViewModels;
@@ -80,22 +81,67 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
 
     public Commander? Commander
     {
-        get => _navy.Commander;
-        set { if (_navy.Commander != value) { _navy.Commander = value; _navy.CommanderId = value?.Id; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => _navy.CommanderId == null
+            ? null
+            : AvailableCommanders.FirstOrDefault(c => c.Id == _navy.CommanderId.Value) ?? _navy.Commander;
+        set
+        {
+            if (_navy.CommanderId == value?.Id && _navy.Commander == value) return;
+
+            _navy.Commander = value;
+            _navy.CommanderId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommanderId));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? CommanderId
+    {
+        get => _navy.CommanderId;
+        set
+        {
+            if (_navy.CommanderId == value) return;
+
+            _navy.CommanderId = value;
+            _navy.Commander = value == null
+                ? null
+                : AvailableCommanders.FirstOrDefault(c => c.Id == value.Value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Commander));
+            _ = SaveAsync();
+        }
     }
 
     public Faction? Faction
     {
-        get => _navy.Faction;
+        get => AvailableFactions.FirstOrDefault(f => f.Id == _navy.FactionId) ?? _navy.Faction;
         set
         {
-            if (_navy.Faction != value)
-            {
-                _navy.Faction = value;
-                _navy.FactionId = value?.Id ?? 1;
-                OnPropertyChanged();
-                _ = SaveAsync();
-            }
+            var newFactionId = value?.Id ?? 1;
+            if (_navy.FactionId == newFactionId && _navy.Faction == value) return;
+
+            _navy.Faction = value;
+            _navy.FactionId = newFactionId;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FactionId));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? FactionId
+    {
+        get => _navy.FactionId;
+        set
+        {
+            var newFactionId = value ?? 1;
+            if (_navy.FactionId == newFactionId) return;
+
+            _navy.FactionId = newFactionId;
+            _navy.Faction = AvailableFactions.FirstOrDefault(f => f.Id == newFactionId);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Faction));
+            _ = SaveAsync();
         }
     }
 

@@ -205,6 +205,7 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel, IP
                 {
                     _commander.FollowingArmy = null;
                     _commander.FollowingArmyId = null;
+                    OnPropertyChanged(nameof(FollowingArmyId));
                     OnPropertyChanged(nameof(FollowingArmy));
                 }
 
@@ -296,17 +297,35 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel, IP
 
     public Faction? Faction
     {
-        get => _commander.Faction;
+        get => AvailableFactions.FirstOrDefault(f => f.Id == _commander.FactionId) ?? _commander.Faction;
         set
         {
-            if (_commander.Faction != value)
-            {
-                var oldFaction = _commander.Faction;
-                _commander.Faction = value;
-                _commander.FactionId = value?.Id ?? 1;
-                OnPropertyChanged();
-                _ = SaveAndNotifyFactionChangeAsync(oldFaction, value);
-            }
+            var newFactionId = value?.Id ?? 1;
+            if (_commander.FactionId == newFactionId && _commander.Faction == value) return;
+
+            var oldFaction = _commander.Faction;
+            _commander.Faction = value;
+            _commander.FactionId = newFactionId;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FactionId));
+            _ = SaveAndNotifyFactionChangeAsync(oldFaction, value);
+        }
+    }
+
+    public int? FactionId
+    {
+        get => _commander.FactionId;
+        set
+        {
+            var newFactionId = value ?? 1;
+            if (_commander.FactionId == newFactionId) return;
+
+            var oldFaction = _commander.Faction;
+            _commander.FactionId = newFactionId;
+            _commander.Faction = AvailableFactions.FirstOrDefault(f => f.Id == newFactionId);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Faction));
+            _ = SaveAndNotifyFactionChangeAsync(oldFaction, _commander.Faction);
         }
     }
 
@@ -327,14 +346,51 @@ public partial class CommanderViewModel : ObservableObject, IEntityViewModel, IP
 
     public Army? FollowingArmy
     {
-        get => _commander.FollowingArmy;
+        get => _commander.FollowingArmyId == null
+            ? null
+            : AvailableArmies.FirstOrDefault(a => a.Id == _commander.FollowingArmyId.Value) ?? _commander.FollowingArmy;
         set
         {
-            if (_commander.FollowingArmy != value)
+            if (_commander.FollowingArmyId == value?.Id && _commander.FollowingArmy == value) return;
+
+            _commander.FollowingArmy = value;
+            _commander.FollowingArmyId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FollowingArmyId));
+
+            // Mutual exclusivity: following an army clears independent path
+            if (value != null)
             {
-                _commander.FollowingArmy = value;
-                _commander.FollowingArmyId = value?.Id;
+                _commander.Path = null;
+                _commander.TargetCoordinateQ = null;
+                _commander.TargetCoordinateR = null;
+                _commander.TimeInTransit = 0;
+                OnPropertyChanged(nameof(Path));
+                OnPropertyChanged(nameof(PathLength));
+                OnPropertyChanged(nameof(TargetCoordinateQ));
+                OnPropertyChanged(nameof(TargetCoordinateR));
+                OnPropertyChanged(nameof(TargetCol));
+                OnPropertyChanged(nameof(TargetRow));
+            }
+
+            _ = SaveAsync();
+            MapRefreshRequested?.Invoke();
+        }
+    }
+
+    public int? FollowingArmyId
+    {
+        get => _commander.FollowingArmyId;
+        set
+        {
+            if (_commander.FollowingArmyId != value)
+            {
+                _commander.FollowingArmyId = value;
+                _commander.FollowingArmy = value == null
+                    ? null
+                    : AvailableArmies.FirstOrDefault(a => a.Id == value.Value);
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(FollowingArmy));
 
                 // Mutual exclusivity: following an army clears independent path
                 if (value != null)

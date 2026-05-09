@@ -37,19 +37,76 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
     public TerrainType? TerrainType => _mapHex.TerrainType;
     public Faction? ControllingFaction
     {
-        get => _mapHex.ControllingFaction;
-        set { if (_mapHex.ControllingFaction != value) { _mapHex.ControllingFaction = value; _mapHex.ControllingFactionId = value?.Id; OnPropertyChanged(); _ = SaveAsync(); } }
+        get => _mapHex.ControllingFactionId == null
+            ? null
+            : AvailableFactions.FirstOrDefault(f => f.Id == _mapHex.ControllingFactionId.Value) ?? _mapHex.ControllingFaction;
+        set
+        {
+            if (_mapHex.ControllingFactionId == value?.Id && _mapHex.ControllingFaction == value) return;
+
+            _mapHex.ControllingFaction = value;
+            _mapHex.ControllingFactionId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ControllingFactionId));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? ControllingFactionId
+    {
+        get => _mapHex.ControllingFactionId;
+        set
+        {
+            if (_mapHex.ControllingFactionId == value) return;
+
+            _mapHex.ControllingFactionId = value;
+            _mapHex.ControllingFaction = value == null
+                ? null
+                : AvailableFactions.FirstOrDefault(f => f.Id == value.Value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ControllingFaction));
+            _ = SaveAsync();
+        }
     }
 
     public LocationType? LocationType
     {
-        get => _mapHex.LocationType;
+        get => _mapHex.LocationTypeId == null
+            ? null
+            : AvailableLocationTypes.FirstOrDefault(l => l.Id == _mapHex.LocationTypeId.Value) ?? _mapHex.LocationType;
         set
         {
-            if (_mapHex.LocationType != value)
+            if ((_mapHex.LocationTypeId ?? 1) == (value?.Id ?? 1) && _mapHex.LocationType == value) return;
+
+            if (value == null || value.Id == 1)
+            {
+                _mapHex.LocationType = null;
+                _mapHex.LocationTypeId = null;
+                _mapHex.LocationName = null;
+                _mapHex.LocationFactionId = null;
+            }
+            else
+            {
+                _mapHex.LocationType = value;
+                _mapHex.LocationTypeId = value.Id;
+            }
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LocationTypeId));
+            OnPropertyChanged(nameof(LocationName));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? LocationTypeId
+    {
+        get => _mapHex.LocationTypeId ?? 1;
+        set
+        {
+            if ((_mapHex.LocationTypeId ?? 1) != (value ?? 1))
             {
                 // Sentinel "No Location" (Id=1) clears the location
-                if (value != null && value.Id == 1)
+                if (value == null || value == 1)
                 {
                     _mapHex.LocationType = null;
                     _mapHex.LocationTypeId = null;
@@ -58,10 +115,11 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
                 }
                 else
                 {
-                    _mapHex.LocationType = value;
-                    _mapHex.LocationTypeId = value?.Id;
+                    _mapHex.LocationTypeId = value;
+                    _mapHex.LocationType = AvailableLocationTypes.FirstOrDefault(l => l.Id == value.Value);
                 }
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(LocationType));
                 OnPropertyChanged(nameof(LocationName));
                 _ = SaveAsync();
             }
@@ -79,16 +137,35 @@ public partial class MapHexViewModel : ObservableObject, IEntityViewModel
 
     public Weather? Weather
     {
-        get => _mapHex.Weather;
+        get => _mapHex.WeatherId == null
+            ? null
+            : AvailableWeatherTypes.FirstOrDefault(w => w.Id == _mapHex.WeatherId.Value) ?? _mapHex.Weather;
         set
         {
-            if (_mapHex.Weather != value)
-            {
-                _mapHex.Weather = value;
-                _mapHex.WeatherId = value?.Id;
-                OnPropertyChanged();
-                _ = SaveAsync();
-            }
+            if (_mapHex.WeatherId == value?.Id && _mapHex.Weather == value) return;
+
+            _mapHex.Weather = value;
+            _mapHex.WeatherId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(WeatherId));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? WeatherId
+    {
+        get => _mapHex.WeatherId;
+        set
+        {
+            if (_mapHex.WeatherId == value) return;
+
+            _mapHex.WeatherId = value;
+            _mapHex.Weather = value == null
+                ? null
+                : AvailableWeatherTypes.FirstOrDefault(w => w.Id == value.Value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Weather));
+            _ = SaveAsync();
         }
     }
 

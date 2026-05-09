@@ -415,7 +415,7 @@ public partial class HexMapViewModel : ObservableObject
             sp.GetRequiredService<IOrderService>().GetAllAsync());
         _allOrders = orders.Select(o =>
         {
-            var vm = new OrderViewModel(o, _scopeFactory);
+            var vm = new OrderViewModel(o, _scopeFactory, commanders);
             vm.Saved += () => Dispatcher.UIThread.Post(ApplyOrderFilter);
             return vm;
         }).ToList();
@@ -515,7 +515,7 @@ public partial class HexMapViewModel : ObservableObject
             sp.GetRequiredService<IOrderService>().GetAllAsync());
         _allOrders = orders.Select(o =>
         {
-            var vm = new OrderViewModel(o, _scopeFactory);
+            var vm = new OrderViewModel(o, _scopeFactory, Commanders);
             vm.Saved += () => Dispatcher.UIThread.Post(ApplyOrderFilter);
             return vm;
         }).ToList();
@@ -962,7 +962,7 @@ public partial class HexMapViewModel : ObservableObject
     {
         if (_isSyncingCollection || value == null) return;
         ClearAllSelectionsExcept(nameof(SelectedOrder));
-        SelectedEntityViewModel = value;  // Already a ViewModel
+        SelectedEntityViewModel = value;
         StatusMessage = $"Selected order for {value.CommanderName ?? "?"}";
     }
 

@@ -375,7 +375,7 @@
                                   GridLinesVisibility="Horizontal"
                                   SelectionMode="Single">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Commander" Binding="{Binding CommanderName, FallbackValue='(Unknown)'}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Commander" Binding="{Binding Commander.Name, FallbackValue='(Unknown)'}" Width="*" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt, StringFormat='{}{0:MM/dd}'}" Width="55" IsReadOnly="True"/>
                                 <DataGridCheckBoxColumn Header="Done" Binding="{Binding Processed}" Width="45"/>
                             </DataGrid.Columns>

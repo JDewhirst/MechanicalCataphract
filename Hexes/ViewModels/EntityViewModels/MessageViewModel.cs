@@ -40,31 +40,69 @@ public partial class MessageViewModel : ObservableObject, IEntityViewModel, IPat
 
     public Commander? SenderCommander
     {
-        get => _message.SenderCommander;
+        get => _message.SenderCommanderId == null
+            ? null
+            : AvailableCommanders.FirstOrDefault(c => c.Id == _message.SenderCommanderId.Value) ?? _message.SenderCommander;
         set
         {
-            if (_message.SenderCommander != value)
-            {
-                _message.SenderCommander = value;
-                _message.SenderCommanderId = value?.Id;
-                OnPropertyChanged();
-                _ = SaveAsync();
-            }
+            if (_message.SenderCommanderId == value?.Id && _message.SenderCommander == value) return;
+
+            _message.SenderCommander = value;
+            _message.SenderCommanderId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SenderCommanderId));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? SenderCommanderId
+    {
+        get => _message.SenderCommanderId;
+        set
+        {
+            if (_message.SenderCommanderId == value) return;
+
+            _message.SenderCommanderId = value;
+            _message.SenderCommander = value == null
+                ? null
+                : AvailableCommanders.FirstOrDefault(c => c.Id == value.Value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SenderCommander));
+            _ = SaveAsync();
         }
     }
 
     public Commander? TargetCommander
     {
-        get => _message.TargetCommander;
+        get => _message.TargetCommanderId == null
+            ? null
+            : AvailableCommanders.FirstOrDefault(c => c.Id == _message.TargetCommanderId.Value) ?? _message.TargetCommander;
         set
         {
-            if (_message.TargetCommander != value)
-            {
-                _message.TargetCommander = value;
-                _message.TargetCommanderId = value?.Id;
-                OnPropertyChanged();
-                _ = SaveAsync();
-            }
+            if (_message.TargetCommanderId == value?.Id && _message.TargetCommander == value) return;
+
+            _message.TargetCommander = value;
+            _message.TargetCommanderId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TargetCommanderId));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? TargetCommanderId
+    {
+        get => _message.TargetCommanderId;
+        set
+        {
+            if (_message.TargetCommanderId == value) return;
+
+            _message.TargetCommanderId = value;
+            _message.TargetCommander = value == null
+                ? null
+                : AvailableCommanders.FirstOrDefault(c => c.Id == value.Value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TargetCommander));
+            _ = SaveAsync();
         }
     }
 

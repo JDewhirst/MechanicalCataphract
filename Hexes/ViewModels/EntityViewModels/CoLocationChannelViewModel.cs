@@ -52,14 +52,47 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
 
     public Army? FollowingArmy
     {
-        get => _channel.FollowingArmy;
+        get => _channel.FollowingArmyId == null
+            ? null
+            : AvailableArmies.FirstOrDefault(a => a.Id == _channel.FollowingArmyId.Value) ?? _channel.FollowingArmy;
         set
         {
-            if (_channel.FollowingArmy != value)
+            if (_channel.FollowingArmyId == value?.Id && _channel.FollowingArmy == value) return;
+
+            _channel.FollowingArmy = value;
+            _channel.FollowingArmyId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FollowingArmyId));
+
+            // Mutual exclusivity: following an army clears hex
+            if (value != null)
             {
-                _channel.FollowingArmy = value;
-                _channel.FollowingArmyId = value?.Id;
+                _channel.FollowingHexQ = null;
+                _channel.FollowingHexR = null;
+                _channel.FollowingHex = null;
+                OnPropertyChanged(nameof(FollowingHexQ));
+                OnPropertyChanged(nameof(FollowingHexR));
+                OnPropertyChanged(nameof(FollowingCol));
+                OnPropertyChanged(nameof(FollowingRow));
+            }
+
+            _ = SaveAsync();
+        }
+    }
+
+    public int? FollowingArmyId
+    {
+        get => _channel.FollowingArmyId;
+        set
+        {
+            if (_channel.FollowingArmyId != value)
+            {
+                _channel.FollowingArmyId = value;
+                _channel.FollowingArmy = value == null
+                    ? null
+                    : AvailableArmies.FirstOrDefault(a => a.Id == value.Value);
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(FollowingArmy));
 
                 // Mutual exclusivity: following an army clears hex
                 if (value != null)
@@ -94,6 +127,7 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
                 {
                     _channel.FollowingArmy = null;
                     _channel.FollowingArmyId = null;
+                    OnPropertyChanged(nameof(FollowingArmyId));
                     OnPropertyChanged(nameof(FollowingArmy));
                 }
 
@@ -118,6 +152,7 @@ public partial class CoLocationChannelViewModel : ObservableObject, IEntityViewM
                 {
                     _channel.FollowingArmy = null;
                     _channel.FollowingArmyId = null;
+                    OnPropertyChanged(nameof(FollowingArmyId));
                     OnPropertyChanged(nameof(FollowingArmy));
                 }
 

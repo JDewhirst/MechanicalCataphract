@@ -3,16 +3,25 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:GUI.ViewModels.EntityViewModels"
+             xmlns:entities="using:MechanicalCataphract.Data.Entities"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
              x:Class="GUI.Views.OrderDetail"
              x:DataType="vm:OrderViewModel">
 
     <StackPanel Spacing="8" Margin="5">
-        <!-- Commander info (read-only) -->
-        <StackPanel Orientation="Horizontal" Spacing="5">
-            <TextBlock Text="From:" FontWeight="SemiBold" FontSize="11"/>
-            <TextBlock Text="{Binding Commander.Name, FallbackValue='(Unknown)'}" FontSize="11"/>
-        </StackPanel>
+         <!-- Commander selection -->
+         <StackPanel Margin="0,5,0,0">
+             <TextBlock Text="Commander" FontWeight="SemiBold" FontSize="11"/>
+             <ComboBox ItemsSource="{Binding AvailableCommanders}"
+                       SelectedItem="{Binding Commander, Mode=TwoWay}"
+                       HorizontalAlignment="Stretch">
+                 <ComboBox.ItemTemplate>
+                     <DataTemplate x:DataType="entities:Commander">
+                         <TextBlock Text="{Binding Name}"/>
+                     </DataTemplate>
+                 </ComboBox.ItemTemplate>
+             </ComboBox>
+         </StackPanel>
 
         <!-- Contents -->
         <StackPanel>

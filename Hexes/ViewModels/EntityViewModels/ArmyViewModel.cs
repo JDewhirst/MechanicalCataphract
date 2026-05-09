@@ -242,17 +242,72 @@ public partial class ArmyViewModel : ObservableObject, IEntityViewModel, IPathSe
 
     public Faction? Faction
     {
-        get => _army.Faction;
-        set { if (_army.Faction != value) { _army.Faction = value; _army.FactionId = value?.Id ?? 1; RefreshWagonCarryCapacity(); OnPropertyChanged(); OnPropertyChanged(nameof(MaxCarry)); _ = SaveAsync(); } }
+        get => AvailableFactions.FirstOrDefault(f => f.Id == _army.FactionId) ?? _army.Faction;
+        set
+        {
+            var newFactionId = value?.Id ?? 1;
+            if (_army.FactionId == newFactionId && _army.Faction == value) return;
+
+            _army.Faction = value;
+            _army.FactionId = newFactionId;
+            RefreshWagonCarryCapacity();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FactionId));
+            OnPropertyChanged(nameof(MaxCarry));
+            _ = SaveAsync();
+        }
     }
+
+    public int? FactionId
+    {
+        get => _army.FactionId;
+        set
+        {
+            var newFactionId = value ?? 1;
+            if (_army.FactionId == newFactionId) return;
+
+            _army.FactionId = newFactionId;
+            _army.Faction = AvailableFactions.FirstOrDefault(f => f.Id == newFactionId);
+            RefreshWagonCarryCapacity();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Faction));
+            OnPropertyChanged(nameof(MaxCarry));
+            _ = SaveAsync();
+        }
+    }
+
     public Commander? Commander
     {
-        get => _army.Commander;
-        set { if (_army.Commander != value) 
-                { 
-                    _army.Commander = value;
-                    _army.CommanderId = value?.Id;
-                    OnPropertyChanged(); _ = SaveAsync(); } }
+        get => _army.CommanderId == null
+            ? null
+            : AvailableCommanders.FirstOrDefault(c => c.Id == _army.CommanderId.Value) ?? _army.Commander;
+        set
+        {
+            if (_army.CommanderId == value?.Id && _army.Commander == value) return;
+
+            _army.Commander = value;
+            _army.CommanderId = value?.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommanderId));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? CommanderId
+    {
+        get => _army.CommanderId;
+        set
+        {
+            if (_army.CommanderId == value) return;
+
+            _army.CommanderId = value;
+            _army.Commander = value == null
+                ? null
+                : AvailableCommanders.FirstOrDefault(c => c.Id == value.Value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Commander));
+            _ = SaveAsync();
+        }
     }
 
     public int Morale

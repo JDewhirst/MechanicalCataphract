@@ -1,10 +1,13 @@
-using System;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using GUI.ViewModels;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace GUI.ViewModels.EntityViewModels;
 
@@ -27,11 +30,41 @@ public partial class OrderViewModel : ObservableObject, IEntityViewModel
 
     public int Id => _order.Id;
 
-    public Commander? Commander => _order.Commander;
+    private readonly IEnumerable<Commander> _availableCommanders;
+    public IEnumerable<Commander> AvailableCommanders => _availableCommanders;
 
-    /// <summary>
-    /// Gets the commander name directly, avoiding deep traversal of the entity graph.
-    /// </summary>
+    public Commander? Commander
+    {
+        get => AvailableCommanders.FirstOrDefault(c => c.Id == _order.CommanderId) ?? _order.Commander;
+        set
+        {
+            if (value == null || (_order.CommanderId == value.Id && _order.Commander == value)) return;
+
+            _order.Commander = value;
+            _order.CommanderId = value.Id;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommanderId));
+            OnPropertyChanged(nameof(CommanderName));
+            _ = SaveAsync();
+        }
+    }
+
+    public int? CommanderId
+    {
+        get => _order.CommanderId;
+        set
+        {
+            if (value == null || _order.CommanderId == value) return;
+
+            _order.CommanderId = value.Value;
+            _order.Commander = AvailableCommanders.FirstOrDefault(c => c.Id == value.Value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Commander));
+            OnPropertyChanged(nameof(CommanderName));
+            _ = SaveAsync();
+        }
+    }
+
     public string? CommanderName => _order.Commander?.Name;
 
     public string Contents
@@ -58,6 +91,8 @@ public partial class OrderViewModel : ObservableObject, IEntityViewModel
     public DateTime CreatedAt => _order.CreatedAt;
     public DateTime? ProcessedAt => _order.ProcessedAt;
 
+    public IAsyncRelayCommand SaveCommand { get; }
+
     private async Task SaveAsync()
     {
         await _scopeFactory.InScopeAsync(sp =>
@@ -65,9 +100,11 @@ public partial class OrderViewModel : ObservableObject, IEntityViewModel
         Saved?.Invoke();
     }
 
-    public OrderViewModel(Order order, IServiceScopeFactory scopeFactory)
+    public OrderViewModel(Order order, IServiceScopeFactory scopeFactory, IEnumerable<Commander> availableCommanders)
     {
         _order = order;
         _scopeFactory = scopeFactory;
+        _availableCommanders = availableCommanders;
+        SaveCommand = new AsyncRelayCommand(SaveAsync);
     }
 }
