@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Rendering;
 using SkiaSharp;
 
 namespace MechanicalCataphract.Discord;
@@ -175,7 +176,7 @@ public static class ScoutingReportRenderer
                 float drawX = cx + offsetX;
                 float drawY = cy + offsetY;
                 double scaleFactor = locationById.TryGetValue(mapHex.LocationTypeId.Value, out var lt) ? lt.ScaleFactor : 0.64;
-                DrawIcon(canvas, locIcon, drawX, drawY, scaleFactor);
+                DrawIcon(canvas, locIcon, drawX, drawY, scaleFactor, MapRenderLayout.LocationIconScaleMultiplier);
             }
 
             // Pass 4a: Navy markers (triangles — rendered before armies, matching UI layer order)
@@ -218,39 +219,46 @@ public static class ScoutingReportRenderer
             }
 
             // Pass 4: Army markers
-            foreach (var army in armies)
+            var armyGroups = MapRenderLayout.GroupEntitiesByHex(armies, a => (a.CoordinateQ, a.CoordinateR));
+            var armyBaseOffset = MapRenderLayout.GetMarkerOffset(MarkerPosition.Center, HexRadius);
+            foreach (var group in armyGroups)
             {
-                if (!army.CoordinateQ.HasValue || !army.CoordinateR.HasValue) continue;
-
-                var armyHex = new Hex(army.CoordinateQ.Value, army.CoordinateR.Value, -army.CoordinateQ.Value - army.CoordinateR.Value);
+                var armyHex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
                 var armyPixel = layout.HexToPixel(armyHex);
-                float ax = (float)armyPixel.X + offsetX;
-                float ay = (float)armyPixel.Y + offsetY;
-                float markerRadius = Math.Max(6, HexRadius * 0.35f);
+                var hexCenter = new RenderPoint((float)armyPixel.X + offsetX, (float)armyPixel.Y + offsetY);
 
-                // Faction color
-                var markerColor = SKColors.Gray;
-                if (army.Faction != null)
+                for (int i = 0; i < group.Value.Count; i++)
                 {
-                    markerColor = ParseColor(army.Faction.ColorHex);
-                }
+                    var army = group.Value[i];
+                    var markerPoint = MapRenderLayout.GetStackedMarkerCenter(hexCenter, armyBaseOffset, i);
+                    float ax = (float)markerPoint.X;
+                    float ay = (float)markerPoint.Y;
+                    float markerRadius = Math.Max(6, HexRadius * 0.35f);
 
-                using var markerFill = new SKPaint { Color = markerColor, Style = SKPaintStyle.Fill, IsAntialias = true };
-                using var markerStroke = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, IsAntialias = true };
-                canvas.DrawCircle(ax, ay, markerRadius, markerFill);
-                canvas.DrawCircle(ax, ay, markerRadius, markerStroke);
+                    // Faction color
+                    var markerColor = SKColors.Gray;
+                    if (army.Faction != null)
+                    {
+                        markerColor = ParseColor(army.Faction.ColorHex);
+                    }
 
-                // Initial letter
-                if (!string.IsNullOrEmpty(army.Name))
-                {
-                    string initial = army.Name[0].ToString().ToUpperInvariant();
-                    float letterSize = Math.Max(8, markerRadius * 1.2f);
-                    using var letterFont = new SKFont(SKTypeface.Default, letterSize);
-                    using var letterPaint = new SKPaint { Color = SKColors.White, IsAntialias = true };
-                    // Vertically center the text
-                    var metrics = letterFont.Metrics;
-                    float textOffsetY = -(metrics.Ascent + metrics.Descent) / 2;
-                    canvas.DrawText(initial, ax, ay + textOffsetY, SKTextAlign.Center, letterFont, letterPaint);
+                    using var markerFill = new SKPaint { Color = markerColor, Style = SKPaintStyle.Fill, IsAntialias = true };
+                    using var markerStroke = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, IsAntialias = true };
+                    canvas.DrawCircle(ax, ay, markerRadius, markerFill);
+                    canvas.DrawCircle(ax, ay, markerRadius, markerStroke);
+
+                    // Initial letter
+                    if (!string.IsNullOrEmpty(army.Name))
+                    {
+                        string initial = army.Name[0].ToString().ToUpperInvariant();
+                        float letterSize = Math.Max(8, markerRadius * 1.2f);
+                        using var letterFont = new SKFont(SKTypeface.Default, letterSize);
+                        using var letterPaint = new SKPaint { Color = SKColors.White, IsAntialias = true };
+                        // Vertically center the text
+                        var metrics = letterFont.Metrics;
+                        float textOffsetY = -(metrics.Ascent + metrics.Descent) / 2;
+                        canvas.DrawText(initial, ax, ay + textOffsetY, SKTextAlign.Center, letterFont, letterPaint);
+                    }
                 }
             }
         }
@@ -288,14 +296,20 @@ public static class ScoutingReportRenderer
         return path;
     }
 
-    private static void DrawIcon(SKCanvas canvas, SKBitmap icon, float cx, float cy, double scaleFactor)
+    private static void DrawIcon(SKCanvas canvas, SKBitmap icon, float cx, float cy, double scaleFactor, double scaleMultiplier = 1.0)
     {
-        float hexHeight = (float)(Math.Sqrt(3) * HexRadius);
-        float maxIconSize = hexHeight * (float)scaleFactor;
-        float scale = maxIconSize / Math.Max(icon.Width, icon.Height);
-        float drawWidth = icon.Width * scale;
-        float drawHeight = icon.Height * scale;
-        var destRect = new SKRect(cx - drawWidth / 2, cy - drawHeight / 2, cx + drawWidth / 2, cy + drawHeight / 2);
+        var iconRect = MapRenderLayout.GetIconDestination(
+            new RenderPoint(cx, cy),
+            HexRadius,
+            icon.Width,
+            icon.Height,
+            scaleFactor,
+            scaleMultiplier);
+        var destRect = new SKRect(
+            (float)iconRect.X,
+            (float)iconRect.Y,
+            (float)(iconRect.X + iconRect.Width),
+            (float)(iconRect.Y + iconRect.Height));
         canvas.DrawBitmap(icon, destRect);
     }
 

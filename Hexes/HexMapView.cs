@@ -12,6 +12,7 @@ using Avalonia.Platform;
 using Avalonia.Svg.Skia;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
+using MechanicalCataphract.Rendering;
 using AvaloniaPoint = Avalonia.Point;
 
 namespace GUI;
@@ -345,44 +346,6 @@ public class HexMapView : Control
     private Dictionary<(int q, int r, Type entityType), int> _lastSelectedIndex = new();
     private (int q, int r)? _lastClickedHex;
     private Type? _lastClickedEntityType;
-
-    #endregion
-
-    #region Stacking and Positioning
-
-    private const double StackOffsetY = 6.0;
-    private const double StackOffsetX = 4.0;
-
-    private enum MarkerPosition { Center, TopRight, BottomRight }
-
-    private AvaloniaPoint GetMarkerOffset(MarkerPosition position)
-    {
-        double hexHeight = Math.Sqrt(3) * HexRadius;
-        return position switch
-        {
-            MarkerPosition.Center => new AvaloniaPoint(0, 0),
-            MarkerPosition.TopRight => new AvaloniaPoint(HexRadius * 0.4, -hexHeight * 0.35),
-            MarkerPosition.BottomRight => new AvaloniaPoint(HexRadius * 0.4, hexHeight * 0.35),
-            _ => new AvaloniaPoint(0, 0)
-        };
-    }
-
-    private Dictionary<(int q, int r), List<T>> GroupEntitiesByHex<T>(
-        IList<T>? entities, Func<T, (int? q, int? r)> getLocation)
-    {
-        var groups = new Dictionary<(int q, int r), List<T>>();
-        if (entities == null) return groups;
-
-        foreach (var entity in entities)
-        {
-            var loc = getLocation(entity);
-            if (!loc.q.HasValue || !loc.r.HasValue) continue;
-            var key = (loc.q.Value, loc.r.Value);
-            if (!groups.ContainsKey(key)) groups[key] = new List<T>();
-            groups[key].Add(entity);
-        }
-        return groups;
-    }
 
     #endregion
 
@@ -972,7 +935,7 @@ public class HexMapView : Control
         var translateMatrix = Matrix.CreateTranslation(center.X, center.Y);
         using (context.PushTransform(translateMatrix))
         {
-            DrawTerrainIcon(context, locIconData.bitmap, locIconData.scaleFactor);
+            DrawIcon(context, locIconData.bitmap, locIconData.scaleFactor, MapRenderLayout.LocationIconScaleMultiplier);
         }
     }
 
@@ -985,8 +948,8 @@ public class HexMapView : Control
         var armies = Armies;
         if (armies == null || armies.Count == 0) return;
 
-        var armyGroups = GroupEntitiesByHex(armies, a => (a.CoordinateQ, a.CoordinateR));
-        var baseOffset = GetMarkerOffset(MarkerPosition.Center);
+        var armyGroups = MapRenderLayout.GroupEntitiesByHex(armies, a => (a.CoordinateQ, a.CoordinateR));
+        var baseOffset = MapRenderLayout.GetMarkerOffset(MarkerPosition.Center, HexRadius);
 
         foreach (var group in armyGroups)
         {
@@ -1001,9 +964,9 @@ public class HexMapView : Control
             for (int i = 0; i < group.Value.Count; i++)
             {
                 var army = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
-                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
+                var markerPoint = MapRenderLayout.GetStackedMarkerCenter(
+                    new RenderPoint(hexCenter.X, hexCenter.Y), baseOffset, i);
+                var markerCenter = new AvaloniaPoint(markerPoint.X, markerPoint.Y);
 
                 RenderSingleArmyMarker(context, army, markerCenter);
             }
@@ -1045,8 +1008,8 @@ public class HexMapView : Control
         var commanders = Commanders;
         if (commanders == null || commanders.Count == 0) return;
 
-        var commanderGroups = GroupEntitiesByHex(commanders, c => (c.CoordinateQ, c.CoordinateR));
-        var baseOffset = GetMarkerOffset(MarkerPosition.TopRight);
+        var commanderGroups = MapRenderLayout.GroupEntitiesByHex(commanders, c => (c.CoordinateQ, c.CoordinateR));
+        var baseOffset = MapRenderLayout.GetMarkerOffset(MarkerPosition.TopRight, HexRadius);
 
         foreach (var group in commanderGroups)
         {
@@ -1061,9 +1024,9 @@ public class HexMapView : Control
             for (int i = 0; i < group.Value.Count; i++)
             {
                 var commander = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
-                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
+                var markerPoint = MapRenderLayout.GetStackedMarkerCenter(
+                    new RenderPoint(hexCenter.X, hexCenter.Y), baseOffset, i);
+                var markerCenter = new AvaloniaPoint(markerPoint.X, markerPoint.Y);
 
                 RenderSingleCommanderMarker(context, commander, markerCenter);
             }
@@ -1113,8 +1076,8 @@ public class HexMapView : Control
         var navies = Navies;
         if (navies == null || navies.Count == 0) return;
 
-        var navyGroups = GroupEntitiesByHex(navies, n => (n.CoordinateQ, n.CoordinateR));
-        var baseOffset = GetMarkerOffset(MarkerPosition.Center);
+        var navyGroups = MapRenderLayout.GroupEntitiesByHex(navies, n => (n.CoordinateQ, n.CoordinateR));
+        var baseOffset = MapRenderLayout.GetMarkerOffset(MarkerPosition.Center, HexRadius);
 
         foreach (var group in navyGroups)
         {
@@ -1129,9 +1092,9 @@ public class HexMapView : Control
             for (int i = 0; i < group.Value.Count; i++)
             {
                 var navy = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);
-                double stackY = baseOffset.Y - (i * StackOffsetY);
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
+                var markerPoint = MapRenderLayout.GetStackedMarkerCenter(
+                    new RenderPoint(hexCenter.X, hexCenter.Y), baseOffset, i);
+                var markerCenter = new AvaloniaPoint(markerPoint.X, markerPoint.Y);
 
                 RenderSingleNavyMarker(context, navy, markerCenter);
             }
@@ -1197,27 +1160,26 @@ public class HexMapView : Control
         double hitRadius,
         bool cycleSelection) where T : class
     {
-        var groups = GroupEntitiesByHex(entities, getLocation);
-        var baseOffset = GetMarkerOffset(position);
+        var groups = MapRenderLayout.GroupEntitiesByHex(entities, getLocation);
+        var baseOffset = MapRenderLayout.GetMarkerOffset(position, HexRadius);
 
         foreach (var group in groups)
         {
             var hex = new Hex(group.Key.q, group.Key.r, -group.Key.q - group.Key.r);
             var hexCenter = layout.HexToPixel(hex);
 
-            double stackWidth  = Math.Abs(baseOffset.X) + (group.Value.Count * StackOffsetX) + hitRadius;
-            double stackHeight = Math.Abs(baseOffset.Y) + (group.Value.Count * StackOffsetY) + hitRadius;
+            var stackBounds = MapRenderLayout.GetStackBounds(group.Value.Count, baseOffset, hitRadius);
 
-            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackWidth ||
-                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackHeight)
+            if (Math.Abs(point.X - hexCenter.X - baseOffset.X) > stackBounds.Width ||
+                Math.Abs(point.Y - hexCenter.Y - baseOffset.Y) > stackBounds.Height)
                 continue;
 
             for (int i = group.Value.Count - 1; i >= 0; i--)
             {
                 var entity  = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);
-                double stackY = baseOffset.Y - (i * StackOffsetY);
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
+                var markerPoint = MapRenderLayout.GetStackedMarkerCenter(
+                    new RenderPoint(hexCenter.X, hexCenter.Y), baseOffset, i);
+                var markerCenter = new AvaloniaPoint(markerPoint.X, markerPoint.Y);
 
                 double distance = Math.Sqrt(
                     Math.Pow(point.X - markerCenter.X, 2) +
@@ -1273,8 +1235,8 @@ public class HexMapView : Control
         var activeMessages = messages.Where(m => !m.Delivered).ToList();
         if (activeMessages.Count == 0) return;
 
-        var messageGroups = GroupEntitiesByHex(activeMessages, m => (m.CoordinateQ, m.CoordinateR));
-        var baseOffset = GetMarkerOffset(MarkerPosition.BottomRight);
+        var messageGroups = MapRenderLayout.GroupEntitiesByHex(activeMessages, m => (m.CoordinateQ, m.CoordinateR));
+        var baseOffset = MapRenderLayout.GetMarkerOffset(MarkerPosition.BottomRight, HexRadius);
 
         foreach (var group in messageGroups)
         {
@@ -1289,9 +1251,9 @@ public class HexMapView : Control
             for (int i = 0; i < group.Value.Count; i++)
             {
                 var message = group.Value[i];
-                double stackX = baseOffset.X - (i * StackOffsetX);  // Stack leftward
-                double stackY = baseOffset.Y - (i * StackOffsetY);  // Stack upward
-                var markerCenter = new AvaloniaPoint(hexCenter.X + stackX, hexCenter.Y + stackY);
+                var markerPoint = MapRenderLayout.GetStackedMarkerCenter(
+                    new RenderPoint(hexCenter.X, hexCenter.Y), baseOffset, i);
+                var markerCenter = new AvaloniaPoint(markerPoint.X, markerPoint.Y);
 
                 RenderSingleMessageMarker(context, message, markerCenter);
             }
@@ -1674,12 +1636,19 @@ public class HexMapView : Control
 
     private void DrawTerrainIcon(DrawingContext context, Bitmap bitmap, double scaleFactor)
     {
-        double hexHeight = Math.Sqrt(3) * HexRadius;
-        double maxIconSize = hexHeight * scaleFactor;
-        double scale = maxIconSize / Math.Max(bitmap.Size.Width, bitmap.Size.Height);
-        double drawWidth = bitmap.Size.Width * scale;
-        double drawHeight = bitmap.Size.Height * scale;
-        var destRect = new Rect(-drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        DrawIcon(context, bitmap, scaleFactor);
+    }
+
+    private void DrawIcon(DrawingContext context, Bitmap bitmap, double scaleFactor, double scaleMultiplier = 1.0)
+    {
+        var iconRect = MapRenderLayout.GetIconDestination(
+            new RenderPoint(0, 0),
+            HexRadius,
+            bitmap.Size.Width,
+            bitmap.Size.Height,
+            scaleFactor,
+            scaleMultiplier);
+        var destRect = new Rect(iconRect.X, iconRect.Y, iconRect.Width, iconRect.Height);
         context.DrawImage(bitmap, destRect);
     }
 
