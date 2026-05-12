@@ -32,6 +32,9 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     private readonly IEnumerable<Army> _availableArmies;
     public IEnumerable<Army> AvailableArmies => _availableArmies;
 
+    [ObservableProperty]
+    private Army? _selectedEmbarkArmy;
+
     private readonly IEnumerable<Faction> _availableFactions;
     public IEnumerable<Faction> AvailableFactions => _availableFactions;
 
@@ -165,8 +168,16 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     public int DailySupplyConsumption => _navy.DailySupplyConsumption;
     public double DaysOfSupply => _navy.DaysOfSupply;
 
-    public string CarriedArmyName => _navy.CarriedArmy?.Name ?? "(Empty)";
-    public bool HasCarriedArmy => _navy.CarriedArmy != null;
+    public bool HasCarriedArmies => CarriedArmies.Count > 0;
+
+    /// <summary>
+    /// Observable collection of armies for UI binding.
+    /// </summary>
+    public ObservableCollection<Army> CarriedArmies { get; }
+    public string CarriedArmyNames =>
+        CarriedArmies.Count == 0
+            ? "(Empty)"
+            : string.Join(", ", CarriedArmies.Select(a => a.Name));
 
     /// <summary>
     /// Observable collection of ships for UI binding.
@@ -186,6 +197,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         if (NavyReportRequested != null)
             await NavyReportRequested.Invoke(_navy);
     }
+
 
     [RelayCommand(AllowConcurrentExecutions = false)]
     private async Task AddShipAsync()
@@ -225,20 +237,34 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
             await service.EmbarkArmyAsync(_navy.Id, army.Id);
             return await service.GetNavyWithShipsAsync(_navy.Id);
         });
-        // Reload so CarriedArmy navigation is populated
+
+        // Reload so CarriedArmies navigation and brigade data are populated.
         if (refreshed != null)
-            _navy.CarriedArmy = refreshed.CarriedArmy;
+        {
+            _navy.CarriedArmies = refreshed.CarriedArmies;
+            ReplaceCarriedArmies(refreshed.CarriedArmies);
+        }
+
+        SelectedEmbarkArmy = null;
         NotifyComputedPropertiesChanged();
     }
 
     [RelayCommand]
-    private async Task DisembarkArmyAsync()
+    private async Task DisembarkArmyAsync(Army? army)
     {
-        if (_navy.CarriedArmy == null) return;
+        if (army == null) return;
         await _scopeFactory.InScopeAsync(sp =>
-            sp.GetRequiredService<INavyService>().DisembarkArmyAsync(_navy.CarriedArmy.Id));
-        _navy.CarriedArmy = null;
+            sp.GetRequiredService<INavyService>().DisembarkArmyAsync(army.Id));
+        CarriedArmies.Remove(army);
+        _navy.CarriedArmies.Remove(army);
         NotifyComputedPropertiesChanged();
+    }
+
+    private void ReplaceCarriedArmies(IEnumerable<Army> armies)
+    {
+        CarriedArmies.Clear();
+        foreach (var carriedArmy in armies)
+            CarriedArmies.Add(carriedArmy);
     }
 
     public IAsyncRelayCommand SaveCommand { get; }
@@ -259,8 +285,9 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         OnPropertyChanged(nameof(TotalCarryUnits));
         OnPropertyChanged(nameof(DailySupplyConsumption));
         OnPropertyChanged(nameof(DaysOfSupply));
-        OnPropertyChanged(nameof(CarriedArmyName));
-        OnPropertyChanged(nameof(HasCarriedArmy));
+        OnPropertyChanged(nameof(CarriedArmies));
+        OnPropertyChanged(nameof(HasCarriedArmies));
+        OnPropertyChanged(nameof(CarriedArmyNames));
     }
 
     public NavyViewModel(
@@ -277,6 +304,7 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
         _availableCommanders = availableCommanders;
         _availableArmies = availableArmies;
         _availableFactions = availableFactions;
+        CarriedArmies = new ObservableCollection<Army>(_navy.CarriedArmies);
         _mapRows = mapRows;
         _mapCols = mapCols;
         Ships = new ObservableCollection<Ship>(_navy.Ships);

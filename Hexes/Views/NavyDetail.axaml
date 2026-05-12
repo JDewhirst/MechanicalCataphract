@@ -100,21 +100,21 @@
             </StackPanel>
         </Grid>
 
-        <!-- Embarked Army -->
+        <!-- Embarked Armies -->
         <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,8,0,0">
             <StackPanel Spacing="5">
-                <TextBlock Text="Embarked Army" FontWeight="Bold" FontSize="12"/>
+                <TextBlock Text="Embarked Armies" FontWeight="Bold" FontSize="12"/>
 
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="Carried:" FontSize="11"/>
-                    <TextBlock Text="{Binding CarriedArmyName}" FontSize="11" FontStyle="Italic"/>
+                    <TextBlock Text="{Binding CarriedArmyNames}" FontSize="11" FontStyle="Italic"/>
                 </StackPanel>
 
-                <!-- Embark: shown when no army is aboard -->
-                <StackPanel IsVisible="{Binding !HasCarriedArmy}" Spacing="5">
+                <!-- Embark -->
+                <StackPanel Spacing="5">
                     <TextBlock Text="Embark Army" FontWeight="SemiBold" FontSize="11"/>
-                    <ComboBox x:Name="EmbarkArmyComboBox"
-                              ItemsSource="{Binding AvailableArmies}"
+                    <ComboBox ItemsSource="{Binding AvailableArmies}"
+                              SelectedItem="{Binding SelectedEmbarkArmy, Mode=TwoWay}"
                               HorizontalAlignment="Stretch">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="entities:Army">
@@ -123,17 +123,29 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <Button Content="Embark"
-                            Click="OnEmbarkClicked"
+                            Command="{Binding EmbarkArmyCommand}"
+                            CommandParameter="{Binding SelectedEmbarkArmy}"
                             FontSize="11" Padding="8,2"/>
                 </StackPanel>
+                
+                <ItemsControl ItemsSource="{Binding CarriedArmies}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="entities:Army">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding Name}" FontSize="11"/>
+                                <Button Content="Disembark"
+                                        Command="{Binding $parent[ItemsControl].((vm:NavyViewModel)DataContext).DisembarkArmyCommand}"
+                                        CommandParameter="{Binding}"
+                                        FontSize="11"
+                                        Padding="8,2"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-                <!-- Disembark: shown when an army is aboard -->
-                <Button Content="Disembark Army"
-                        Command="{Binding DisembarkArmyCommand}"
-                        IsVisible="{Binding HasCarriedArmy}"
-                        FontSize="11" Padding="8,2"/>
             </StackPanel>
         </Border>
+
 
         <!-- Ships section -->
         <Border BorderBrush="Gray" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,8,0,0">

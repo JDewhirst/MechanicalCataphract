@@ -31,8 +31,8 @@ public class Navy
     // Navigation
     public ICollection<Ship> Ships { get; set; } = new List<Ship>();
 
-    // The army currently embarked on this navy (navigation via Army.NavyId)
-    public Army? CarriedArmy { get; set; }
+    // The armies currently embarked on this navy (navigation via Army.NavyId)
+    public ICollection<Army> CarriedArmies { get; set; } = new List<Army>();
 
     // Computed properties
     public int TransportCount  => Ships.Where(s => s.ShipType == ShipType.Transport).Sum(s => s.Count);
@@ -71,20 +71,22 @@ public class Navy
 
             double units = CarriedSupply * supplyWeight;
 
-            if (CarriedArmy != null)
+            if (CarriedArmies != null)
             {
-                var army = CarriedArmy;
-                if (army.Brigades != null)
+                foreach (var army in CarriedArmies)
                 {
-                    foreach (var b in army.Brigades)
+                    if (army.Brigades != null)
                     {
-                        double weight = !b.UnitType.CountsForFordingLength() ? cavalryWeight : infantryWeight;
-                        units += b.Number * weight;
+                        foreach (var b in army.Brigades)
+                        {
+                            double weight = !b.UnitType.CountsForFordingLength() ? cavalryWeight : infantryWeight;
+                            units += b.Number * weight;
+                        }
                     }
+                    units += army.NonCombatants * infantryWeight;
+                    units += (army.CarriedSupply + army.CarriedLoot + army.CarriedCoins) * supplyWeight;
+                    units += army.Wagons * wagonWeight;
                 }
-                units += army.NonCombatants * infantryWeight;
-                units += (army.CarriedSupply + army.CarriedLoot + army.CarriedCoins) * supplyWeight;
-                units += army.Wagons * wagonWeight;
             }
 
             return units;

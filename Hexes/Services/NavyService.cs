@@ -65,7 +65,7 @@ public class NavyService : INavyService
     {
         return await _context.Navies
             .WithStandardIncludes()
-            .Include(n => n.CarriedArmy)
+            .Include(n => n.CarriedArmies)
                 .ThenInclude(a => a!.Brigades)
             .FirstOrDefaultAsync(n => n.Id == navyId);
     }
@@ -82,7 +82,7 @@ public class NavyService : INavyService
     {
         return await _context.Navies
             .Include(n => n.Ships)
-            .Include(n => n.CarriedArmy)
+            .Include(n => n.CarriedArmies)
                 .ThenInclude(a => a!.Brigades)
             .Where(n => n.CommanderId == commanderId)
             .ToListAsync();

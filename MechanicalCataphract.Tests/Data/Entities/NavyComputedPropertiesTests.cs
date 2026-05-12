@@ -129,13 +129,13 @@ public class NavyComputedPropertiesTests
     {
         // 50 infantry = 50 cargo units
         var navy = NavyWith(transports: 1, warships: 0, carriedSupply: 0);
-        navy.CarriedArmy = new Army
+        navy.CarriedArmies.Add(new Army
         {
             Brigades = new List<Brigade>
             {
                 new Brigade { UnitType = UnitType.Infantry, Number = 50 }
             }
-        };
+        });
 
         Assert.That(navy.TotalCarryUnits, Is.EqualTo(50.0).Within(0.001));
     }
@@ -146,13 +146,13 @@ public class NavyComputedPropertiesTests
         // TransportInfantryCapacity=100, TransportCavalryCapacity=20 → weight=100/20=5
         // 20 cavalry = 20 × 5 = 100 cargo units
         var navy = NavyWith(transports: 1, warships: 0, carriedSupply: 0);
-        navy.CarriedArmy = new Army
+        navy.CarriedArmies.Add(new Army
         {
             Brigades = new List<Brigade>
             {
                 new Brigade { UnitType = UnitType.Cavalry, Number = 20 }
             }
-        };
+        });
 
         Assert.That(navy.TotalCarryUnits, Is.EqualTo(100.0).Within(0.001));
     }
@@ -165,12 +165,12 @@ public class NavyComputedPropertiesTests
         // 2 wagons × 20 = 40
         // Total = 40.1
         var navy = NavyWith(transports: 1, warships: 0, carriedSupply: 0);
-        navy.CarriedArmy = new Army
+        navy.CarriedArmies.Add(new Army
         {
             CarriedSupply = 1000,
             Wagons = 2,
             Brigades = new List<Brigade>()
-        };
+        });
 
         Assert.That(navy.TotalCarryUnits, Is.EqualTo(40.1).Within(0.001));
     }
@@ -182,7 +182,7 @@ public class NavyComputedPropertiesTests
         // Army: 10 infantry (10) + 4 cavalry (4×5=20) + 500 supply (0.05) + 1 wagon (20)
         // Total = 0.5 + 10 + 20 + 0.05 + 20 = 50.55
         var navy = NavyWith(transports: 1, warships: 0, carriedSupply: 5000);
-        navy.CarriedArmy = new Army
+        navy.CarriedArmies.Add(new Army
         {
             CarriedSupply = 500,
             Wagons = 1,
@@ -191,7 +191,7 @@ public class NavyComputedPropertiesTests
                 new Brigade { UnitType = UnitType.Infantry, Number = 10 },
                 new Brigade { UnitType = UnitType.Cavalry, Number = 4 }
             }
-        };
+        });
 
         Assert.That(navy.TotalCarryUnits, Is.EqualTo(50.55).Within(0.001));
     }

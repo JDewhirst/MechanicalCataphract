@@ -269,11 +269,11 @@ public class WargameDbContext : DbContext
             .HasForeignKey(s => s.NavyId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Army -> Navy (SetNull on delete; CarriedArmy back-reference)
+        // Army -> Navy (SetNull on delete; carried armies back-reference)
         modelBuilder.Entity<Army>()
             .HasOne(a => a.Navy)
-            .WithOne(n => n.CarriedArmy)
-            .HasForeignKey<Army>(a => a.NavyId)
+            .WithMany(n => n.CarriedArmies)
+            .HasForeignKey(a => a.NavyId)
             .OnDelete(DeleteBehavior.SetNull);
 
         // Computed properties on Navy not stored in DB

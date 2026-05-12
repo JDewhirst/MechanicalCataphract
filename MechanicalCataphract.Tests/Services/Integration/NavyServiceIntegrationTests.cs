@@ -112,7 +112,7 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
     }
 
     [Test]
-    public async Task GetNavyWithShipsAsync_IncludesCarriedArmy()
+    public async Task GetNavyWithShipsAsync_IncludesCarriedArmies()
     {
         var navy = await _service.CreateAsync(new Navy { Name = "Carrier", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
         var army = await _armyService.CreateAsync(new Army { Name = "Embarked", FactionId = 1, CoordinateQ = _hexQ, CoordinateR = _hexR });
@@ -120,8 +120,8 @@ public class NavyServiceIntegrationTests : IntegrationTestBase
         await _service.EmbarkArmyAsync(navy.Id, army.Id);
 
         var loaded = await _service.GetNavyWithShipsAsync(navy.Id);
-        Assert.That(loaded!.CarriedArmy, Is.Not.Null);
-        Assert.That(loaded.CarriedArmy!.Name, Is.EqualTo("Embarked"));
+        Assert.That(loaded!.CarriedArmies.Count, Is.EqualTo(1));
+        Assert.That(loaded.CarriedArmies.Single().Name, Is.EqualTo("Embarked"));
     }
 
     // ──────────────────────────────────────────────
