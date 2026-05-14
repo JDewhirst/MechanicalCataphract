@@ -13,6 +13,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
     private TimeAdvanceService _timeAdvanceService = null!;
     private GameStateService _gameStateService = null!;
     private ArmyService _armyService = null!;
+    private NavyService _navyService = null!;
     private MessageService _messageService = null!;
     private MapService _mapService = null!;
     private CommanderService _commanderService = null!;
@@ -27,6 +28,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
 
         _gameStateService = new GameStateService(Context);
         _armyService = new ArmyService(Context, new FactionRuleService(Context));
+        _navyService = new NavyService(Context);
         _messageService = new MessageService(Context);
         _mapService = new MapService(Context);
         _commanderService = new CommanderService(Context);
@@ -42,7 +44,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         mockCalDef.Setup(s => s.GetCalendarDefinition()).Returns(calDef);
         _calendarService = new CalendarService(mockCalDef.Object);
 
-        _pathfindingService = new PathfindingService(_mapService, _messageService, _armyService, _commanderService,
+        _pathfindingService = new PathfindingService(_mapService, _messageService, _armyService, _navyService, _commanderService,
             mockGameRules.Object, mockFactionRules.Object, _calendarService);
         _coLocationChannelService = new CoLocationChannelService(Context);
         var discordChannelManager = new Mock<IDiscordChannelManager>();
@@ -51,7 +53,7 @@ public class TimeAdvanceServiceIntegrationTests : IntegrationTestBase
         var weatherService = new Mock<IWeatherService>();
         weatherService.Setup(s => s.UpdateDailyWeatherAsync(It.IsAny<long>())).ReturnsAsync(0);
         _timeAdvanceService = new TimeAdvanceService(
-            Context, _gameStateService, _armyService, _messageService,
+            Context, _gameStateService, _armyService, _navyService, _messageService,
             _mapService, _pathfindingService, _commanderService,
             _coLocationChannelService, discordChannelManager.Object, newsService.Object,
             weatherService.Object, _calendarService);

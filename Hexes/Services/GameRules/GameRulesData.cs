@@ -6,18 +6,17 @@ namespace MechanicalCataphract.Services;
 public record MovementRules(
     int RoadCost,
     int OffRoadCost,
-    double ArmyMovementMultiplier,
     int MarchDayStartHour,
     int MarchDayEndHour,
     int LongColumnThreshold,
-    double LongColumnSpeedCap,
+    double LongColumnRoadHexesPerDayCap,
     double ForcedMarchMultiplier,
-    int RiverFordingCostPerColumnUnit);
+    double RiverFordingDayFractionPerColumnMile);
 
 public record MovementRateRules(
-    double ArmyBaseRate,
-    double MessengerBaseRate,
-    double CommanderBaseRate);
+    double ArmyRoadHexesPerDay,
+    double MessengerRoadHexesPerDay,
+    double CommanderRoadHexesPerDay);
 
 public record SupplyRules(
     int WagonSupplyMultiplier,
@@ -35,7 +34,7 @@ public record UnitTypeStats(
     int ScoutingRange,
     int MarchingColumnCapacity,
     bool CountsForFordingLength,
-    double MovementRate);
+    double RoadHexesPerDay);
 
 public record NewsRules(
     double OffRoadHoursPerHex,

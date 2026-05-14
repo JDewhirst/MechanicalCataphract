@@ -244,9 +244,11 @@ public partial class HexMapViewModel : ObservableObject
             vm => SelectedEntityViewModel = vm,
             () => SelectedMessage,
             () => SelectedArmy,
+            () => SelectedNavy,
             () => SelectedCommander,
             CreateMessageViewModel,
             CreateArmyViewModel,
+            CreateNavyViewModel,
             CreateCommanderViewModel,
             RefreshMessagesAsync,
             message => StatusMessage = message,
@@ -711,6 +713,9 @@ public partial class HexMapViewModel : ObservableObject
     private NavyViewModel CreateNavyViewModel(Navy navy)
         => _entityViewModelFactory.CreateNavy(
             navy,
+            PathSelection.Start,
+            PathSelection.ConfirmAsync,
+            PathSelection.Cancel,
             OnNavyReportRequested,
             entity => SyncEntityInCollection(() => Navies, c => Navies = c, n => SelectedNavy = n, entity));
 

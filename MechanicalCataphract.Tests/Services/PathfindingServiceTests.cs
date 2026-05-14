@@ -13,6 +13,7 @@ public class PathfindingServiceTests
 {
     private Mock<IMessageService> _mockMessageService = null!;
     private Mock<IArmyService> _mockArmyService = null!;
+    private Mock<INavyService> _mockNavyService = null!;
     private Mock<ICommanderService> _mockCommanderService = null!;
     private Mock<IGameRulesService> _mockGameRulesService = null!;
     private Mock<IFactionRuleService> _mockFactionRuleService = null!;
@@ -29,6 +30,7 @@ public class PathfindingServiceTests
 
         _mockMessageService = new Mock<IMessageService>();
         _mockArmyService = new Mock<IArmyService>();
+        _mockNavyService = new Mock<INavyService>();
         _mockCommanderService = new Mock<ICommanderService>();
 
         _mockGameRulesService = new Mock<IGameRulesService>();
@@ -54,6 +56,7 @@ public class PathfindingServiceTests
             mockMapService.Object,
             _mockMessageService.Object,
             _mockArmyService.Object,
+            _mockNavyService.Object,
             _mockCommanderService.Object,
             _mockGameRulesService.Object,
             _mockFactionRuleService.Object,
@@ -135,7 +138,7 @@ public class PathfindingServiceTests
 
         Assert.That(result.Success, Is.True);
         Assert.That(result.Path, Has.Count.EqualTo(1));
-        Assert.That(result.TotalCost, Is.EqualTo(12)); // OffRoadCost
+        Assert.That(result.TotalCost, Is.EqualTo(2)); // OffRoadCost
     }
 
     [Test]
@@ -152,7 +155,7 @@ public class PathfindingServiceTests
             new Hex(1, 0, -1));
 
         Assert.That(result.Success, Is.True);
-        Assert.That(result.TotalCost, Is.EqualTo(6)); // RoadCost
+        Assert.That(result.TotalCost, Is.EqualTo(1)); // RoadCost
     }
 
     [Test]
@@ -221,14 +224,14 @@ public class PathfindingServiceTests
             new Hex(2, 0, -2));
 
         Assert.That(result.Success, Is.True);
-        Assert.That(result.TotalCost, Is.EqualTo(12)); // 2 × RoadCost
+        Assert.That(result.TotalCost, Is.EqualTo(2)); // 2 x RoadCost
         // Verify path goes through (1,0) not (1,-1)
         Assert.That(result.Path[0].q, Is.EqualTo(1));
         Assert.That(result.Path[0].r, Is.EqualTo(0));
     }
 
     [Test]
-    public async Task ArmyEntityType_IncreasedCost()
+    public async Task ArmyEntityType_UsesSameTerrainCost()
     {
         var builder = new TestMapBuilder()
             .AddHex(0, 0)
@@ -241,8 +244,7 @@ public class PathfindingServiceTests
             TravelEntityType.Army);
 
         Assert.That(result.Success, Is.True);
-        // Army cost = OffRoadCost(12) × 1.5 = 18
-        Assert.That(result.TotalCost, Is.EqualTo(18));
+        Assert.That(result.TotalCost, Is.EqualTo(2));
     }
 
     [Test]
@@ -280,7 +282,7 @@ public class PathfindingServiceTests
 
         Assert.That(result.Success, Is.True);
         Assert.That(result.Path, Has.Count.EqualTo(4)); // excludes start
-        Assert.That(result.TotalCost, Is.EqualTo(4 * 6)); // 4 × RoadCost
+        Assert.That(result.TotalCost, Is.EqualTo(4)); // 4 x RoadCost
     }
 
     #endregion
@@ -632,6 +634,59 @@ public class PathfindingServiceTests
         Assert.That(cavalryArmy.Path, Is.Empty);
         Assert.That(infantryArmy.CoordinateQ, Is.EqualTo(4));
         Assert.That(infantryArmy.Path, Has.Count.EqualTo(2));
+    }
+
+    #endregion
+
+    #region MoveNavy Tests
+
+    [Test]
+    public async Task MoveNavy_UsesBaseHexesPerDay()
+    {
+        var service = CreateService(new TestMapBuilder().BuildMockMapService());
+        var navy = new Navy
+        {
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            Path = new List<Hex>
+            {
+                new(1, 0, -1),
+                new(2, 0, -2),
+                new(3, 0, -3)
+            }
+        };
+
+        var moved = await service.MoveNavy(navy, 1, NoonWorldHour);
+
+        Assert.That(moved, Is.EqualTo(2));
+        Assert.That(navy.CoordinateQ, Is.EqualTo(2));
+        Assert.That(navy.Path, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task MoveNavy_RowingAddsBonusHexesPerDay()
+    {
+        var service = CreateService(new TestMapBuilder().BuildMockMapService());
+        var navy = new Navy
+        {
+            CoordinateQ = 0,
+            CoordinateR = 0,
+            IsRowing = true,
+            Path = new List<Hex>
+            {
+                new(1, 0, -1),
+                new(2, 0, -2),
+                new(3, 0, -3),
+                new(4, 0, -4)
+            }
+        };
+
+        var moved = await service.MoveNavy(navy, 1, NoonWorldHour);
+
+        Assert.That(moved, Is.EqualTo(3));
+        Assert.That(navy.CoordinateQ, Is.EqualTo(3));
+        Assert.That(navy.RowingHours, Is.EqualTo(1));
+        Assert.That(navy.Path, Has.Count.EqualTo(1));
     }
 
     #endregion

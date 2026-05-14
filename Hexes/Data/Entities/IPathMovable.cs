@@ -26,9 +26,9 @@ public interface IPathMovable
     List<Hex>? Path { get; set; }
 
     /// <summary>
-    /// Movement rate in miles per hour.
+    /// Movement rate in hexes per day. Land entities use road-equivalent hexes.
     /// </summary>
-    float MovementRate { get; }
+    float HexesPerDay { get; }
 
     /// <summary>
     /// Time accumulated moving toward the next waypoint (in hours).

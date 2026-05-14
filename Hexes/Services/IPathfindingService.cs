@@ -26,6 +26,8 @@ public interface IPathfindingService
     /// <summary>Moves an army along its path for the given hours. Respects daytime restriction unless night marching.</summary>
     Task<int> MoveArmy(Army army, int hours, long worldHour);
 
+    Task<int> MoveNavy(Navy navy, int hours, long worldHour);
+
     /// <summary>Moves a commander along their path for the given hours.</summary>
     Task<int> MoveCommander(Commander commander, int hours);
 }
@@ -41,6 +43,8 @@ public enum TravelEntityType
     Commander,
     /// <summary>Army on foot - slower (0.5 mph)</summary>
     Army,
+    /// <summary>Navy travelling by water</summary>
+    Navy,
     /// <summary>Supply convoy - slowest</summary>
     Supply
 }

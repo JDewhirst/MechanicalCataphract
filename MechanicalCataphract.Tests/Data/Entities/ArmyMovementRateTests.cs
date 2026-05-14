@@ -4,7 +4,7 @@ using MechanicalCataphract.Services;
 namespace MechanicalCataphract.Tests.Data.Entities;
 
 [TestFixture]
-public class ArmyMovementRateTests
+public class ArmyRoadHexesPerDayTests
 {
     [SetUp]
     public void Setup()
@@ -13,15 +13,15 @@ public class ArmyMovementRateTests
     }
 
     [Test]
-    public void MovementRate_EmptyArmy_UsesArmyBaseRate()
+    public void RoadHexesPerDay_EmptyArmy_UsesArmyBaseRate()
     {
         var army = new Army();
 
-        Assert.That(army.MovementRate, Is.EqualTo(1.0f));
+        Assert.That(army.RoadHexesPerDay, Is.EqualTo(2.0f));
     }
 
     [Test]
-    public void MovementRate_InfantryOnly_UsesInfantryRate()
+    public void RoadHexesPerDay_InfantryOnly_UsesInfantryRate()
     {
         var army = new Army
         {
@@ -31,11 +31,11 @@ public class ArmyMovementRateTests
             }
         };
 
-        Assert.That(army.MovementRate, Is.EqualTo(1.0f));
+        Assert.That(army.RoadHexesPerDay, Is.EqualTo(2.0f));
     }
 
     [Test]
-    public void MovementRate_CavalryOnly_UsesCavalryRate()
+    public void RoadHexesPerDay_CavalryOnly_UsesCavalryRate()
     {
         var army = new Army
         {
@@ -45,11 +45,11 @@ public class ArmyMovementRateTests
             }
         };
 
-        Assert.That(army.MovementRate, Is.EqualTo(1.5f));
+        Assert.That(army.RoadHexesPerDay, Is.EqualTo(3.0f));
     }
 
     [Test]
-    public void MovementRate_MixedUnits_UsesSlowestRate()
+    public void RoadHexesPerDay_MixedUnits_UsesSlowestRate()
     {
         var army = new Army
         {
@@ -60,6 +60,6 @@ public class ArmyMovementRateTests
             }
         };
 
-        Assert.That(army.MovementRate, Is.EqualTo(1.0f));
+        Assert.That(army.RoadHexesPerDay, Is.EqualTo(2.0f));
     }
 }

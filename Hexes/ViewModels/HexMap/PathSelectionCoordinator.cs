@@ -18,9 +18,11 @@ public partial class PathSelectionCoordinator : ObservableObject
     private readonly Action<IEntityViewModel?> _setSelectedEntityViewModel;
     private readonly Func<Message?> _getSelectedMessage;
     private readonly Func<Army?> _getSelectedArmy;
+    private readonly Func<Navy?> _getSelectedNavy;
     private readonly Func<Commander?> _getSelectedCommander;
     private readonly Func<Message, MessageViewModel> _createMessageViewModel;
     private readonly Func<Army, ArmyViewModel> _createArmyViewModel;
+    private readonly Func<Navy, NavyViewModel> _createNavyViewModel;
     private readonly Func<Commander, CommanderViewModel> _createCommanderViewModel;
     private readonly Func<Task> _refreshMessagesAsync;
     private readonly Action<string> _setStatusMessage;
@@ -43,9 +45,11 @@ public partial class PathSelectionCoordinator : ObservableObject
         Action<IEntityViewModel?> setSelectedEntityViewModel,
         Func<Message?> getSelectedMessage,
         Func<Army?> getSelectedArmy,
+        Func<Navy?> getSelectedNavy,
         Func<Commander?> getSelectedCommander,
         Func<Message, MessageViewModel> createMessageViewModel,
         Func<Army, ArmyViewModel> createArmyViewModel,
+        Func<Navy, NavyViewModel> createNavyViewModel,
         Func<Commander, CommanderViewModel> createCommanderViewModel,
         Func<Task> refreshMessagesAsync,
         Action<string> setStatusMessage,
@@ -56,9 +60,11 @@ public partial class PathSelectionCoordinator : ObservableObject
         _setSelectedEntityViewModel = setSelectedEntityViewModel;
         _getSelectedMessage = getSelectedMessage;
         _getSelectedArmy = getSelectedArmy;
+        _getSelectedNavy = getSelectedNavy;
         _getSelectedCommander = getSelectedCommander;
         _createMessageViewModel = createMessageViewModel;
         _createArmyViewModel = createArmyViewModel;
+        _createNavyViewModel = createNavyViewModel;
         _createCommanderViewModel = createCommanderViewModel;
         _refreshMessagesAsync = refreshMessagesAsync;
         _setStatusMessage = setStatusMessage;
@@ -67,6 +73,7 @@ public partial class PathSelectionCoordinator : ObservableObject
 
     public void Start(Message message) => StartForEntity(message, "Message");
     public void Start(Army army) => StartForEntity(army, "Army");
+    public void Start(Navy navy) => StartForEntity(navy, "Navy");
     public void Start(Commander commander) => StartForEntity(commander, "Commander");
 
     private void StartForEntity(IPathMovable entity, string entityName)
@@ -133,6 +140,14 @@ public partial class PathSelectionCoordinator : ObservableObject
             var selected = _getSelectedArmy();
             if (selected != null)
                 _setSelectedEntityViewModel(_createArmyViewModel(selected));
+        }
+        else if (Target is Navy navy)
+        {
+            await _scopeFactory.InScopeAsync(sp =>
+                sp.GetRequiredService<INavyService>().UpdateAsync(navy));
+            var selected = _getSelectedNavy();
+            if (selected != null)
+                _setSelectedEntityViewModel(_createNavyViewModel(selected));
         }
         else if (Target is Commander commander)
         {

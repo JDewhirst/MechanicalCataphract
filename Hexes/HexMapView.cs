@@ -794,6 +794,7 @@ public class HexMapView : Control
             RenderMessagePaths(context, layout, viewport);
             RenderArmyPaths(context, layout, viewport);
             RenderCommanderPaths(context, layout, viewport);
+            RenderNavyPaths(context, layout, viewport);
             RenderPathSelectionPreview(context, layout, viewport);
         }
     }
@@ -1380,6 +1381,34 @@ public class HexMapView : Control
             var nextPoint = layout.HexToPixel(waypoint);
             context.DrawLine(pathPen, currentPoint, nextPoint);
             DrawArrowhead(context, currentPoint, nextPoint, Brushes.Purple, 8);
+            currentPoint = nextPoint;
+        }
+    }
+
+    /// <summary>
+    /// Renders the stored path for the currently selected navy as blue lines from the navy's
+    /// current location through each waypoint in the path, with directional arrows.
+    /// </summary>
+    private void RenderNavyPaths(DrawingContext context, Layout layout, Rect viewport)
+    {
+        var navy = SelectedNavy;
+        if (navy == null) return;
+        if (navy.Path == null || navy.Path.Count == 0) return;
+        if (navy.CoordinateQ == null || navy.CoordinateR == null) return;
+
+        var pathPen = new Pen(Brushes.DodgerBlue, 2, lineCap: PenLineCap.Round);
+
+        // Start from navy's current location
+        var startHex = new Hex(navy.CoordinateQ.Value, navy.CoordinateR.Value,
+                               -navy.CoordinateQ.Value - navy.CoordinateR.Value);
+        var currentPoint = layout.HexToPixel(startHex);
+
+        // Draw line and arrow to each waypoint
+        foreach (var waypoint in navy.Path)
+        {
+            var nextPoint = layout.HexToPixel(waypoint);
+            context.DrawLine(pathPen, currentPoint, nextPoint);
+            DrawArrowhead(context, currentPoint, nextPoint, Brushes.DodgerBlue, 8);
             currentPoint = nextPoint;
         }
     }

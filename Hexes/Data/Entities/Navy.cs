@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
+using Hexes;
 using MechanicalCataphract.Services;
 
 namespace MechanicalCataphract.Data.Entities;
 
-public class Navy
+public class Navy : IPathMovable
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -13,6 +14,10 @@ public class Navy
     public int? CoordinateQ { get; set; }
     public int? CoordinateR { get; set; }
     public MapHex? MapHex { get; set; }
+
+    // Target coordinate for pathfinding
+    public int? TargetCoordinateQ { get; set; }
+    public int? TargetCoordinateR { get; set; }
 
     // Ownership
     public int FactionId { get; set; }
@@ -27,6 +32,12 @@ public class Navy
 
     // Whether the fleet is rowing (bonus movement)
     public bool IsRowing { get; set; }
+    public int RowingHours { get; set; }
+
+    // Movement
+    public List<Hex>? Path { get; set; }
+    public float TimeInTransit { get; set; }
+    public float HexesPerDay => GameRules.Current.Ships.SeaOrDownriverHexesPerDay;
 
     // Navigation
     public ICollection<Ship> Ships { get; set; } = new List<Ship>();

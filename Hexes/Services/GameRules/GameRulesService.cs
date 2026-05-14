@@ -54,15 +54,15 @@ public class GameRulesService : IGameRulesService
     {
         var unitStats = new Dictionary<UnitType, UnitTypeStats>
         {
-            [UnitType.Infantry]      = new(1, 15, 1, 1, 5000, true, 1.0),
-            [UnitType.Skirmishers]   = new(1, 15, 1, 2, 5000, true, 1.0),
-            [UnitType.Cavalry]       = new(10, 75, 2, 2, 2000, false, 1.5),
-            [UnitType.Engineers]     = new(1, 15, 1, 1, 5000, true, 1.0),
-            [UnitType.HeavyInfantry] = new(1, 15, 2, 1, 5000, true, 1.0),
-            [UnitType.Huscarls]      = new(1, 15, 3, 1, 5000, true, 1.0),
-            [UnitType.Otrangers]     = new(1, 15, 2, 2, 5000, true, 1.0),
-            [UnitType.KnightLancers] = new(10, 75, 5, 2, 2000, false, 1.5),
-            [UnitType.HeavyCavalry]  = new(10, 75, 4, 2, 2000, false, 1.5),
+            [UnitType.Infantry]      = new(1, 15, 1, 1, 5000, true, 2.0),
+            [UnitType.Skirmishers]   = new(1, 15, 1, 2, 5000, true, 2.0),
+            [UnitType.Cavalry]       = new(10, 75, 2, 2, 2000, false, 3.0),
+            [UnitType.Engineers]     = new(1, 15, 1, 1, 5000, true, 2.0),
+            [UnitType.HeavyInfantry] = new(1, 15, 2, 1, 5000, true, 2.0),
+            [UnitType.Huscarls]      = new(1, 15, 3, 1, 5000, true, 2.0),
+            [UnitType.Otrangers]     = new(1, 15, 2, 2, 5000, true, 2.0),
+            [UnitType.KnightLancers] = new(10, 75, 5, 2, 2000, false, 3.0),
+            [UnitType.HeavyCavalry]  = new(10, 75, 4, 2, 2000, false, 3.0),
         };
 
         var shipTypes = new Dictionary<ShipType, ShipTypeStats>
@@ -74,19 +74,18 @@ public class GameRulesService : IGameRulesService
 
         return new GameRulesData(
             Movement: new MovementRules(
-                RoadCost: 6,
-                OffRoadCost: 12,
-                ArmyMovementMultiplier: 1.5,
+                RoadCost: 1,
+                OffRoadCost: 2,
                 MarchDayStartHour: 8,
                 MarchDayEndHour: 20,
                 LongColumnThreshold: 6,
-                LongColumnSpeedCap: 0.5,
+                LongColumnRoadHexesPerDayCap: 1.0,
                 ForcedMarchMultiplier: 2.0,
-                RiverFordingCostPerColumnUnit: 6),
+                RiverFordingDayFractionPerColumnMile: 0.5),
             MovementRates: new MovementRateRules(
-                ArmyBaseRate: 1.0,
-                MessengerBaseRate: 2.0,
-                CommanderBaseRate: 2.0),
+                ArmyRoadHexesPerDay: 2.0,
+                MessengerRoadHexesPerDay: 8.0,
+                CommanderRoadHexesPerDay: 8.0),
             Supply: new SupplyRules(
                 WagonSupplyMultiplier: 10,
                 WagonCarryCapacity: 1000,
@@ -131,19 +130,19 @@ public class GameRulesService : IGameRulesService
 
         return new GameRulesData(
             Movement: new MovementRules(
-                RoadCost: m.RoadCost ?? 6,
-                OffRoadCost: m.OffRoadCost ?? 12,
-                ArmyMovementMultiplier: m.ArmyMovementMultiplier ?? 1.5,
+                RoadCost: m.RoadCost ?? defaults.Movement.RoadCost,
+                OffRoadCost: m.OffRoadCost ?? defaults.Movement.OffRoadCost,
                 MarchDayStartHour: m.MarchDayStartHour ?? 8,
                 MarchDayEndHour: m.MarchDayEndHour ?? 20,
                 LongColumnThreshold: m.LongColumnThreshold ?? 6,
-                LongColumnSpeedCap: m.LongColumnSpeedCap ?? 0.5,
+                LongColumnRoadHexesPerDayCap: m.LongColumnRoadHexesPerDayCap ?? m.LongColumnSpeedCap ?? defaults.Movement.LongColumnRoadHexesPerDayCap,
                 ForcedMarchMultiplier: m.ForcedMarchMultiplier ?? 2.0,
-                RiverFordingCostPerColumnUnit: m.RiverFordingCostPerColumnUnit ?? 6),
+                RiverFordingDayFractionPerColumnMile: m.RiverFordingDayFractionPerColumnMile
+                    ?? ConvertLegacyRiverFordingCostToDayFraction(m.RiverFordingCostPerColumnUnit, defaults.Movement.RiverFordingDayFractionPerColumnMile)),
             MovementRates: new MovementRateRules(
-                ArmyBaseRate: mr.ArmyBaseRate ?? 1.0,
-                MessengerBaseRate: mr.MessengerBaseRate ?? 2.0,
-                CommanderBaseRate: mr.CommanderBaseRate ?? 2.0),
+                ArmyRoadHexesPerDay: mr.ArmyRoadHexesPerDay ?? ConvertLegacyHourlyRateToRoadHexesPerDay(mr.ArmyBaseRate, defaults.MovementRates.ArmyRoadHexesPerDay, defaults.Movement.MarchDayEndHour - defaults.Movement.MarchDayStartHour),
+                MessengerRoadHexesPerDay: mr.MessengerRoadHexesPerDay ?? ConvertLegacyHourlyRateToRoadHexesPerDay(mr.MessengerBaseRate, defaults.MovementRates.MessengerRoadHexesPerDay, 24),
+                CommanderRoadHexesPerDay: mr.CommanderRoadHexesPerDay ?? ConvertLegacyHourlyRateToRoadHexesPerDay(mr.CommanderBaseRate, defaults.MovementRates.CommanderRoadHexesPerDay, 24)),
             Supply: new SupplyRules(
                 WagonSupplyMultiplier: s.WagonSupplyMultiplier ?? 10,
                 WagonCarryCapacity: s.WagonCarryCapacity ?? 1000,
@@ -199,7 +198,7 @@ public class GameRulesService : IGameRulesService
         int defScouting = isCavalry ? 2    : 1;
         int defColumn   = isCavalry ? 2000 : 5000;
         bool defFording = !isCavalry;
-        double defMovementRate = isCavalry ? 1.5 : 1.0;
+        double defRoadHexesPerDay = isCavalry ? 3.0 : 2.0;
 
         return new UnitTypeStats(
             dto.SupplyConsumptionPerMan ?? fallback?.SupplyConsumptionPerMan ?? defSupply,
@@ -208,7 +207,17 @@ public class GameRulesService : IGameRulesService
             dto.ScoutingRange           ?? fallback?.ScoutingRange           ?? defScouting,
             dto.MarchingColumnCapacity  ?? fallback?.MarchingColumnCapacity  ?? defColumn,
             dto.CountsForFordingLength  ?? fallback?.CountsForFordingLength  ?? defFording,
-            dto.MovementRate            ?? fallback?.MovementRate            ?? defMovementRate);
+            dto.RoadHexesPerDay         ?? ConvertLegacyHourlyRateToRoadHexesPerDay(dto.MovementRate, fallback?.RoadHexesPerDay ?? defRoadHexesPerDay, 12));
+    }
+
+    private static double ConvertLegacyHourlyRateToRoadHexesPerDay(double? legacyRate, double fallback, int movementHoursPerDay)
+    {
+        return legacyRate.HasValue ? legacyRate.Value * movementHoursPerDay / 6.0 : fallback;
+    }
+
+    private static double ConvertLegacyRiverFordingCostToDayFraction(int? legacyCost, double fallback)
+    {
+        return legacyCost.HasValue ? legacyCost.Value / 12.0 : fallback;
     }
 
     private static ShipRules FromShipsDto(ShipsDto? dto, ShipRules defaults)
@@ -281,17 +290,21 @@ public class GameRulesService : IGameRulesService
     {
         public int? RoadCost { get; set; }
         public int? OffRoadCost { get; set; }
-        public double? ArmyMovementMultiplier { get; set; }
         public int? MarchDayStartHour { get; set; }
         public int? MarchDayEndHour { get; set; }
         public int? LongColumnThreshold { get; set; }
+        public double? LongColumnRoadHexesPerDayCap { get; set; }
         public double? LongColumnSpeedCap { get; set; }
         public double? ForcedMarchMultiplier { get; set; }
+        public double? RiverFordingDayFractionPerColumnMile { get; set; }
         public int? RiverFordingCostPerColumnUnit { get; set; }
     }
 
     private class MovementRatesDto
     {
+        public double? ArmyRoadHexesPerDay { get; set; }
+        public double? MessengerRoadHexesPerDay { get; set; }
+        public double? CommanderRoadHexesPerDay { get; set; }
         public double? ArmyBaseRate { get; set; }
         public double? MessengerBaseRate { get; set; }
         public double? CommanderBaseRate { get; set; }
@@ -318,6 +331,7 @@ public class GameRulesService : IGameRulesService
         public int? ScoutingRange { get; set; }
         public int? MarchingColumnCapacity { get; set; }
         public bool? CountsForFordingLength { get; set; }
+        public double? RoadHexesPerDay { get; set; }
         public double? MovementRate { get; set; }
     }
 

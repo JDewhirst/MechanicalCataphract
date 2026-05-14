@@ -59,7 +59,7 @@
                    FontSize="11" Foreground="Gray"/>
 
         <!-- Edit Messages -->
-        <Button Content="Edit Messagesâ€¦" FontSize="11" Padding="8,3"
+        <Button Content="Edit Messages" FontSize="11" Padding="8,3"
                 Command="{Binding EditCommand}"
                 CommandParameter="{Binding SelectedItem}"/>
 

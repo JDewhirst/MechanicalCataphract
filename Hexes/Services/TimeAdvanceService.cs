@@ -3,7 +3,6 @@ using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Discord;
 using MechanicalCataphract.Services.Calendar;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -14,6 +13,7 @@ namespace MechanicalCataphract.Services
         private readonly WargameDbContext _context;
         private readonly IGameStateService _gameStateService;
         private readonly IArmyService _armyService;
+        private readonly INavyService _navyService;
         private readonly IMessageService _messageService;
         private readonly IMapService _mapService;
         private readonly IPathfindingService _pathfindingService;
@@ -28,6 +28,7 @@ namespace MechanicalCataphract.Services
             WargameDbContext context,
             IGameStateService gameStateService,
             IArmyService armyService,
+            INavyService navyService,
             IMessageService messageService,
             IMapService mapService,
             IPathfindingService pathfindingService,
@@ -41,6 +42,7 @@ namespace MechanicalCataphract.Services
             _context = context;
             _gameStateService = gameStateService;
             _armyService = armyService;
+            _navyService = navyService;
             _messageService = messageService;
             _mapService = mapService;
             _pathfindingService = pathfindingService;
@@ -69,20 +71,27 @@ namespace MechanicalCataphract.Services
                 // 3. Process army movement
                 var armiesMoved = await ProcessArmyMovementAsync(oldWorldHour);
 
-                // 4. Process commander movement
+                // 4. Process navy movement
+                var naviesMoved = await ProcessNavyMovementAsync(oldWorldHour);
+
+                // 5. Embarked armies follow their navies after navy movement.
+                armiesMoved += await ProcessEmbarkedArmyMovementAsync();
+
+                // 6. Process commander movement. Commanders following embarked armies will
+                // snap to the army's post-navy-movement location here.
                 var commandersMoved = await ProcessCommanderMovementAsync();
 
-                // 4b. Enforce co-location proximity
+                // 7. Enforce co-location proximity
                 var coLocationRemovals = await EnforceCoLocationProximityAsync();
 
-                // 5. Process supply consumption
+                // 7. Process supply consumption
                 //int armiesSupplied = 0;
                 //if (_calendarService.CrossedHourOfDay(oldWorldHour, newWorldHour, GameRules.Current.Supply.DailyUsageHour))
                 //{
                 //    armiesSupplied = await ProcessAllArmyDailySupplyConsumptionAsync();
                 //}
 
-                // 6. Send daily army, navy, and scouting reports
+                // 8. Send daily army, navy, and scouting reports
                 //if (_calendarService.CrossedHourOfDay(oldWorldHour, newWorldHour, GameRules.Current.Armies.DailyReportHour))
                 //{
                 //    await _discordChannelManager.SendAllArmyReportsAsync();
@@ -90,10 +99,10 @@ namespace MechanicalCataphract.Services
                 //    await _discordChannelManager.SendAllScoutingReportsAsync();
                 //}
 
-                // 7. Process event deliveries (news/rumour spreading)
+                // 8. Process event deliveries (news/rumour spreading)
                 int newsProcessed = await _newsService.ProcessEventDeliveriesAsync(newWorldHour);
 
-                // 8. Update weather when daily trigger is crossed
+                // 9. Update weather when daily trigger is crossed
                 int weatherUpdated = 0;
                 if (_calendarService.CrossedHourOfDay(oldWorldHour, newWorldHour, GameRules.Current.Weather.DailyUpdateHour))
                 {
@@ -109,6 +118,7 @@ namespace MechanicalCataphract.Services
                     FormattedTime = _calendarService.FormatDateTime(newWorldHour),
                     MessagesDelivered = messagesMoved,
                     ArmiesMoved = armiesMoved,
+                    NaviesMoved = naviesMoved,
                     CommandersMoved = commandersMoved,
                     //ArmiesSupplied = armiesSupplied,
                     CoLocationRemovals = coLocationRemovals,
@@ -157,8 +167,51 @@ namespace MechanicalCataphract.Services
             var armies = await _armyService.GetAllAsync();
             foreach (Army army in armies)
             {
+                if (army.NavyId != null)
+                    continue;
+
                 armiesMoved += await _pathfindingService.MoveArmy(army, 1, worldHour);
             }
+            return armiesMoved;
+        }
+
+        private async Task<int> ProcessNavyMovementAsync(long worldHour)
+        {
+            int naviesMoved = 0;
+            var navies = await _navyService.GetAllAsync();
+            foreach (Navy navy in navies)
+            {
+                naviesMoved += await _pathfindingService.MoveNavy(navy, 1, worldHour);
+            }
+            return naviesMoved;
+        }
+
+        private async Task<int> ProcessEmbarkedArmyMovementAsync()
+        {
+            int armiesMoved = 0;
+            var navies = await _navyService.GetAllAsync();
+            var navyLocations = navies
+                .Where(n => n.CoordinateQ != null && n.CoordinateR != null)
+                .ToDictionary(n => n.Id, n => (n.CoordinateQ, n.CoordinateR));
+
+            var armies = await _armyService.GetAllAsync();
+            foreach (Army army in armies)
+            {
+                if (army.NavyId == null)
+                    continue;
+
+                if (!navyLocations.TryGetValue(army.NavyId.Value, out var location))
+                    continue;
+
+                if (army.CoordinateQ == location.CoordinateQ && army.CoordinateR == location.CoordinateR)
+                    continue;
+
+                army.CoordinateQ = location.CoordinateQ;
+                army.CoordinateR = location.CoordinateR;
+                await _armyService.UpdateAsync(army);
+                armiesMoved++;
+            }
+
             return armiesMoved;
         }
 

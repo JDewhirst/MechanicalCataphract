@@ -115,7 +115,13 @@ public sealed class EntityViewModelFactory(
         return vm;
     }
 
-    public NavyViewModel CreateNavy(Navy navy, Func<Navy, Task> navyReportRequested, Action<Navy> saved)
+    public NavyViewModel CreateNavy(
+        Navy navy,
+        Action<Navy> pathSelectionRequested,
+        Func<Task> pathSelectionConfirmRequested,
+        Action pathSelectionCancelRequested,
+        Func<Navy, Task> navyReportRequested,
+        Action<Navy> saved)
     {
         var vm = new NavyViewModel(
             navy,
@@ -126,6 +132,9 @@ public sealed class EntityViewModelFactory(
             getMapRows(),
             getMapColumns());
 
+        vm.PathSelectionRequested += pathSelectionRequested;
+        vm.PathSelectionConfirmRequested += pathSelectionConfirmRequested;
+        vm.PathSelectionCancelRequested += pathSelectionCancelRequested;
         vm.NavyReportRequested += navyReportRequested;
         vm.Saved += () => saved(vm.Entity);
         return vm;

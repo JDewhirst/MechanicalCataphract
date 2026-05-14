@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GUI.ViewModels;
+using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,7 +16,7 @@ namespace GUI.ViewModels.EntityViewModels;
 /// <summary>
 /// ViewModel wrapper for Navy entity with Ships management and auto-save.
 /// </summary>
-public partial class NavyViewModel : ObservableObject, IEntityViewModel
+public partial class NavyViewModel : ObservableObject, IEntityViewModel, IPathSelectableViewModel
 {
     private readonly Navy _navy;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -98,6 +99,61 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
             _ = SaveAsync();
         }
     }
+
+    public int? TargetCoordinateQ
+    {
+        get => _navy.TargetCoordinateQ;
+        set { if (_navy.TargetCoordinateQ != value) { _navy.TargetCoordinateQ = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetCol)); _ = SaveAsync(); } }
+    }
+
+    public int? TargetCoordinateR
+    {
+        get => _navy.TargetCoordinateR;
+        set { if (_navy.TargetCoordinateR != value) { _navy.TargetCoordinateR = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetRow)); _ = SaveAsync(); } }
+    }
+
+    public int? TargetCol
+    {
+        get => HexCoordinateHelper.GetCol(TargetCoordinateQ, TargetCoordinateR);
+        set
+        {
+            if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
+            var result = HexCoordinateHelper.SetCol(value, TargetRow, _mapCols, _mapRows);
+            if (result == null) return;
+            TargetCoordinateQ = result.Value.q; TargetCoordinateR = result.Value.r;
+            OnPropertyChanged();
+        }
+    }
+
+    public int? TargetRow
+    {
+        get => HexCoordinateHelper.GetRow(TargetCoordinateQ, TargetCoordinateR);
+        set
+        {
+            if (value == null) { TargetCoordinateQ = null; TargetCoordinateR = null; return; }
+            var result = HexCoordinateHelper.SetRow(value, TargetCol, _mapCols, _mapRows);
+            if (result == null) return;
+            TargetCoordinateQ = result.Value.q; TargetCoordinateR = result.Value.r;
+            OnPropertyChanged();
+        }
+    }
+
+    public List<Hex>? Path
+    {
+        get => _navy.Path;
+        set { if (_navy.Path != value) { _navy.Path = value; OnPropertyChanged(); OnPropertyChanged(nameof(PathLength)); _ = SaveAsync(); } }
+    }
+
+    public int PathLength => _navy.Path?.Count ?? 0;
+
+    [ObservableProperty]
+    private bool _isPathSelectionActive;
+
+    [ObservableProperty]
+    private int _pathSelectionCount;
+
+    [ObservableProperty]
+    private string? _pathComputeStatus;
 
     public int? CommanderId
     {
@@ -190,6 +246,75 @@ public partial class NavyViewModel : ObservableObject, IEntityViewModel
     /// Event raised when user requests a navy status embed be sent to Discord.
     /// </summary>
     public event Func<Navy, Task>? NavyReportRequested;
+
+    /// <summary>
+    /// Event raised when user wants to select a path for this navy.
+    /// HexMapViewModel subscribes to this to enter path selection mode.
+    /// </summary>
+    public event Action<Navy>? PathSelectionRequested;
+
+    /// <summary>
+    /// Event raised when user confirms path selection.
+    /// </summary>
+    public event Func<Task>? PathSelectionConfirmRequested;
+
+    /// <summary>
+    /// Event raised when user cancels path selection.
+    /// </summary>
+    public event Action? PathSelectionCancelRequested;
+
+    [RelayCommand]
+    private void SelectPath()
+    {
+        PathSelectionRequested?.Invoke(_navy);
+    }
+
+    [RelayCommand]
+    private async Task ConfirmPathSelection()
+    {
+        if (PathSelectionConfirmRequested != null)
+            await PathSelectionConfirmRequested.Invoke();
+    }
+
+    [RelayCommand]
+    private void CancelPathSelection()
+    {
+        PathSelectionCancelRequested?.Invoke();
+    }
+
+    [RelayCommand]
+    private async Task ComputePath()
+    {
+        if (CoordinateQ == null || CoordinateR == null)
+        {
+            PathComputeStatus = "Current location not set";
+            return;
+        }
+
+        if (TargetCoordinateQ == null || TargetCoordinateR == null)
+        {
+            PathComputeStatus = "Target location not set";
+            return;
+        }
+
+        PathComputeStatus = "Computing...";
+
+        var start = new Hex(CoordinateQ.Value, CoordinateR.Value, -CoordinateQ.Value - CoordinateR.Value);
+        var end = new Hex(TargetCoordinateQ.Value, TargetCoordinateR.Value, -TargetCoordinateQ.Value - TargetCoordinateR.Value);
+
+        var result = await _scopeFactory.InScopeAsync(sp =>
+            sp.GetRequiredService<IPathfindingService>().FindPathAsync(start, end, TravelEntityType.Navy));
+
+        if (result.Success)
+        {
+            Path = result.Path.ToList();
+            PathComputeStatus = $"Path found: {result.Path.Count} hexes, cost {result.TotalCost}";
+        }
+        else
+        {
+            PathComputeStatus = result.FailureReason ?? "Path computation failed";
+        }
+    }
 
     [RelayCommand]
     private async Task SendNavyReport()

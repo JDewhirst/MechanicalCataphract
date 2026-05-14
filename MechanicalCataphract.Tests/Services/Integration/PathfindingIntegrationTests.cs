@@ -13,6 +13,7 @@ public class PathfindingIntegrationTests : IntegrationTestBase
     private PathfindingService _pathfindingService = null!;
     private MapService _mapService = null!;
     private ArmyService _armyService = null!;
+    private NavyService _navyService = null!;
     private MessageService _messageService = null!;
     private CommanderService _commanderService = null!;
 
@@ -22,6 +23,7 @@ public class PathfindingIntegrationTests : IntegrationTestBase
         await SeedHelpers.SeedMapAsync(Context, 5, 5);
         _mapService = new MapService(Context);
         _armyService = new ArmyService(Context, new FactionRuleService(Context));
+        _navyService = new NavyService(Context);
         _messageService = new MessageService(Context);
         _commanderService = new CommanderService(Context);
 
@@ -39,7 +41,7 @@ public class PathfindingIntegrationTests : IntegrationTestBase
         var calendarService = new CalendarService(mockCalDef.Object);
 
         _pathfindingService = new PathfindingService(
-            _mapService, _messageService, _armyService, _commanderService,
+            _mapService, _messageService, _armyService, _navyService, _commanderService,
             mockGameRules.Object, mockFactionRules.Object, calendarService);
     }
 

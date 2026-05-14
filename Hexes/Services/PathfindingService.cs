@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel.__Internals;
 using Hexes;
 using MechanicalCataphract.Data.Entities;
 using MechanicalCataphract.Services.Calendar;
@@ -13,6 +14,7 @@ public class PathfindingService : IPathfindingService
     private readonly IMapService _mapService;
     private readonly IMessageService _messageService;
     private readonly IArmyService _armyService;
+    private readonly INavyService _navyService;
     private readonly ICommanderService _commanderService;
     private readonly IGameRulesService _gameRulesService;
     private readonly IFactionRuleService _factionRuleService;
@@ -22,6 +24,7 @@ public class PathfindingService : IPathfindingService
         IMapService mapService,
         IMessageService messageService,
         IArmyService armyService,
+        INavyService navyService,
         ICommanderService commanderService,
         IGameRulesService gameRulesService,
         IFactionRuleService factionRuleService,
@@ -30,6 +33,7 @@ public class PathfindingService : IPathfindingService
         _mapService = mapService;
         _messageService = messageService;
         _armyService = armyService;
+        _navyService = navyService;
         _commanderService = commanderService;
         _gameRulesService = gameRulesService;
         _factionRuleService = factionRuleService;
@@ -56,8 +60,13 @@ public class PathfindingService : IPathfindingService
         if (endHex.Q == MapHex.SentinelQ && endHex.R == MapHex.SentinelR)
             return new PathResult { Success = false, FailureReason = "Cannot pathfind to the Torment Hexagon" };
 
-        if (IsWaterHex(endHex))
-            return new PathResult { Success = false, FailureReason = "Target hex is water (impassable)" };
+        if (!CanTraverseHex(endHex, entityType))
+        {
+            var reason = entityType == TravelEntityType.Navy
+                ? "Target hex is not water (impassable)"
+                : "Target hex is water (impassable)";
+            return new PathResult { Success = false, FailureReason = reason };
+        }
 
         if (start.q == end.q && start.r == end.r)
             return new PathResult { Success = true, Path = Array.Empty<Hex>(), TotalCost = 0 };
@@ -102,7 +111,7 @@ public class PathfindingService : IPathfindingService
                 if (!hexMap.TryGetValue(neighborKey, out var neighborMapHex))
                     continue;
 
-                if (IsWaterHex(neighborMapHex))
+                if (!CanTraverseHex(neighborMapHex, entityType))
                     continue;
 
                 // Calculate movement cost
@@ -147,17 +156,18 @@ public class PathfindingService : IPathfindingService
 
         return entityType switch
         {
-            TravelEntityType.Army => (int)(baseCost * rules.Movement.ArmyMovementMultiplier),
+            TravelEntityType.Navy => rules.Movement.RoadCost,
             _ => baseCost
         };
     }
 
     /// <summary>
-    /// Checks if a hex is water (impassable).
+    /// Checks whether a hex can be traversed by the entity type.
     /// </summary>
-    private static bool IsWaterHex(MapHex hex)
+    private static bool CanTraverseHex(MapHex hex, TravelEntityType entityType)
     {
-        return hex.TerrainType?.IsWater ?? false;
+        bool isWater = hex.TerrainType?.IsWater ?? false;
+        return entityType == TravelEntityType.Navy ? isWater : !isWater;
     }
 
     /// <summary>
@@ -184,7 +194,13 @@ public class PathfindingService : IPathfindingService
     /// <summary>
     /// Shared movement logic for any IPathMovable entity.
     /// </summary>
-    private async Task<int> MoveEntity(IPathMovable entity, int hours, Func<Task> saveAsync, float? effectiveRate = null, int extraCost = 0)
+    private async Task<int> MoveEntity(
+        IPathMovable entity,
+        int hours,
+        Func<Task> saveAsync,
+        float? effectiveHexesPerDay = null,
+        double extraHoursRequired = 0,
+        int movementHoursPerDay = 24)
     {
         if (entity.CoordinateQ == null || entity.CoordinateR == null)
             return 0;
@@ -201,17 +217,19 @@ public class PathfindingService : IPathfindingService
 
         var rules = _gameRulesService.Rules;
         bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
-        int movementCost = (hasRoad ? rules.Movement.RoadCost : rules.Movement.OffRoadCost) + extraCost;
+        int movementCost = hasRoad ? rules.Movement.RoadCost : rules.Movement.OffRoadCost;
 
-        float rate = effectiveRate ?? entity.MovementRate;
+        float hexesPerDay = effectiveHexesPerDay ?? entity.HexesPerDay;
+        double roadCostEquivalent = movementCost / (double)rules.Movement.RoadCost;
+        double hoursRequired = roadCostEquivalent * movementHoursPerDay / hexesPerDay + extraHoursRequired;
 
         entity.TimeInTransit += hours;
-        if (entity.TimeInTransit >= (movementCost / rate))
+        if (entity.TimeInTransit >= hoursRequired)
         {
             entity.CoordinateQ = nextHex.q;
             entity.CoordinateR = nextHex.r;
             entity.Path.Remove(nextHex);
-            entity.TimeInTransit = entity.TimeInTransit - movementCost / rate;
+            entity.TimeInTransit = (float)(entity.TimeInTransit - hoursRequired);
             await saveAsync();
             return 1;
         }
@@ -222,7 +240,7 @@ public class PathfindingService : IPathfindingService
 
     public async Task<int> MoveMessage(Message message, int hours)
     {
-        float effectiveRate = message.MovementRate;
+        float effectiveRate = message.HexesPerDay;
 
         // Faction rule: messenger speed bonus in own-controlled hexes
         if (message.CoordinateQ.HasValue && message.CoordinateR.HasValue && message.SenderCommander != null)
@@ -260,12 +278,13 @@ public class PathfindingService : IPathfindingService
             return 0;
 
         // Determine effective movement rate
-        float baseRate = army.MovementRate;
+        int marchHoursPerDay = rules.Movement.MarchDayEndHour - rules.Movement.MarchDayStartHour;
+        float baseRate = army.RoadHexesPerDay;
         bool isLongColumn = army.MarchingColumnLength > rules.Movement.LongColumnThreshold;
 
         // Speed cap for long columns
         if (isLongColumn)
-            baseRate = (float)rules.Movement.LongColumnSpeedCap;
+            baseRate = (float)rules.Movement.LongColumnRoadHexesPerDayCap;
 
         // Forced march multiplies effective rate
         float effectiveRate = army.IsForcedMarch ? baseRate * (float)rules.Movement.ForcedMarchMultiplier : baseRate;
@@ -275,7 +294,7 @@ public class PathfindingService : IPathfindingService
             army.ForcedMarchHours += hours;
 
         // River fording penalty: when crossing a river edge without a bridge
-        int extraCost = 0;
+        double extraHoursRequired = 0;
         var currentHex = new Hex(
             army.CoordinateQ.Value,
             army.CoordinateR.Value,
@@ -285,11 +304,54 @@ public class PathfindingService : IPathfindingService
         bool hasRoad = await _mapService.HasRoadBetweenAsync(currentHex, nextHex);
         bool hasRiver = await _mapService.HasRiverBetweenAsync(currentHex, nextHex);
 
-        // River without bridge = fording penalty (cavalry excluded, forced march doesn't help)
+        // River without bridge: each mile of infantry/wagon column requires a half-day to ford.
         if (hasRiver && !hasRoad)
-            extraCost = army.FordingColumnLength * rules.Movement.RiverFordingCostPerColumnUnit;
+            extraHoursRequired = army.FordingColumnLength
+                * marchHoursPerDay
+                * rules.Movement.RiverFordingDayFractionPerColumnMile;
 
-        return await MoveEntity(army, hours, () => _armyService.UpdateAsync(army), effectiveRate, extraCost);
+        return await MoveEntity(army, hours, () => _armyService.UpdateAsync(army), effectiveRate, extraHoursRequired, marchHoursPerDay);
+    }
+
+    public async Task<int> MoveNavy(Navy navy, int hours, long worldHour)
+    {
+        var rules = _gameRulesService.Rules;
+        // Daytime restriction: navies only move during configured hours
+        int hourOfDay = _calendarService.GetHourOfDay(worldHour);
+        if (hourOfDay < rules.Movement.MarchDayStartHour || hourOfDay >= rules.Movement.MarchDayEndHour)
+            return 0;
+
+        if (navy.CoordinateQ == null || navy.CoordinateR == null)
+            return 0;
+
+        if (navy.Path == null || navy.Path.Count == 0)
+            return 0;
+
+        int movementHoursPerDay = rules.Movement.MarchDayEndHour - rules.Movement.MarchDayStartHour;
+        float effectiveRate = rules.Ships.SeaOrDownriverHexesPerDay;
+        if (navy.IsRowing)
+            effectiveRate += rules.Ships.RowingBonusHexesPerDay;
+
+        // Track rowing hours
+        if (navy.IsRowing)
+            navy.RowingHours += hours;
+
+        double hoursRequiredPerHex = movementHoursPerDay / (double)effectiveRate;
+
+        int hexesMoved = 0;
+        navy.TimeInTransit += hours;
+        while (navy.Path.Count > 0 && navy.TimeInTransit >= hoursRequiredPerHex)
+        {
+            var nextHex = navy.Path[0];
+            navy.CoordinateQ = nextHex.q;
+            navy.CoordinateR = nextHex.r;
+            navy.Path.RemoveAt(0);
+            navy.TimeInTransit = (float)(navy.TimeInTransit - hoursRequiredPerHex);
+            hexesMoved++;
+        }
+
+        await _navyService.UpdateAsync(navy);
+        return hexesMoved;
     }
 
     public async Task<int> MoveCommander(Commander commander, int hours)

@@ -36,7 +36,7 @@ public class Commander : IPathMovable
     // Movement
     public List<Hex>? Path { get; set; }
     public float TimeInTransit { get; set; }
-    public float MovementRate => (float)GameRules.Current.MovementRates.CommanderBaseRate;
+    public float HexesPerDay => (float)GameRules.Current.MovementRates.CommanderRoadHexesPerDay;
 
     // Following Army (physical location coupling, distinct from commanding)
     public int? FollowingArmyId { get; set; }

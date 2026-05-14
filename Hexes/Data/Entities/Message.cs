@@ -32,7 +32,7 @@ public class Message : IPathMovable
     // Movement (implements IPathMovable)
     public List<Hex>? Path { get; set; }
     public float TimeInTransit { get; set; }
-    public float MovementRate => (float)GameRules.Current.MovementRates.MessengerBaseRate;
+    public float HexesPerDay => (float)GameRules.Current.MovementRates.MessengerRoadHexesPerDay;
 
     // Status
     public bool Delivered { get; set; }

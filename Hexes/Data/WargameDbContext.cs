@@ -202,6 +202,14 @@ public class WargameDbContext : DbContext
                 v => v == null ? null : JsonSerializer.Deserialize<List<Hex>>(v, hexJsonOptions))
             .Metadata.SetValueComparer(hexListComparer);
 
+        // Navy.Path -> JSON serialization for List<Hex>
+        modelBuilder.Entity<Navy>()
+            .Property(n => n.Path)
+            .HasConversion(
+                v => v == null ? null : JsonSerializer.Serialize(v, hexJsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<List<Hex>>(v, hexJsonOptions))
+            .Metadata.SetValueComparer(hexListComparer);
+
         // NewsItem JSON columns
         var jsonOptions = new JsonSerializerOptions();
 

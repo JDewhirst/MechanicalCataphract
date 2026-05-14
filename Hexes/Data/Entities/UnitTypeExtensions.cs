@@ -19,7 +19,7 @@ public static class UnitTypeExtensions
     public static int CombatPowerPerMan(this UnitType t)          => GetStats(t).CombatPowerPerMan;
     public static int ScoutingRange(this UnitType t)              => GetStats(t).ScoutingRange;
     public static int MarchingColumnCapacity(this UnitType t)     => GetStats(t).MarchingColumnCapacity;
-    public static double MovementRate(this UnitType t)            => GetStats(t).MovementRate;
+    public static double RoadHexesPerDay(this UnitType t)         => GetStats(t).RoadHexesPerDay;
 
     /// <summary>False for cavalry — they ford rivers without column-length penalty.</summary>
     public static bool CountsForFordingLength(this UnitType t)    => GetStats(t).CountsForFordingLength;
