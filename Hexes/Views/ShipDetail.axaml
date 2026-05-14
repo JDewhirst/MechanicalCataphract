@@ -7,7 +7,7 @@
              x:Class="GUI.Views.ShipDetail"
              x:DataType="entities:Ship">
 
-    <Border BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="8" Margin="2">
+    <Border Classes="item-card" Padding="8" Margin="2">
         <Grid ColumnDefinitions="80,*,Auto" RowDefinitions="Auto" ColumnSpacing="8">
             <!-- Count -->
             <StackPanel Grid.Column="0">
@@ -29,8 +29,8 @@
             <!-- Delete button -->
             <Button Grid.Column="2"
                     Content="Delete"
+                    Classes="danger"
                     Click="OnDeleteClicked"
-                    Foreground="DarkRed"
                     FontSize="11"
                     VerticalAlignment="Bottom"/>
         </Grid>

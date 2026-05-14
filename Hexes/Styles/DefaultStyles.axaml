@@ -1,14 +1,211 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Design.PreviewWith>
-    <Border Padding="20">
-      <!-- Add Controls for Previewer Here -->
-		<Button Content="Click Here"></Button>
+    <Border Padding="20" Background="{DynamicResource AppBackgroundBrush}">
+      <StackPanel Spacing="8">
+        <Button Content="Click Here"/>
+        <TextBox Watermark="Input"/>
+      </StackPanel>
     </Border>
   </Design.PreviewWith>
 
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+    <Setter Property="FontFamily" Value="Inter, Segoe UI"/>
+  </Style>
+
+  <Style Selector="UserControl">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+    <Setter Property="FontFamily" Value="Inter, Segoe UI"/>
+  </Style>
+
+  <Style Selector="Button">
+    <Setter Property="Padding" Value="10,5"/>
+    <Setter Property="MinHeight" Value="26"/>
+    <Setter Property="CornerRadius" Value="5"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="Button:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+  </Style>
+
+  <Style Selector="Button.accent">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+    <Setter Property="Foreground" Value="White"/>
+  </Style>
+
+  <Style Selector="Button.accent:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+  </Style>
+
+  <Style Selector="Button.success">
+    <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}"/>
+    <Setter Property="Foreground" Value="White"/>
+  </Style>
+
+  <Style Selector="Button.danger">
+    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+    <Setter Property="BorderBrush" Value="#7A3A42"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+  </Style>
+
+  <Style Selector="Button:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+    <Setter Property="Background" Value="#1A2024"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="ToggleButton">
+    <Setter Property="Padding" Value="10,5"/>
+    <Setter Property="MinHeight" Value="28"/>
+    <Setter Property="CornerRadius" Value="5"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+  </Style>
+
+  <Style Selector="ToggleButton:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+    <Setter Property="Background" Value="#1A2024"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="MinHeight" Value="28"/>
+    <Setter Property="Padding" Value="7,4"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="TextBox:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+    <Setter Property="Background" Value="#1A2024"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="28"/>
+    <Setter Property="Padding" Value="7,4"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="ComboBox:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+    <Setter Property="Background" Value="#1A2024"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="NumericUpDown">
+    <Setter Property="MinHeight" Value="28"/>
+    <Setter Property="Padding" Value="7,4"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="NumericUpDown:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+    <Setter Property="Background" Value="#1A2024"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="CheckBox:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
+  </Style>
+
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+  </Style>
+
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="Separator">
+    <Setter Property="Background" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="GridSplitter">
+    <Setter Property="Background" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
+    <Setter Property="CornerRadius" Value="6"/>
+  </Style>
+
+  <Style Selector="Border.item-card">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="6"/>
+  </Style>
+
+  <Style Selector="TabControl">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+  </Style>
+
+  <Style Selector="TabItem">
+    <Setter Property="Padding" Value="10,5"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+  </Style>
+
+  <Style Selector="TabItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+
+  <Style Selector="TabItem:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+  </Style>
+
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+  </Style>
+
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="6,4"/>
+  </Style>
+
+  <Style Selector="DataGrid">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+    <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+    <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource SubtleBorderBrush}"/>
+    <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}"/>
+  </Style>
+
   <!-- DataGrid column headers: prevent text clipping at right border -->
   <Style Selector="DataGridColumnHeader">
-    <Setter Property="Padding" Value="8,4"/>
+    <Setter Property="Padding" Value="8,5"/>
+    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorderBrush}"/>
   </Style>
 </Styles>

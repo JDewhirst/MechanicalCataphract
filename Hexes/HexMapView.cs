@@ -320,6 +320,8 @@ public class HexMapView : Control
     // Grayscale scrim drawn between terrain and overlay to neutralize terrain color bleed
     private static readonly ISolidColorBrush ScrimBrush =
         new SolidColorBrush(Color.FromArgb(180, 0, 0, 0));
+    private static readonly ISolidColorBrush MapBackgroundBrush =
+        new SolidColorBrush(Color.Parse("#1A1F22"));
 
     // Army/Commander marker rendering
     private static readonly Pen MarkerOutlinePen = new Pen(Brushes.Black, 2);
@@ -738,7 +740,7 @@ public class HexMapView : Control
         var layout = GetLayout();
         var viewport = new Rect(Bounds.Size);
 
-        context.FillRectangle(Brushes.Gray, viewport);
+        context.FillRectangle(MapBackgroundBrush, viewport);
         base.Render(context);
 
         if (_cachedHexRadius != HexRadius)

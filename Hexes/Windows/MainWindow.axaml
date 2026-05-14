@@ -9,7 +9,8 @@
         xmlns:entityVm="using:GUI.ViewModels.EntityViewModels"
         x:Class="GUI.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="MechanicalCataphract - Wargame Manager">
+        Title="MechanicalCataphract - Wargame Manager"
+        Background="{DynamicResource AppBackgroundBrush}">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
@@ -43,14 +44,17 @@
         </DataTemplate>
     </Window.DataTemplates>
 
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="400,Auto,*,Auto,400">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="400,Auto,*,Auto,400"
+          Background="{DynamicResource AppBackgroundBrush}">
         <!-- Row 0: Top Bar spanning all columns -->
         <Border Grid.Row="0" Grid.ColumnSpan="5"
-                BorderBrush="Gray" BorderThickness="0,0,0,1"
-                Padding="5">
+                Background="{DynamicResource ToolbarBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,0,1"
+                Padding="8">
             <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*">
                 <!-- 1. Edit Map -->
                 <Button Grid.Row="0" Grid.Column="0"
+                        Classes="accent"
                         Content="Edit Map"
                         Command="{Binding OpenMapEditorCommand}"
                         VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -79,7 +83,8 @@
 
                 <!-- 3. Forage Controls Panel -->
                 <Border Grid.Row="0" Grid.Column="3"
-                        BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
+                        Classes="panel"
+                        BorderThickness="1" Padding="8"
                         VerticalAlignment="Center" Margin="0,0,10,0">
                     <StackPanel Spacing="5">
                         <TextBlock Text="Forage" FontWeight="Bold" FontSize="12"/>
@@ -100,8 +105,9 @@
                         <StackPanel Orientation="Horizontal" Spacing="5"
                                     IsVisible="{Binding HexMapViewModel.IsForageModeActive}">
                             <Button Content="Confirm"
+                                    Classes="success"
                                     Command="{Binding HexMapViewModel.ConfirmForageCommand}"
-                                    Background="Green" Foreground="White"/>
+                                    />
                             <Button Content="Cancel"
                                     Command="{Binding HexMapViewModel.CancelForageModeCommand}"/>
                         </StackPanel>
@@ -115,7 +121,8 @@
 
                 <!-- 4. Muster Controls Panel -->
                 <Border Grid.Row="0" Grid.Column="5"
-                        BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="8"
+                        Classes="panel"
+                        BorderThickness="1" Padding="8"
                         VerticalAlignment="Center" Margin="0,0,10,0">
                     <StackPanel Spacing="5">
                         <TextBlock Text="Muster" FontWeight="Bold" FontSize="12"/>
@@ -142,8 +149,9 @@
                         <StackPanel Orientation="Horizontal" Spacing="5"
                                     IsVisible="{Binding HexMapViewModel.IsMusterModeActive}">
                             <Button Content="Confirm"
+                                    Classes="success"
                                     Command="{Binding HexMapViewModel.ConfirmMusterCommand}"
-                                    Background="Green" Foreground="White"/>
+                                    />
                             <Button Content="Cancel"
                                     Command="{Binding HexMapViewModel.CancelMusterModeCommand}"/>
                         </StackPanel>
@@ -159,65 +167,84 @@
                 <Separator Grid.Row="0" Grid.Column="6" Margin="0,0,10,0"/>
 
                 <!-- 5. Game Time: fills remaining space via * column -->
-                <StackPanel Grid.Row="0" Grid.Column="7" Grid.ColumnSpan="2" Spacing="4" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="Game Time:" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding HexMapViewModel.CurrentCalendarDateText}" VerticalAlignment="Center"/>
+                <Border Grid.Row="0" Grid.Column="7" Grid.ColumnSpan="2"
+                        Classes="panel"
+                        BorderThickness="1" Padding="8"
+                        VerticalAlignment="Center">
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Game Time:" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding HexMapViewModel.CurrentCalendarDateText}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Button Content="Advance Time" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.AdvanceTimeCommand}"/>
+                            <TextBlock Text="Set:" VerticalAlignment="Center" FontSize="11"/>
+                            <NumericUpDown Value="{Binding HexMapViewModel.PickerYear}"
+                                           Minimum="0" Maximum="9999"
+                                           FormatString="0"
+                                           FontSize="11" Width="120" Padding="4,2"/>
+                            <ComboBox ItemsSource="{Binding HexMapViewModel.CalendarMonths}"
+                                      SelectedIndex="{Binding HexMapViewModel.PickerMonthIndex}"
+                                      FontSize="11" Width="140" Padding="4,2">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ComboBox ItemsSource="{Binding HexMapViewModel.PickerDays}"
+                                      SelectedIndex="{Binding HexMapViewModel.PickerDayIndex}"
+                                      FontSize="11" Width="80" Padding="4,2"/>
+                            <ComboBox ItemsSource="{Binding HexMapViewModel.PickerHours}"
+                                      SelectedIndex="{Binding HexMapViewModel.PickerHourIndex}"
+                                      FontSize="11" Width="80" Padding="4,2"/>
+                            <Button Content="Set Time" FontSize="11" Padding="8,3"
+                                    Command="{Binding HexMapViewModel.SetTimeCommand}"/>
+                        </StackPanel>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <Button Content="Advance Time" FontSize="11" Padding="8,3"
-                                Command="{Binding HexMapViewModel.AdvanceTimeCommand}"/>
-                        <TextBlock Text="Set:" VerticalAlignment="Center" FontSize="11"/>
-                        <NumericUpDown Value="{Binding HexMapViewModel.PickerYear}"
-                                       Minimum="0" Maximum="9999"
-                                       FormatString="0"
-                                       FontSize="11" Width="120" Padding="4,2"/>
-                        <ComboBox ItemsSource="{Binding HexMapViewModel.CalendarMonths}"
-                                  SelectedIndex="{Binding HexMapViewModel.PickerMonthIndex}"
-                                  FontSize="11" Width="140" Padding="4,2">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Name}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <ComboBox ItemsSource="{Binding HexMapViewModel.PickerDays}"
-                                  SelectedIndex="{Binding HexMapViewModel.PickerDayIndex}"
-                                  FontSize="11" Width="80" Padding="4,2"/>
-                        <ComboBox ItemsSource="{Binding HexMapViewModel.PickerHours}"
-                                  SelectedIndex="{Binding HexMapViewModel.PickerHourIndex}"
-                                  FontSize="11" Width="80" Padding="4,2"/>
-                        <Button Content="Set Time" FontSize="11" Padding="8,3"
-                                Command="{Binding HexMapViewModel.SetTimeCommand}"/>
-                    </StackPanel>
-                </StackPanel>
+                </Border>
 
                 <!-- Status bar: full width, row 1 -->
-                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="9"
-                            Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
-                    <TextBlock Text="Status:" FontWeight="Bold" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
+                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="9"
+                        Background="{DynamicResource SurfaceAltBrush}"
+                        BorderBrush="{DynamicResource SubtleBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="6,3"
+                        Margin="0,6,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="Status:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding HexMapViewModel.StatusMessage}"
+                                   Classes="muted"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
         <!-- Row 1 Col 0: Left Panel - Selected Object Details (simplified with implicit DataTemplates) -->
         <Border Grid.Row="1" Grid.Column="0"
-                BorderBrush="Gray" BorderThickness="0,0,1,0">
+                Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0">
             <ScrollViewer>
-                <StackPanel Margin="8">
+                <StackPanel Margin="10" Spacing="8">
                     <!-- Header showing the entity type name -->
-                    <TextBlock Text="{Binding HexMapViewModel.SelectedEntityViewModel.EntityTypeName, FallbackValue='Selected Object', TargetNullValue='Selected Object'}"
-                               FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
+                    <Border Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource SubtleBorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="0,0,0,8">
+                        <TextBlock Text="{Binding HexMapViewModel.SelectedEntityViewModel.EntityTypeName, FallbackValue='Selected Object', TargetNullValue='Selected Object'}"
+                                   FontWeight="SemiBold" FontSize="15"/>
+                    </Border>
 
                     <!-- Content is automatically templated based on SelectedEntityViewModel type -->
                     <ContentControl Content="{Binding HexMapViewModel.SelectedEntityViewModel}"/>
 
                     <!-- Show when no object is selected -->
                     <TextBlock Text="Select from map or right panel"
-                               Foreground="Gray"
+                               Classes="muted"
                                FontStyle="Italic"
                                IsVisible="{Binding HexMapViewModel.SelectedEntityViewModel, Converter={x:Static ObjectConverters.IsNull}}"/>
                 </StackPanel>
@@ -227,7 +254,7 @@
         <!-- Row 1 Col 1: GridSplitter between left panel and map -->
         <GridSplitter Grid.Row="1" Grid.Column="1"
                       Width="5"
-                      Background="DarkGray"
+                      Background="{DynamicResource SubtleBorderBrush}"
                       ResizeDirection="Columns"/>
 
         <!-- Row 1 Col 2: Main Map Area -->
@@ -257,21 +284,22 @@
         <!-- Row 1 Col 3: GridSplitter between map and right panel -->
         <GridSplitter Grid.Row="1" Grid.Column="3"
                       Width="5"
-                      Background="DarkGray"
+                      Background="{DynamicResource SubtleBorderBrush}"
                       ResizeDirection="Columns"/>
 
         <!-- Row 1 Col 4: Right Panel - Admin Data with TabControl + DataGrids -->
         <Border Grid.Row="1" Grid.Column="4"
-                BorderBrush="Gray" BorderThickness="1,0,0,0">
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,0,0,0">
             <TabControl Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                 <!-- Factions Tab -->
                 <TabItem Header="Factions">
                     <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                            <Button Content="+ Add" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.AddFactionCommand}"/>
-                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                            <Button Content="Delete" Classes="danger" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteFactionCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedFaction}"/>
                         </StackPanel>
@@ -297,9 +325,9 @@
                 <TabItem Header="Cmdrs">
                     <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                            <Button Content="+ Add" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.AddCommanderCommand}"/>
-                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                            <Button Content="Delete" Classes="danger" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteCommanderCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedCommander}"/>
                         </StackPanel>
@@ -326,9 +354,9 @@
                 <TabItem Header="Armies">
                     <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                            <Button Content="+ Add" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.AddArmyCommand}"/>
-                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                            <Button Content="Delete" Classes="danger" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteArmyCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedArmy}"/>
                         </StackPanel>
@@ -356,9 +384,9 @@
                 <TabItem Header="Orders">
                     <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                            <Button Content="+ Add" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.AddOrderCommand}"/>
-                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                            <Button Content="Delete" Classes="danger" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteOrderCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedOrder}"/>
                             <CheckBox Content="Hide Done" FontSize="11"
@@ -387,9 +415,9 @@
                 <TabItem Header="Msgs">
                     <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                            <Button Content="+ Add" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.AddMessageCommand}"/>
-                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                            <Button Content="Delete" Classes="danger" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteMessageCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedMessage}"/>
                             <CheckBox Content="Hide Dlvd" FontSize="11"
@@ -418,9 +446,9 @@
                 <TabItem Header="CoLoc">
                     <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                            <Button Content="+ Add" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.AddCoLocationChannelCommand}"/>
-                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                            <Button Content="Delete" Classes="danger" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteCoLocationChannelCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedCoLocationChannel}"/>
                         </StackPanel>
@@ -447,7 +475,7 @@
                     <Grid RowDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <!-- Tool button -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="Drop News Tool" FontSize="11" Padding="8,3"
+                            <Button Content="Drop News Tool" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.News.ActivateDropToolCommand}"/>
                         </StackPanel>
 
@@ -491,9 +519,9 @@
                 <TabItem Header="Navies">
                     <Grid RowDefinitions="Auto,*" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="5" Margin="5">
-                            <Button Content="+ Add" FontSize="11" Padding="8,3"
+                            <Button Content="+ Add" Classes="accent" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.AddNavyCommand}"/>
-                            <Button Content="Delete" FontSize="11" Padding="8,3"
+                            <Button Content="Delete" Classes="danger" FontSize="11" Padding="8,3"
                                     Command="{Binding HexMapViewModel.DeleteNavyCommand}"
                                     CommandParameter="{Binding HexMapViewModel.SelectedNavy}"/>
                         </StackPanel>

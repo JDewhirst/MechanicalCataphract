@@ -8,7 +8,7 @@
              x:Class="GUI.Views.BrigadeDetail"
              x:DataType="entities:Brigade">
 
-    <Border BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Padding="8" Margin="2">
+    <Border Classes="item-card" Padding="8" Margin="2">
         <Grid ColumnDefinitions="Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="5" ColumnSpacing="10">
             <!-- Row 0: Name -->
             <StackPanel Grid.Row="0" Grid.Column="0">
@@ -51,8 +51,8 @@
                         Click="OnTransferClicked"
                         FontSize="11"/>
                 <Button Content="Delete"
+                        Classes="danger"
                         Click="OnDeleteClicked"
-                        Foreground="DarkRed"
                         FontSize="11"/>
             </StackPanel>
         </Grid>

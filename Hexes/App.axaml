@@ -2,7 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:converters="clr-namespace:GUI.Converters"
              x:Class="GUI.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Dark">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Styles>
@@ -13,8 +13,24 @@
     </Application.Styles>
 
     <Application.Resources>
-        <!-- Application resource dictionary -->
-        <SolidColorBrush x:Key="PrimaryBackground">#1de051</SolidColorBrush>
+        <!-- Application palette -->
+        <SolidColorBrush x:Key="AppBackgroundBrush">#171B1F</SolidColorBrush>
+        <SolidColorBrush x:Key="SurfaceBrush">#20262B</SolidColorBrush>
+        <SolidColorBrush x:Key="SurfaceAltBrush">#252C32</SolidColorBrush>
+        <SolidColorBrush x:Key="ToolbarBrush">#1E2429</SolidColorBrush>
+        <SolidColorBrush x:Key="PanelBorderBrush">#39434B</SolidColorBrush>
+        <SolidColorBrush x:Key="SubtleBorderBrush">#303940</SolidColorBrush>
+        <SolidColorBrush x:Key="TextBrush">#F1F4F2</SolidColorBrush>
+        <SolidColorBrush x:Key="MutedTextBrush">#AEB8B8</SolidColorBrush>
+        <SolidColorBrush x:Key="DisabledTextBrush">#7D8787</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentBrush">#1F8FDC</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentHoverBrush">#35A4F1</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentSoftBrush">#17394F</SolidColorBrush>
+        <SolidColorBrush x:Key="SuccessBrush">#2F8F5A</SolidColorBrush>
+        <SolidColorBrush x:Key="DangerBrush">#E06C75</SolidColorBrush>
+        <SolidColorBrush x:Key="WarningBrush">#D49A45</SolidColorBrush>
+        <SolidColorBrush x:Key="MapBackgroundBrush">#1A1F22</SolidColorBrush>
+        <SolidColorBrush x:Key="PrimaryBackground">#1F8FDC</SolidColorBrush>
         <converters:EqualityConverter x:Key="EqualityConverter"/>
         <converters:StringToBitmapConverter x:Key="StringToBitmapConverter"/>
     </Application.Resources>
